@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#0B0F2C; }
+  * { box-sizing:border-box; }
+  a { color:#0F6CBD; text-decoration:none; font-weight:600; }
+  a:hover { color:#0A5596; text-decoration:underline; }
+  @keyframes budFade { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes budSpin { to { transform:rotate(360deg); } }
+</style>
+</helmet>
+
+<div style="position:fixed;inset:0;display:flex;font-family:'Public Sans',-apple-system,sans-serif;overflow:hidden;">
+
+  <div style="flex:1.15;position:relative;background:linear-gradient(150deg,#0B0F2C 0%,#11163A 42%,#132A5E 100%);display:flex;flex-direction:column;justify-content:space-between;padding:54px 56px;overflow:hidden;">
+    <div style="position:absolute;top:-120px;right:-80px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(15,108,189,0.42),transparent 68%);filter:blur(6px);"></div>
+    <div style="position:absolute;bottom:-160px;left:-100px;width:460px;height:460px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,0.22),transparent 70%);"></div>
+    <div style="position:absolute;inset:0;opacity:0.06;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:44px 44px;"></div>
+
+    <div style="position:relative;display:flex;align-items:center;gap:13px;">
+      <span style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;flex:none;border-radius:11px;background:rgba(52,211,153,0.14);border:1px solid rgba(52,211,153,0.28);">
+        <svg width="36" height="36" viewBox="0 0 64 64" fill="none" style="display:block;filter:drop-shadow(0 0 7px rgba(52,211,153,0.4));" role="img" aria-label="Spendifre">
+        <g fill="#34D399" transform="translate(0,5)">
+          <path d="M58.6 31.2c-1.6 1.9-4.6 3.4-8.8 4.4-3.6.9-7.9 1.5-12.4 1.8-4.7.3-9.6.3-14 .1l-11.8-.7v-6.9l11.8-1.2c2-.2 4.2-.4 6.5-.5 1.2-3.4 3.6-4.6 5.6-3.3 1 .7 1.8 1.9 2.3 3.4 4.6.5 8.9 1.5 12.4 2.9 3 1.2 5.4 2.6 7 4z"/>
+          <path d="M15.4 30.6 10.4 15.9c-.4-1.2-1.6-1.4-2.2-.2-.8 1.7-1.5 4.4-2 8l-1.3 9.3z"/>
+          <path d="M15.4 33.4 5.3 32.3c-1-.1-1.2 1.3-.3 1.7l10.4 4.2z"/>
+          <path d="M41.5 34.2c-5.8.5-11.6 1.7-17.2 3.8-1.4.5-1.2 2 .3 1.8 6.6-.9 13.1-2.4 19.4-4.5z"/>
+        </g>
+      </svg>
+      </span>
+      <span style="display:flex;flex-direction:column;line-height:1.1;">
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:27px;font-weight:700;color:#fff;letter-spacing:0.01em;">Spendifre</span>
+        <span style="font-size:11px;color:#7E88AD;letter-spacing:0.14em;text-transform:uppercase;">Budget &amp; Planning</span>
+      </span>
+    </div>
+
+    <div style="position:relative;max-width:460px;">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:38px;line-height:1.15;font-weight:600;color:#fff;letter-spacing:-0.01em;">One budget cycle.<br />Every entity, driver &amp; approval.</div>
+      <div style="margin-top:18px;font-size:15px;line-height:1.6;color:#AEB6D0;">The Birgma &amp; Biltema Group platform for IT budget collection, consolidation and sign-off — from the line item to the group position.</div>
+
+      <div style="margin-top:30px;display:flex;flex-direction:column;gap:13px;">
+        <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:12px;color:#C7CEDB;font-size:14px;">
+            <span style="width:26px;height:26px;border-radius:7px;background:rgba(52,211,153,0.18);display:flex;align-items:center;justify-content:center;flex:none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+            </span>
+            {{ b.text }}
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="position:relative;display:flex;align-items:center;gap:9px;color:#9099BD;font-size:11.5px;letter-spacing:0.03em;flex-wrap:wrap;">
+      <sc-for list="{{ badges }}" as="c" hint-placeholder-count="5">
+        <span style="display:flex;align-items:center;gap:9px;">
+          <span>{{ c.text }}</span>
+          <sc-if value="{{ c.sep }}" hint-placeholder-val="{{ true }}">
+            <span style="opacity:0.4;">·</span>
+          </sc-if>
+        </span>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex:1;background:#EEF1F6;display:flex;align-items:center;justify-content:center;padding:40px;overflow-y:auto;">
+    <div style="width:100%;max-width:392px;animation:budFade 0.5s ease both;">
+
+      <div style="background:#fff;border:1px solid #E7EBF2;border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:center;gap:20px;box-shadow:0 1px 2px rgba(17,22,58,0.04);">
+        <img src="assets/birgma-logo-trim.png" alt="Birgma" style="height:22px;width:auto;display:block;" />
+        <span style="width:1px;height:26px;background:#E4E8F0;"></span>
+        <img src="assets/biltema-logo-trim.png" alt="Biltema" style="height:22px;width:auto;display:block;" />
+      </div>
+
+      <div style="margin-top:16px;background:#fff;border:1px solid #E7EBF2;border-radius:16px;padding:34px 34px 30px;box-shadow:0 12px 40px -18px rgba(17,22,58,0.28);">
+
+        <sc-if value="{{ isIdle }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:600;color:#11163A;letter-spacing:-0.01em;">Sign in to Spendifre</div>
+            <div style="margin-top:7px;font-size:13.5px;line-height:1.55;color:#5A6478;">Use your Birgma / Biltema Microsoft account. You will be redirected to Microsoft to complete sign-in.</div>
+
+            <button onClick="{{ signIn }}" style="margin-top:24px;width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:#11163A;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;" style-hover="background:#1B2350;">
+              <svg width="19" height="19" viewBox="0 0 23 23" style="flex:none;"><rect x="1" y="1" width="10" height="10" fill="#F25022"></rect><rect x="12" y="1" width="10" height="10" fill="#7FBA00"></rect><rect x="1" y="12" width="10" height="10" fill="#00A4EF"></rect><rect x="12" y="12" width="10" height="10" fill="#FFB900"></rect></svg>
+              Sign in with Microsoft
+            </button>
+
+            <div style="margin:22px 0 4px;display:flex;align-items:center;gap:12px;">
+              <span style="flex:1;height:1px;background:#E7EBF2;"></span>
+              <span style="font-size:11px;color:#9AA2B4;letter-spacing:0.06em;text-transform:uppercase;">Secured by Entra ID</span>
+              <span style="flex:1;height:1px;background:#E7EBF2;"></span>
+            </div>
+
+            <div style="margin-top:16px;display:flex;align-items:flex-start;gap:10px;background:#F8FAFD;border:1px solid #EEF1F6;border-radius:10px;padding:12px 13px;">
+              <span style="color:#0F6CBD;display:flex;flex:none;margin-top:1px;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+              </span>
+              <div style="font-size:12.5px;line-height:1.5;color:#56607A;">No access yet? Ask Group IT Finance to assign you a Spendifre role in Microsoft Entra ID.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRedirect }}" hint-placeholder-val="{{ false }}">
+          <div style="min-height:268px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+            <div style="width:34px;height:34px;border-radius:50%;border:3px solid #E7EBF2;border-top-color:#0F6CBD;animation:budSpin .8s linear infinite;"></div>
+            <div style="margin-top:18px;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;color:#11163A;">Redirecting to Microsoft</div>
+            <div style="margin-top:6px;font-size:12.5px;line-height:1.55;color:#5A6478;max-width:250px;">login.microsoftonline.com · verifying your work account and device compliance</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isMfa }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="display:flex;align-items:center;gap:11px;">
+              <div style="width:34px;height:34px;flex:none;border-radius:9px;background:#EEF4FC;display:flex;align-items:center;justify-content:center;color:#0F6CBD;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+              </div>
+              <div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:600;color:#11163A;">Approve the sign-in</div>
+                <div style="font-size:12px;color:#5A6478;">{{ signingInAs }}</div>
+              </div>
+            </div>
+            <div style="margin-top:18px;background:#F8FAFD;border:1px solid #EEF1F6;border-radius:12px;padding:18px;text-align:center;">
+              <div style="font-size:12px;color:#5A6478;">Enter this number in Microsoft Authenticator</div>
+              <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:500;letter-spacing:.14em;color:#11163A;">{{ mfaCode }}</div>
+            </div>
+            <button onClick="{{ approve }}" style="margin-top:18px;width:100%;background:#11163A;color:#fff;border:none;border-radius:10px;padding:13px 18px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;" style-hover="background:#1B2350;">I approved it</button>
+            <div style="margin-top:12px;text-align:center;font-size:12px;color:#8A92A6;">Number matching · phishing-resistant MFA required by policy</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRole }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;color:#11163A;">Choose your workspace</div>
+            <div style="margin-top:6px;font-size:12.5px;line-height:1.55;color:#5A6478;">These are the Spendifre roles assigned to you in Entra ID. In production your role comes from your group membership — no picker.</div>
+            <div style="margin-top:18px;display:flex;flex-direction:column;gap:8px;">
+              <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+                <button onClick="{{ r.go }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #E7EBF2;border-radius:11px;padding:12px 13px;cursor:pointer;font-family:inherit;" style-hover="border-color:#0F6CBD;background:#F8FAFD;">
+                  <span style="width:30px;height:30px;flex:none;border-radius:8px;background:#EEF4FC;color:#0F6CBD;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;">{{ r.initials }}</span>
+                  <span style="min-width:0;flex:1;">
+                    <span style="display:block;font-size:13.5px;font-weight:600;color:#11163A;">{{ r.label }}</span>
+                    <span style="display:block;font-size:11.5px;color:#5A6478;">{{ r.note }}</span>
+                  </span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#8A92A6;background:#F1F4F9;border-radius:4px;padding:2px 6px;white-space:nowrap;">{{ r.group }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="margin-top:14px;display:flex;align-items:flex-start;gap:9px;background:#F1FAF6;border:1px solid #DCF0E7;border-radius:10px;padding:11px 12px;">
+              <span style="color:#0F9F76;display:flex;flex:none;margin-top:1px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              </span>
+              <div style="font-size:11.5px;line-height:1.5;color:#3F6B58;">Device compliant · session bound to a managed device · every action from here is written to the audit trail.</div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <div style="margin-top:18px;text-align:center;font-size:12px;color:#8A92A6;line-height:1.6;">
+        © 2026 Birgma International · Biltema Group<br />
+        <span style="color:#9AA2B4;">Spendifre · FY26 cycle ·</span>
+        <a href="#">Privacy notice</a> ·
+        <a href="#">Support</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;appHref&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Budget Tool.dc.html&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Navigation&quot;}}">
+class Component extends DCLogic {
+  state = { phase: 'idle', code: 47 };
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  go(phase, delay) {
+    clearTimeout(this._t);
+    if (!delay) return this.setState({ phase });
+    this._t = setTimeout(() => this.setState({ phase }), delay);
+  }
+
+  renderVals() {
+    const S = this.state;
+    const app = this.props.appHref || 'Budget Tool.dc.html';
+    return {
+      benefits: [
+        { text: 'Single sign-on with your Microsoft work account' },
+        { text: 'Multi-factor protected · access by Entra ID role' },
+        { text: 'Every approval and edit written to the audit trail' }
+      ],
+      badges: [
+        { text: 'GDPR', sep: true }, { text: 'revFADP', sep: true }, { text: 'ISO 27001', sep: true },
+        { text: 'Entra ID', sep: true }, { text: 'EU residency', sep: false }
+      ],
+      isIdle: S.phase === 'idle',
+      isRedirect: S.phase === 'redirect',
+      isMfa: S.phase === 'mfa',
+      isRole: S.phase === 'role',
+      mfaCode: String(S.code),
+      signingInAs: 'helena.grahn@birgma.com',
+      signIn: () => {
+        this.setState({ phase: 'redirect', code: 10 + Math.floor(Math.random() * 89) });
+        this.go('mfa', 1500);
+      },
+      approve: () => this.go('role'),
+      roles: [
+        { label: 'Group IT Finance', note: 'Budget administrator · templates, entities, FX', initials: 'GF', group: 'SG-Spendifre-Admin', go: () => { window.location.href = app; } },
+        { label: 'Group CFO', note: 'Submissions, cost centres, cycle and rules', initials: 'CF', group: 'SG-Spendifre-CFO', go: () => { window.location.href = app; } },
+        { label: 'Budget owner', note: 'Your own unit budget and approvals', initials: 'BO', group: 'SG-Spendifre-Manager', go: () => { window.location.href = app; } }
+      ]
+    };
+  }
+}
+
+</script>
+</body>
+</html>
