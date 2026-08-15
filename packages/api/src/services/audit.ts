@@ -1,0 +1,132 @@
+/**
+ * Audit (FR-070..FR-073).
+ *
+ * `writeAudit` is the only way an audit event is created. It also marks the
+ * request as having audited, which lets `registerAuditCompletenessCheck` turn
+ * "a handler without an audit call is an incomplete handler" into something the
+ * runtime notices rather than something review has to catch.
+ *
+ * A failed audit write fails the surrounding transaction. An action that
+ * happened but was not recorded is worse than an action that did not happen.
+ */
+
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { AuditKind, Principal } from '@spendifre/shared';
+import type { Db } from '../db/pool.ts';
+import { identifier, join, sql, type SqlFragment } from '../db/pool.ts';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    auditWrites: number;
+  }
+}
+
+export interface AuditInput {
+  actor: Pick<Principal, 'userId' | 'role'>;
+  action: string;
+  targetType: string;
+  targetId?: string | null;
+  entityId?: string | null;
+  detail: string;
+  kind: AuditKind;
+  /** Set by handlers so the completeness check can see the write. */
+  request?: FastifyRequest;
+}
+
+export async function writeAudit(db: Db, input: AuditInput): Promise<void> {
+  await db.query(sql`
+    insert into audit_events (
+      actor_user_id, actor_role, action, target_type, target_id, entity_id, detail, kind
+    ) values (
+      ${input.actor.userId}, ${input.actor.role}, ${input.action}, ${input.targetType},
+      ${input.targetId ?? null}, ${input.entityId ?? null}, ${input.detail.slice(0, 4000)},
+      ${input.kind}
+    )
+  `);
+  if (input.request) input.request.auditWrites += 1;
+}
+
+const AUDIT_EXEMPT = new Set([
+  'POST /auth/login',
+  'POST /auth/logout',
+  'POST /api/security/csp-report',
+]);
+
+/**
+ * Development and test fail loudly; production logs at error level so the SIEM
+ * alerts on it (ZT-008) without turning a missing audit line into an outage for
+ * a user whose write already committed.
+ */
+export function registerAuditCompletenessCheck(app: FastifyInstance, strict: boolean): void {
+  app.decorateRequest('auditWrites', 0);
+
+  app.addHook('onSend', async (request, reply, payload) => {
+    const method = request.method;
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return payload;
+    if (reply.statusCode >= 400) return payload;
+    const key = `${method} ${request.routeOptions.url ?? request.url}`;
+    if (AUDIT_EXEMPT.has(key)) return payload;
+    if (request.auditWrites > 0) return payload;
+
+    const message = `state-changing request ${key} completed without an audit event (FR-070)`;
+    if (strict) throw new Error(message);
+    request.log.error({ event: 'audit.missing', route: key }, message);
+    return payload;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
+
+export interface AuditQuery {
+  kind?: string | undefined;
+  q?: string | undefined;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * FR-071. Scoping is applied in the WHERE clause, not by filtering rows after
+ * the fact — a role that may only see its own events never has the others in
+ * memory. `viewAll` is decided by the caller from the capability matrix.
+ */
+export async function readAudit(
+  db: Db,
+  principal: Principal,
+  viewAll: boolean,
+  query: AuditQuery,
+): Promise<unknown[]> {
+  const conditions: SqlFragment[] = [sql`true`];
+
+  if (!viewAll) {
+    conditions.push(sql`ae.actor_user_id = ${principal.userId}`);
+  }
+  if (query.kind) {
+    conditions.push(sql`ae.kind = ${query.kind}`);
+  }
+  if (query.q) {
+    // FR-072 full-text search, bound as a parameter. `plainto_tsquery` also
+    // means the user's text is never interpreted as query syntax.
+    conditions.push(sql`
+      to_tsvector('simple', ae.action || ' ' || ae.target_type || ' ' || ae.detail)
+        @@ plainto_tsquery('simple', ${query.q})
+    `);
+  }
+
+  // Ordering is fixed, not caller-supplied; the allow-list call documents the
+  // rule and fails loudly if that ever changes (SEC-020).
+  const orderBy = identifier('ae.seq desc', ['ae.seq desc']);
+
+  return db.query(sql`
+    select
+      ae.id, ae.occurred_at, ae.action, ae.target_type, ae.target_id,
+      ae.entity_id, ae.detail, ae.kind, ae.actor_role,
+      coalesce(u.display_name, 'Removed user') as actor_name
+    from audit_events ae
+    join users u on u.id = ae.actor_user_id
+    where ${join(conditions, ' and ')}
+    order by ${orderBy}
+    limit ${query.limit} offset ${query.offset}
+  `);
+}

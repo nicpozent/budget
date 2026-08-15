@@ -1,0 +1,120 @@
+/*
+ * Design tokens.
+ *
+ * The palette is the one in the handoff README, unchanged — those hex values
+ * are the visual contract. What has changed is the type scale: the prototype
+ * ran 9.5–11px body text, and A11Y-001 requires a 14px minimum with 4.5:1
+ * contrast for text and 3:1 for UI components. The density is recovered
+ * through tighter line-height and padding rather than smaller glyphs.
+ *
+ * Everything lives in an external stylesheet because SEC-032 forbids
+ * `unsafe-inline`; the prototype's inline `style` attributes could not survive
+ * the CSP and are not carried over.
+ */
+
+:root {
+  /* Dark is the default, per the README. */
+  --bg: #0a0e17;
+  --panel: #0c111e;
+  --sunk: #141d2e;
+  --band: #0f1524;
+  --hover: #111a2b;
+  --line: #1a2335;
+  --text: #e6edf7;
+  /* 5.5:1 on --panel — clears the 4.5:1 that A11Y-001 requires for text, so
+     the handoff value is kept unchanged. What failed in the prototype was the
+     type scale, not this colour. */
+  --dim: #7d8ca6;
+  --accent: #34d399;
+  /* Accent used as *text*. In dark it is the same green; in light the fill
+     colour is only 3.4:1 on white, which clears 3:1 for a UI component but not
+     4.5:1 for text — so light gets a darker variant. See the note below. */
+  --accent-text: #34d399;
+  --accent-deep: #0f9f76;
+  --accent-soft: rgba(52, 211, 153, 0.15);
+  --on-accent: #04231a;
+  --warn: #f0b357;
+  --danger: #f2776b;
+
+  /* Category colours, fixed by the design (charts and legends). */
+  --cat-travel: #f0b357;
+  --cat-consultancies: #34d399;
+  --cat-comms: #38bdf8;
+  --cat-equipment: #a78bfa;
+  --cat-training: #fb923c;
+  --cat-licenses: #22d3ee;
+  --cat-other: #93a1b8;
+  --cat-investments: #f472b6;
+
+  /* Type. Self-hosted rather than fetched from a font CDN, so that no third
+     party sits inside the CSP's trust boundary (SEC-032, ZT-005). */
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  /* Money is always monospaced so columns align. */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --text-xs: 0.875rem;   /* 14px — the floor, A11Y-001 */
+  --text-sm: 0.9375rem;  /* 15px */
+  --text-md: 1rem;       /* 16px */
+  --text-lg: 1.25rem;    /* 20px */
+  --text-xl: 1.75rem;    /* 28px — KPI figures */
+
+  /* Geometry, from the README. */
+  --radius-control: 6px;
+  --radius-button: 7px;
+  --radius-panel: 9px;
+  --row-pad-y: 8px;
+  --row-pad-x: 13px;
+  --panel-pad: 10px 13px;
+  --gap-sm: 8px;
+  --gap-md: 14px;
+  --page-pad: 16px;
+  --sidebar-width: 232px;
+  --drawer-width: 340px;
+}
+
+/*
+ * Light theme.
+ *
+ * Two deliberate departures from the handoff palette, both A11Y-001:
+ *
+ *   --accent-text  The design's light accent (#0f9f76) is 3.4:1 on white. That
+ *                  clears the 3:1 required of a UI component, so it stays as
+ *                  the fill and border colour, but it fails the 4.5:1 required
+ *                  of text. Accent-coloured text uses #0b7a5a (5.3:1) instead.
+ *
+ *   --on-accent    White on that fill is the same 3.4:1. The dark ink the dark
+ *                  theme uses gives 5.0:1 on it, so both themes share it.
+ *
+ * Every other value is the handoff palette unchanged; --dim at #5f6f88 is
+ * 5.1:1 on white and needs no adjustment.
+ */
+[data-theme='light'] {
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --sunk: #eaeef3;
+  --band: #eef2f6;
+  --hover: #f7fafc;
+  --line: #dde3ea;
+  --text: #0c111e;
+  --dim: #5f6f88;
+  --accent: #0f9f76;
+  --accent-text: #0b7a5a;
+  --accent-deep: #0b7a5a;
+  --accent-soft: rgba(15, 159, 118, 0.12);
+  --on-accent: #04231a;
+  --warn: #b45309;
+  --danger: #b42318;
+  --cat-other: #5f6f88;
+}
+
+/* Respect a stated preference for reduced motion; nothing here is essential. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

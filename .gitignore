@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Never commit a real environment file — .env.example is the template.
+.env
+.env.*
+!.env.example
+
+sbom.cdx.json
+.DS_Store
+.shot.mjs

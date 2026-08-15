@@ -1,0 +1,171 @@
+import type { Capability, Role } from '@spendifre/shared';
+
+export type { Capability, Role };
+
+export interface Me {
+  user: {
+    id: string;
+    displayName: string;
+    email: string;
+    role: Role;
+    ownedEntityIds: string[];
+  };
+  fiscalYear: number;
+  region: string;
+}
+
+export interface Entity {
+  id: string;
+  code: string;
+  name: string;
+  currency: string;
+  state: string;
+  deadline: string | null;
+  residency: string;
+  ownerName: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  costType: string;
+  position: number;
+}
+
+export interface Cycle {
+  fiscal_year: number;
+  phase: string;
+  granularity: string;
+  lock_date: string | null;
+  lock_enabled: boolean;
+  headcount_planning: boolean;
+  approval_threshold_eur: string;
+}
+
+export interface CostCentre {
+  id: string;
+  code: string;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export interface BudgetLine {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  name: string;
+  vendor: string | null;
+  costCentreId: string | null;
+  costCentreCode: string | null;
+  costCentreException: boolean;
+  costCentreStatus: string | null;
+  glAccount: string | null;
+  costType: string;
+  currency: string;
+  justification: string | null;
+  driverKey: string | null;
+  driverRatePerUnit: string | null;
+  driverValue: number | null;
+  dormant: boolean;
+  computed: boolean;
+  assetLifeYears: number | null;
+  assetLifeStatus: string | null;
+  version: number;
+  periodsLocal: string[];
+  totalLocal: string;
+  totalEur: string;
+  actualLocal: string;
+  actualEur: string;
+  aboveThreshold: boolean;
+  overPace: boolean;
+  complete: boolean;
+}
+
+export interface BudgetView {
+  cycle: Cycle;
+  periods: number;
+  lines: BudgetLine[];
+  categoryTotals: { categoryId: string; plan: string; actual: string }[];
+  entityTotal: { plan: string; actual: string };
+  elapsedPeriods: number;
+}
+
+export interface AuditEvent {
+  id: string;
+  occurred_at: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  entity_id: string | null;
+  detail: string;
+  kind: string;
+  actor_role: string;
+  actor_name: string;
+}
+
+export interface Submission {
+  id: string;
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  fiscalYear: number;
+  state: string;
+  submittedAt: string;
+  submittedBy: string;
+  comment: string | null;
+  linesApproved: string;
+  linesRejected: string;
+}
+
+export interface Consolidation {
+  total: string;
+  actual: string;
+  entities: { id: string; code: string; name: string; state: string; plan: string; actual: string }[];
+  categories: { id: string; name: string; plan: string }[];
+}
+
+export interface Consumption {
+  showFilters: boolean;
+  kpis: {
+    plan: string;
+    actual: string;
+    ytdPlan: string;
+    variance: string;
+    elapsedPeriods: number;
+    totalPeriods: number;
+  } | null;
+  lines: {
+    id: string;
+    name: string;
+    entityCode: string;
+    categoryName: string;
+    currency: string;
+    plan: string;
+    actual: string;
+    ytdPlan: string;
+    variance: string;
+    overPace: boolean;
+  }[];
+  categories: { name: string; plan: string; actual: string }[];
+}
+
+export interface Variance {
+  lines: {
+    id: string;
+    name: string;
+    categoryName: string;
+    entityCode: string;
+    current: string;
+    prior: string;
+    delta: string;
+    direction: 'increase' | 'decrease' | 'flat';
+  }[];
+  categories: { id: string; name: string; current: string; prior: string; delta: string }[];
+}
+
+export interface RuleViolation {
+  code: string;
+  description: string;
+  severity: 'blocking' | 'warning';
+  lineIds: string[];
+}
