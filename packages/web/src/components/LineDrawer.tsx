@@ -12,6 +12,7 @@ import { api, ApiError } from '../api.ts';
 import type { CostCentre } from '../types.ts';
 import { PERIOD_LABELS, formatDateTime, formatMoney } from '../format.ts';
 import { CostCentreChip, Status } from './Status.tsx';
+import { t } from '../i18n.ts';
 
 interface LineDetail {
   line: {
@@ -135,7 +136,7 @@ export function LineDrawer({
 
       <dl>
         <div className="field">
-          <label htmlFor="drawer-vendor">Vendor</label>
+          <label htmlFor="drawer-vendor">{t('drawer.vendor')}</label>
           <input
             id="drawer-vendor"
             className="input"
@@ -148,7 +149,7 @@ export function LineDrawer({
         </div>
 
         <div className="field">
-          <label htmlFor="drawer-centre">Cost centre</label>
+          <label htmlFor="drawer-centre">{t('drawer.costCentre')}</label>
           {/* FR-013: a constrained choice over approved centres only. A stale
               reference is still shown above, flagged, rather than cleared. */}
           <select
@@ -158,7 +159,7 @@ export function LineDrawer({
             disabled={!canEdit}
             onChange={(e) => save({ costCentreId: e.target.value || null })}
           >
-            <option value="">Not set</option>
+            <option value="">{t('drawer.notSet')}</option>
             {approvedCentres.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.code} — {c.description}
@@ -169,7 +170,7 @@ export function LineDrawer({
         </div>
 
         <div className="field">
-          <label htmlFor="drawer-gl">GL account</label>
+          <label htmlFor="drawer-gl">{t('drawer.glAccount')}</label>
           <input
             id="drawer-gl"
             className="input"
@@ -184,7 +185,7 @@ export function LineDrawer({
         </div>
 
         <div className="field">
-          <label htmlFor="drawer-justification">Justification</label>
+          <label htmlFor="drawer-justification">{t('drawer.justification')}</label>
           <textarea
             id="drawer-justification"
             className="input"
@@ -201,7 +202,7 @@ export function LineDrawer({
       </dl>
 
       <section>
-        <h3>Phasing</h3>
+        <h3>{t('drawer.phasing')}</h3>
         <table>
           <caption>
             Amounts in {line.currency}.{' '}
@@ -211,9 +212,9 @@ export function LineDrawer({
           </caption>
           <thead>
             <tr>
-              <th scope="col">Period</th>
-              <th scope="col" className="num">Plan</th>
-              <th scope="col" className="num">Recorded</th>
+              <th scope="col">{t('drawer.period')}</th>
+              <th scope="col" className="num">{t('drawer.plan')}</th>
+              <th scope="col" className="num">{t('drawer.recorded')}</th>
             </tr>
           </thead>
           <tbody>
@@ -233,7 +234,7 @@ export function LineDrawer({
           </tbody>
           <tfoot>
             <tr>
-              <th scope="row">Total</th>
+              <th scope="row">{t('drawer.total')}</th>
               <td className="num">{formatMoney(line.totalLocal, line.currency)}</td>
               <td className="num">{formatMoney(line.totalEur, 'EUR')}</td>
             </tr>
@@ -243,22 +244,22 @@ export function LineDrawer({
 
       {line.costType === 'capex' ? (
         <section>
-          <h3>Capex</h3>
+          <h3>{t('drawer.capex')}</h3>
           <p>
             Asset life {line.assetLifeYears ?? '—'} years{' '}
             {line.assetLifeStatus === 'approved' ? (
-              <Status tone="ok">Approved</Status>
+              <Status tone="ok">{t('drawer.approved')}</Status>
             ) : line.assetLifeStatus === 'rejected' ? (
-              <Status tone="bad">Rejected</Status>
+              <Status tone="bad">{t('drawer.rejected')}</Status>
             ) : (
-              <Status tone="pending">Awaiting Finance Manager</Status>
+              <Status tone="pending">{t('drawer.awaitingFinanceManager')}</Status>
             )}
           </p>
         </section>
       ) : null}
 
       <section>
-        <h3>Comments</h3>
+        <h3>{t('drawer.comments')}</h3>
         {detail.comments.map((c) => (
           <div className="comment" key={c.id}>
             <div className="comment-meta">
@@ -270,7 +271,7 @@ export function LineDrawer({
           </div>
         ))}
         <div className="field">
-          <label htmlFor="drawer-comment">Add a comment</label>
+          <label htmlFor="drawer-comment">{t('drawer.addAComment')}</label>
           <textarea
             id="drawer-comment"
             className="input"
@@ -280,7 +281,7 @@ export function LineDrawer({
           />
         </div>
         <button type="button" className="button button-primary" onClick={addComment}>
-          Post comment
+          {t('drawer.postComment')}
         </button>
       </section>
     </aside>

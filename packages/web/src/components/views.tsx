@@ -15,7 +15,6 @@ import type {
   Consumption,
   CostCentre,
   Entity,
-  RuleViolation,
   Submission,
   Variance,
 } from '../types.ts';
@@ -27,6 +26,7 @@ import {
   formatPercent,
 } from '../format.ts';
 import { BudgetStateChip, Status } from './Status.tsx';
+import { t } from '../i18n.ts';
 
 /**
  * A labelled horizontal bar.
@@ -68,7 +68,7 @@ export function ConsolidationView(): JSX.Element {
   }, []);
 
   if (error) return <p className="banner banner-error">{error}</p>;
-  if (!data) return <p className="empty">Loading…</p>;
+  if (!data) return <p className="empty">{t('views.loading')}</p>;
 
   const maxCategory = Math.max(...data.categories.map((c) => Number(c.plan)), 0);
 
@@ -76,26 +76,26 @@ export function ConsolidationView(): JSX.Element {
     <>
       <div className="kpi-row">
         <div className="kpi">
-          <div className="kpi-label">Group total (EUR)</div>
+          <div className="kpi-label">{t('views.groupTotalEur')}</div>
           <div className="kpi-value">{formatMoney(data.total, 'EUR', { compact: true })}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Recorded spend</div>
+          <div className="kpi-label">{t('views.recordedSpend')}</div>
           <div className="kpi-value">{formatMoney(data.actual, 'EUR', { compact: true })}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Consumed</div>
+          <div className="kpi-label">{t('views.consumed')}</div>
           <div className="kpi-value">{formatPercent(data.actual, data.total)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Entities in scope</div>
+          <div className="kpi-label">{t('views.entitiesInScope')}</div>
           <div className="kpi-value">{data.entities.length}</div>
         </div>
       </div>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Category split</h2>
+          <h2>{t('views.categorySplit')}</h2>
         </div>
         <div className="panel-body bar-chart">
           {data.categories.map((c) => (
@@ -106,18 +106,18 @@ export function ConsolidationView(): JSX.Element {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Submission status by entity</h2>
+          <h2>{t('views.submissionStatusByEntity')}</h2>
         </div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
-            <caption>Every figure is the sum of that entity&rsquo;s lines.</caption>
+            <caption>{t('views.everyFigureIsTheSumOfThatEntitysLines')}</caption>
             <thead>
               <tr>
-                <th scope="col">Entity</th>
-                <th scope="col">Name</th>
-                <th scope="col">State</th>
-                <th scope="col" className="num">Plan (EUR)</th>
-                <th scope="col" className="num">Spend</th>
+                <th scope="col">{t('views.entity')}</th>
+                <th scope="col">{t('views.name')}</th>
+                <th scope="col">{t('views.state')}</th>
+                <th scope="col" className="num">{t('views.planEur')}</th>
+                <th scope="col" className="num">{t('views.spend')}</th>
               </tr>
             </thead>
             <tbody>
@@ -147,7 +147,7 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
     api.get<Consumption>(`/api/reports/consumption${query}`).then(setData).catch(() => setData(null));
   }, [entityId]);
 
-  if (!data) return <p className="empty">Loading…</p>;
+  if (!data) return <p className="empty">{t('views.loading')}</p>;
 
   return (
     <>
@@ -155,14 +155,14 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
       {data.showFilters ? (
         <div className="filters">
           <div className="field">
-            <label htmlFor="consumption-entity">Entity</label>
+            <label htmlFor="consumption-entity">{t('views.entity')}</label>
             <select
               id="consumption-entity"
               className="select"
               value={entityId}
               onChange={(e) => setEntityId(e.target.value)}
             >
-              <option value="">All entities in scope</option>
+              <option value="">{t('views.allEntitiesInScope')}</option>
               {entities.map((e) => (
                 <option key={e.id} value={e.id}>{e.code} — {e.name}</option>
               ))}
@@ -174,11 +174,11 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
       {data.kpis ? (
         <div className="kpi-row">
           <div className="kpi">
-            <div className="kpi-label">Full-year plan</div>
+            <div className="kpi-label">{t('views.fullyearPlan')}</div>
             <div className="kpi-value">{formatMoney(data.kpis.plan, 'EUR', { compact: true })}</div>
           </div>
           <div className="kpi">
-            <div className="kpi-label">Spend to date</div>
+            <div className="kpi-label">{t('views.spendToDate')}</div>
             <div className="kpi-value">{formatMoney(data.kpis.actual, 'EUR', { compact: true })}</div>
           </div>
           <div className="kpi">
@@ -188,7 +188,7 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
             <div className="kpi-value">{formatMoney(data.kpis.ytdPlan, 'EUR', { compact: true })}</div>
           </div>
           <div className="kpi">
-            <div className="kpi-label">Variance</div>
+            <div className="kpi-label">{t('views.variance')}</div>
             <div className={`kpi-value ${deltaClass(data.kpis.variance)}`}>
               <span aria-hidden="true">{deltaGlyph(data.kpis.variance)}</span>{' '}
               {formatMoney(data.kpis.variance, 'EUR', { compact: true })}
@@ -198,7 +198,7 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
       ) : null}
 
       <section className="panel">
-        <div className="panel-header"><h2>Consumption by line</h2></div>
+        <div className="panel-header"><h2>{t('views.consumptionByLine')}</h2></div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
             <caption>
@@ -206,13 +206,13 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
             </caption>
             <thead>
               <tr>
-                <th scope="col">Line</th>
-                <th scope="col">Entity</th>
-                <th scope="col">Category</th>
-                <th scope="col" className="num">Plan</th>
-                <th scope="col" className="num">Spend</th>
-                <th scope="col" className="num">Consumed</th>
-                <th scope="col">Pace</th>
+                <th scope="col">{t('views.line')}</th>
+                <th scope="col">{t('views.entity')}</th>
+                <th scope="col">{t('views.category')}</th>
+                <th scope="col" className="num">{t('views.plan')}</th>
+                <th scope="col" className="num">{t('views.spend')}</th>
+                <th scope="col" className="num">{t('views.consumed')}</th>
+                <th scope="col">{t('views.pace')}</th>
               </tr>
             </thead>
             <tbody>
@@ -226,8 +226,8 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
                   <td className="num">{formatPercent(line.actual, line.plan)}</td>
                   <td>
                     {line.overPace
-                      ? <Status tone="bad">Over pace</Status>
-                      : <Status tone="ok">On pace</Status>}
+                      ? <Status tone="bad">{t('views.overPace')}</Status>
+                      : <Status tone="ok">{t('views.onPace')}</Status>}
                   </td>
                 </tr>
               ))}
@@ -248,20 +248,20 @@ export function VarianceView({ entities }: { entities: Entity[] }): JSX.Element 
     api.get<Variance>(`/api/reports/variance${query}`).then(setData).catch(() => setData(null));
   }, [entityId]);
 
-  if (!data) return <p className="empty">Loading…</p>;
+  if (!data) return <p className="empty">{t('views.loading')}</p>;
 
   return (
     <>
       <div className="filters">
         <div className="field">
-          <label htmlFor="variance-entity">Entity</label>
+          <label htmlFor="variance-entity">{t('views.entity')}</label>
           <select
             id="variance-entity"
             className="select"
             value={entityId}
             onChange={(e) => setEntityId(e.target.value)}
           >
-            <option value="">All entities in scope</option>
+            <option value="">{t('views.allEntitiesInScope')}</option>
             {entities.map((e) => (
               <option key={e.id} value={e.id}>{e.code}</option>
             ))}
@@ -278,17 +278,17 @@ export function VarianceView({ entities }: { entities: Entity[] }): JSX.Element 
       </div>
 
       <section className="panel">
-        <div className="panel-header"><h2>Largest movements</h2></div>
+        <div className="panel-header"><h2>{t('views.largestMovements')}</h2></div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
             <thead>
               <tr>
-                <th scope="col">Line</th>
-                <th scope="col">Entity</th>
-                <th scope="col">Category</th>
-                <th scope="col" className="num">Prior year</th>
-                <th scope="col" className="num">This year</th>
-                <th scope="col" className="num">Movement</th>
+                <th scope="col">{t('views.line')}</th>
+                <th scope="col">{t('views.entity')}</th>
+                <th scope="col">{t('views.category')}</th>
+                <th scope="col" className="num">{t('views.priorYear')}</th>
+                <th scope="col" className="num">{t('views.thisYear')}</th>
+                <th scope="col" className="num">{t('views.movement')}</th>
               </tr>
             </thead>
             <tbody>
@@ -348,17 +348,17 @@ export function AuditView(): JSX.Element {
 
       <div className="filters">
         <div className="field">
-          <label htmlFor="audit-kind">Kind</label>
+          <label htmlFor="audit-kind">{t('views.kind')}</label>
           <select id="audit-kind" className="select" value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="">All kinds</option>
-            <option value="change">Change</option>
-            <option value="approval">Approval</option>
-            <option value="workflow">Workflow</option>
-            <option value="governance">Governance</option>
+            <option value="">{t('views.allKinds')}</option>
+            <option value="change">{t('views.change')}</option>
+            <option value="approval">{t('views.approval')}</option>
+            <option value="workflow">{t('views.workflow')}</option>
+            <option value="governance">{t('views.governance')}</option>
           </select>
         </div>
         <div className="field">
-          <label htmlFor="audit-search">Search</label>
+          <label htmlFor="audit-search">{t('views.search')}</label>
           <input
             id="audit-search"
             className="input"
@@ -372,15 +372,15 @@ export function AuditView(): JSX.Element {
       <section className="panel">
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
-            <caption>Append-only. Entries cannot be edited or deleted by anyone (FR-073).</caption>
+            <caption>{t('views.appendonlyEntriesCannotBeEditedOrDeleted')}</caption>
             <thead>
               <tr>
-                <th scope="col">When</th>
-                <th scope="col">Actor</th>
-                <th scope="col">Role</th>
-                <th scope="col">Action</th>
-                <th scope="col">Detail</th>
-                <th scope="col">Kind</th>
+                <th scope="col">{t('views.when')}</th>
+                <th scope="col">{t('views.actor')}</th>
+                <th scope="col">{t('views.role')}</th>
+                <th scope="col">{t('views.action')}</th>
+                <th scope="col">{t('views.detail')}</th>
+                <th scope="col">{t('views.kind')}</th>
               </tr>
             </thead>
             <tbody>
@@ -396,7 +396,7 @@ export function AuditView(): JSX.Element {
               ))}
             </tbody>
           </table>
-          {events.length === 0 ? <p className="empty">No matching events.</p> : null}
+          {events.length === 0 ? <p className="empty">{t('views.noMatchingEvents')}</p> : null}
         </div>
       </section>
     </>
@@ -431,7 +431,7 @@ export function SubmissionsView({ canDecide }: { canDecide: boolean }): JSX.Elem
       {message ? <p className="banner banner-error">{message}</p> : null}
 
       {submissions.length === 0 ? (
-        <p className="empty">No submissions for this cycle yet.</p>
+        <p className="empty">{t('views.noSubmissionsForThisCycleYet')}</p>
       ) : null}
 
       {canDecide && submissions.length > 0 ? (
@@ -466,13 +466,13 @@ export function SubmissionsView({ canDecide }: { canDecide: boolean }): JSX.Elem
             {canDecide && (s.state === 'submitted' || s.state === 'changes_requested') ? (
               <div className="button-row">
                 <button type="button" className="button button-primary" onClick={() => decide(s.id, 'approve')}>
-                  Approve
+                  {t('views.approve')}
                 </button>
                 <button type="button" className="button" onClick={() => decide(s.id, 'request_info')}>
-                  Request more information
+                  {t('views.requestMoreInformation')}
                 </button>
                 <button type="button" className="button button-danger" onClick={() => decide(s.id, 'reject')}>
-                  Reject
+                  {t('views.reject')}
                 </button>
               </div>
             ) : null}
@@ -507,19 +507,19 @@ export function CostCentreView({ canApprove }: { canApprove: boolean }): JSX.Ele
     <>
       {message ? <p className="banner banner-error">{message}</p> : null}
       <section className="panel">
-        <div className="panel-header"><h2>Cost centre registry</h2></div>
+        <div className="panel-header"><h2>{t('views.costCentreRegistry')}</h2></div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
             <caption>
-              Managers may only book lines to approved centres. Existing references to a
+              {t('views.managersMayOnlyBookLinesToApprovedCentre')}
               rejected or pending centre are surfaced as exceptions, never cleared (INV-2).
             </caption>
             <thead>
               <tr>
-                <th scope="col">Code</th>
-                <th scope="col">Description</th>
-                <th scope="col">Status</th>
-                {canApprove ? <th scope="col">Decision</th> : null}
+                <th scope="col">{t('views.code')}</th>
+                <th scope="col">{t('views.description')}</th>
+                <th scope="col">{t('views.status')}</th>
+                {canApprove ? <th scope="col">{t('views.decision')}</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -528,18 +528,18 @@ export function CostCentreView({ canApprove }: { canApprove: boolean }): JSX.Ele
                   <th scope="row" className="currency-code">{c.code}</th>
                   <td>{c.description}</td>
                   <td>
-                    {c.status === 'approved' ? <Status tone="ok">Approved</Status> : null}
-                    {c.status === 'pending' ? <Status tone="pending">Pending</Status> : null}
-                    {c.status === 'rejected' ? <Status tone="bad">Rejected</Status> : null}
+                    {c.status === 'approved' ? <Status tone="ok">{t('views.approved')}</Status> : null}
+                    {c.status === 'pending' ? <Status tone="pending">{t('views.pending')}</Status> : null}
+                    {c.status === 'rejected' ? <Status tone="bad">{t('views.rejected')}</Status> : null}
                   </td>
                   {canApprove ? (
                     <td>
                       <div className="button-row">
                         <button type="button" className="button" onClick={() => decide(c.id, 'approved')}>
-                          Approve
+                          {t('views.approve')}
                         </button>
                         <button type="button" className="button button-danger" onClick={() => decide(c.id, 'rejected')}>
-                          Reject
+                          {t('views.reject')}
                         </button>
                       </div>
                     </td>
@@ -582,12 +582,12 @@ export function GovernanceView(): JSX.Element {
       ) : null}
 
       <section className="panel">
-        <div className="panel-header"><h2>Field classification</h2></div>
+        <div className="panel-header"><h2>{t('views.fieldClassification')}</h2></div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
-            <caption>Every field carries exactly one classification (SPEC §9.1).</caption>
+            <caption>{t('views.everyFieldCarriesExactlyOneClassificatio')}</caption>
             <thead>
-              <tr><th scope="col">Field</th><th scope="col">Class</th></tr>
+              <tr><th scope="col">{t('views.field')}</th><th scope="col">{t('views.class')}</th></tr>
             </thead>
             <tbody>
               {classifications.map((c) => (
@@ -595,9 +595,9 @@ export function GovernanceView(): JSX.Element {
                   <th scope="row" className="currency-code">{c.fieldKey}</th>
                   <td>
                     {c.dataClass === 'personal_data' ? (
-                      <Status tone="pending">Personal data</Status>
+                      <Status tone="pending">{t('views.personalData')}</Status>
                     ) : c.dataClass === 'confidential' ? (
-                      <Status tone="bad">Confidential</Status>
+                      <Status tone="bad">{t('views.confidential')}</Status>
                     ) : (
                       <Status tone="neutral">{c.dataClass}</Status>
                     )}
@@ -610,15 +610,15 @@ export function GovernanceView(): JSX.Element {
       </section>
 
       <section className="panel">
-        <div className="panel-header"><h2>Retention</h2></div>
+        <div className="panel-header"><h2>{t('views.retention')}</h2></div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
             <caption>
-              Enforced by a scheduled job that writes an audit event per run, including the
+              {t('views.enforcedByAScheduledJobThatWritesAnAudit')}
               count purged. Retention that is documented but not executed is a finding (PRIV-001).
             </caption>
             <thead>
-              <tr><th scope="col">Dataset</th><th scope="col" className="num">Months</th></tr>
+              <tr><th scope="col">{t('views.dataset')}</th><th scope="col" className="num">{t('views.months')}</th></tr>
             </thead>
             <tbody>
               {retention.map((r) => (
@@ -632,23 +632,5 @@ export function GovernanceView(): JSX.Element {
         </div>
       </section>
     </>
-  );
-}
-
-export function ValidationBanner({ violations }: { violations: RuleViolation[] }): JSX.Element | null {
-  if (violations.length === 0) return null;
-  const blocking = violations.filter((v) => v.severity === 'blocking');
-  return (
-    <div className={`banner ${blocking.length > 0 ? 'banner-error' : 'banner-warn'}`}>
-      <span aria-hidden="true">{blocking.length > 0 ? '✕' : '!'}</span>
-      <ul>
-        {violations.map((v) => (
-          <li key={v.code}>
-            <strong>{v.severity === 'blocking' ? 'Blocking' : 'Warning'}:</strong> {v.description}{' '}
-            ({v.lineIds.length} lines)
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

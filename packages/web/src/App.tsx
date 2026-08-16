@@ -11,31 +11,57 @@
  * membership (SPEC §4).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from './api.ts';
 import { can } from '@spendifre/shared';
-import type { BudgetLine, BudgetView, CostCentre, Entity, Me, RuleViolation } from './types.ts';
+import type { BudgetLine, BudgetView, CostCentre, Me, RuleViolation } from './types.ts';
 import { BudgetGrid, BulkBar, type Unit } from './components/BudgetGrid.tsx';
 import { LineDrawer } from './components/LineDrawer.tsx';
-import {
-  AuditView,
-  ConsolidationView,
-  ConsumptionView,
-  CostCentreView,
-  GovernanceView,
-  SubmissionsView,
-  ValidationBanner,
-  VarianceView,
-} from './components/views.tsx';
-import { OperationsView } from './components/OperationsView.tsx';
 import { formatMoney } from './format.ts';
-import { BudgetStateChip } from './components/Status.tsx';
+import { t, type MessageKey } from './i18n.ts';
+import { invalidateEntities, useChosenEntity, useEntities } from './store.ts';
+import { BudgetStateChip, ValidationBanner } from './components/Status.tsx';
+
+/**
+ * Views are split per route.
+ *
+ * Budget entry is the landing view for every role and is imported eagerly; the
+ * rest are fetched when first opened. That matters most for the roles the
+ * navigation already narrows — a budget owner never loads the governance,
+ * operations or consolidation code at all, which is both a smaller download and
+ * a smaller amount of code in the page for a role that has no business with it.
+ */
+const ConsolidationView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.ConsolidationView })));
+const ConsumptionView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.ConsumptionView })));
+const VarianceView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.VarianceView })));
+const SubmissionsView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.SubmissionsView })));
+const CostCentreView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.CostCentreView })));
+const AuditView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.AuditView })));
+const GovernanceView = lazy(() =>
+  import('./components/views.tsx').then((m) => ({ default: m.GovernanceView })));
+const OperationsView = lazy(() =>
+  import('./components/OperationsView.tsx').then((m) => ({ default: m.OperationsView })));
+const TrendView = lazy(() =>
+  import('./components/reports.tsx').then((m) => ({ default: m.TrendView })));
+const FxHistoryView = lazy(() =>
+  import('./components/reports.tsx').then((m) => ({ default: m.FxHistoryView })));
+const AllocationsView = lazy(() =>
+  import('./components/reports.tsx').then((m) => ({ default: m.AllocationsView })));
 
 type ViewKey =
   | 'budget'
   | 'consumption'
   | 'variance'
+  | 'trend'
   | 'consolidation'
+  | 'allocations'
+  | 'fxHistory'
   | 'submissions'
   | 'costCentres'
   | 'audit'
@@ -44,51 +70,61 @@ type ViewKey =
 
 interface NavEntry {
   key: ViewKey;
-  label: string;
+  /** Catalogue key, not a literal: NFR-010 keeps user-visible text out of JSX. */
+  label: MessageKey;
   glyph: string;
-  group: string;
+  group: MessageKey;
   /** Rendered only when this returns true. Presentation, not protection. */
   visible: (me: Me) => boolean;
 }
 
 const NAV: NavEntry[] = [
-  { key: 'budget', label: 'Budget entry', glyph: '▦', group: 'Plan', visible: () => true },
-  { key: 'consumption', label: 'Actuals', glyph: '◑', group: 'Plan', visible: () => true },
-  { key: 'variance', label: 'Variance', glyph: '⇅', group: 'Analyse', visible: () => true },
+  { key: 'budget', label: 'nav.budget', glyph: '▦', group: 'nav.group.plan', visible: () => true },
+  { key: 'consumption', label: 'nav.consumption', glyph: '◑', group: 'nav.group.plan', visible: () => true },
+  { key: 'variance', label: 'nav.variance', glyph: '⇅', group: 'nav.group.analyse', visible: () => true },
+  { key: 'trend', label: 'nav.trend', glyph: '◺', group: 'nav.group.analyse', visible: () => true },
   {
     key: 'consolidation',
-    label: 'Consolidation',
+    label: 'nav.consolidation',
     glyph: '∑',
-    group: 'Analyse',
+    group: 'nav.group.analyse',
     visible: (me) => can(me.user.role, 'budget.view.any'),
   },
   {
+    key: 'allocations',
+    label: 'nav.allocations',
+    glyph: '⇄',
+    group: 'nav.group.analyse',
+    visible: (me) => can(me.user.role, 'budget.view.any'),
+  },
+  { key: 'fxHistory', label: 'nav.fxHistory', glyph: '⇋', group: 'nav.group.analyse', visible: () => true },
+  {
     key: 'submissions',
-    label: 'Submissions',
+    label: 'nav.submissions',
     glyph: '⇢',
-    group: 'Approve',
+    group: 'nav.group.approve',
     visible: () => true,
   },
   {
     key: 'costCentres',
-    label: 'Cost centres',
+    label: 'nav.costCentres',
     glyph: '⊞',
-    group: 'Approve',
+    group: 'nav.group.approve',
     visible: () => true,
   },
-  { key: 'audit', label: 'Audit trail', glyph: '☰', group: 'Govern', visible: () => true },
+  { key: 'audit', label: 'nav.audit', glyph: '☰', group: 'nav.group.govern', visible: () => true },
   {
     key: 'governance',
-    label: 'Data governance',
+    label: 'nav.governance',
     glyph: '⚿',
-    group: 'Govern',
+    group: 'nav.group.govern',
     visible: (me) => can(me.user.role, 'governance.edit') || can(me.user.role, 'audit.viewAll'),
   },
   {
     key: 'operations',
-    label: 'Operations',
+    label: 'nav.operations',
     glyph: '⟳',
-    group: 'Govern',
+    group: 'nav.group.govern',
     visible: (me) => can(me.user.role, 'backup.run'),
   },
 ];
@@ -112,17 +148,17 @@ export function App(): JSX.Element {
 
   if (bootError === 'signed-out') return <SignedOut />;
   if (bootError) return <p className="banner banner-error">{bootError}</p>;
-  if (!me) return <p className="empty">Loading…</p>;
+  if (!me) return <p className="empty">{t('app.loading')}</p>;
 
   const groups = [...new Set(NAV.filter((n) => n.visible(me)).map((n) => n.group))];
 
   return (
     <div className="app">
       <a className="skip-link" href="#main-content">
-        Skip to main content
+        {t('app.skipToContent')}
       </a>
 
-      <nav className="sidebar" aria-label="Sections">
+      <nav className="sidebar" aria-label={t('app.sections')}>
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
             <SpitfireMark />
@@ -130,13 +166,13 @@ export function App(): JSX.Element {
           <span>
             <span className="brand-name">SPENDIFRE</span>
             <br />
-            <span className="brand-sub">FY{me.fiscalYear}</span>
+            <span className="brand-sub">{t('app.fiscalYear', { year: me.fiscalYear })}</span>
           </span>
         </div>
 
         {groups.map((group) => (
           <div className="nav" key={group}>
-            <div className="nav-heading">{group}</div>
+            <div className="nav-heading">{t(group)}</div>
             {NAV.filter((n) => n.group === group && n.visible(me)).map((entry) => (
               <button
                 key={entry.key}
@@ -148,7 +184,7 @@ export function App(): JSX.Element {
                 <span className="nav-glyph" aria-hidden="true">
                   {entry.glyph}
                 </span>
-                {entry.label}
+                {t(entry.label)}
               </button>
             ))}
           </div>
@@ -166,7 +202,7 @@ export function App(): JSX.Element {
             className="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
-            {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+            {theme === 'dark' ? t('app.themeLight') : t('app.themeDark')}
           </button>
           <button
             type="button"
@@ -176,66 +212,71 @@ export function App(): JSX.Element {
               window.location.assign('/');
             }}
           >
-            Sign out
+            {t('app.signOut')}
           </button>
         </div>
       </nav>
 
       <main className="main" id="main-content">
         {view === 'budget' ? <BudgetWorkspace me={me} /> : null}
-        {view !== 'budget' ? (
-          <>
-            <header className="header">
-              <div>
-                <h1>{NAV.find((n) => n.key === view)?.label}</h1>
-                <p className="header-sub">FY{me.fiscalYear}, EUR at the year-locked rate</p>
-              </div>
-            </header>
-            {/* tabIndex makes the scroll container reachable by keyboard;
-                without it a keyboard user cannot scroll the region at all
-                (axe: scrollable-region-focusable). */}
-            <div className="view" tabIndex={0} aria-label={`${NAV.find((n) => n.key === view)?.label} content`}>
-              {view === 'consolidation' ? <ConsolidationView /> : null}
-              {view === 'consumption' ? <ScopedConsumption /> : null}
-              {view === 'variance' ? <ScopedVariance /> : null}
-              {view === 'submissions' ? (
-                <SubmissionsView canDecide={can(me.user.role, 'submission.decide')} />
-              ) : null}
-              {view === 'costCentres' ? (
-                <CostCentreView canApprove={can(me.user.role, 'costCentre.approve')} />
-              ) : null}
-              {view === 'audit' ? <AuditView /> : null}
-              {view === 'governance' ? <GovernanceView /> : null}
-              {view === 'operations' ? <OperationsView /> : null}
-            </div>
-          </>
-        ) : null}
+        {view !== 'budget' ? <ReportPane me={me} view={view} /> : null}
       </main>
     </div>
   );
 }
 
-function useEntities(): Entity[] {
-  const [entities, setEntities] = useState<Entity[]>([]);
-  useEffect(() => {
-    api.get<Entity[]>('/api/entities').then(setEntities).catch(() => setEntities([]));
-  }, []);
-  return entities;
-}
+/**
+ * Everything except budget entry.
+ *
+ * One `Suspense` boundary around the switch rather than one per view: the views
+ * are mutually exclusive, so a shared boundary shows the same "Loading…" the
+ * views themselves use while a chunk arrives, and swapping views never unmounts
+ * a boundary that is mid-flight.
+ */
+function ReportPane({ me, view }: { me: Me; view: ViewKey }): JSX.Element {
+  const { entities } = useEntities();
+  const label = t(NAV.find((n) => n.key === view)?.label ?? 'nav.budget');
 
-function ScopedConsumption(): JSX.Element {
-  return <ConsumptionView entities={useEntities()} />;
-}
-
-function ScopedVariance(): JSX.Element {
-  return <VarianceView entities={useEntities()} />;
+  return (
+    <>
+      <header className="header">
+        <div>
+          <h1>{label}</h1>
+          <p className="header-sub">{t('app.eurAtLockedRate', { year: me.fiscalYear })}</p>
+        </div>
+      </header>
+      {/* tabIndex makes the scroll container reachable by keyboard; without it
+          a keyboard user cannot scroll the region at all
+          (axe: scrollable-region-focusable). */}
+      <div className="view" tabIndex={0} aria-label={t('app.contentRegion', { view: label })}>
+        <Suspense fallback={<p className="empty">{t('app.loading')}</p>}>
+          {view === 'consolidation' ? <ConsolidationView /> : null}
+          {view === 'consumption' ? <ConsumptionView entities={entities} /> : null}
+          {view === 'variance' ? <VarianceView entities={entities} /> : null}
+          {view === 'trend' ? <TrendView entities={entities} fiscalYear={me.fiscalYear} /> : null}
+          {view === 'allocations' ? <AllocationsView /> : null}
+          {view === 'fxHistory' ? <FxHistoryView /> : null}
+          {view === 'submissions' ? (
+            <SubmissionsView canDecide={can(me.user.role, 'submission.decide')} />
+          ) : null}
+          {view === 'costCentres' ? (
+            <CostCentreView canApprove={can(me.user.role, 'costCentre.approve')} />
+          ) : null}
+          {view === 'audit' ? <AuditView /> : null}
+          {view === 'governance' ? <GovernanceView /> : null}
+          {view === 'operations' ? <OperationsView /> : null}
+        </Suspense>
+      </div>
+    </>
+  );
 }
 
 function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
-  const entities = useEntities();
+  const { entities } = useEntities();
   /** Empty until the user picks one; the effective selection is derived below
-   *  rather than defaulted through setState, which would cascade a render. */
-  const [chosenEntityId, setChosenEntityId] = useState('');
+   *  rather than defaulted through setState, which would cascade a render.
+   *  It lives in the store so navigating away and back keeps the choice. */
+  const [chosenEntityId, setChosenEntityId] = useChosenEntity();
   const [budget, setBudget] = useState<BudgetView | null>(null);
   const [costCentres, setCostCentres] = useState<CostCentre[]>([]);
   const [violations, setViolations] = useState<RuleViolation[]>([]);
@@ -278,7 +319,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
       setMessage(null);
       reload();
     } catch (e) {
-      setMessage(e instanceof ApiError ? e.message : 'The action failed.');
+      setMessage(e instanceof ApiError ? e.message : t('app.actionFailed'));
     }
   };
 
@@ -304,10 +345,14 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
     <>
       <header className="header">
         <div>
-          <h1>Budget entry</h1>
+          <h1>{t('budget.title')}</h1>
           <p className="header-sub">
-            {entity ? `${entity.code} — ${entity.name}` : 'No entity in scope'}
-            {budget ? ` · ${formatMoney(budget.entityTotal.plan, 'EUR', { compact: true })} planned` : ''}
+            {entity ? `${entity.code} — ${entity.name}` : t('budget.noEntity')}
+            {budget
+              ? ` · ${t('budget.planned', {
+                  amount: formatMoney(budget.entityTotal.plan, 'EUR', { compact: true }),
+                })}`
+              : ''}
           </p>
         </div>
 
@@ -315,7 +360,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
           {entity ? <BudgetStateChip state={entity.state} /> : null}
 
           <div className="field">
-            <label htmlFor="entity-select">Entity</label>
+            <label htmlFor="entity-select">{t('budget.entity')}</label>
             <select
               id="entity-select"
               className="select"
@@ -331,7 +376,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
           </div>
 
           <fieldset className="field">
-            <legend className="visually-hidden">Display currency</legend>
+            <legend className="visually-hidden">{t('budget.displayCurrency')}</legend>
             <div className="button-row">
               <button
                 type="button"
@@ -339,7 +384,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
                 aria-pressed={unit === 'local'}
                 onClick={() => setUnit('local')}
               >
-                Local
+                {t('budget.local')}
               </button>
               <button
                 type="button"
@@ -347,7 +392,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
                 aria-pressed={unit === 'eur'}
                 onClick={() => setUnit('eur')}
               >
-                EUR
+                {t('budget.eur')}
               </button>
             </div>
           </fieldset>
@@ -356,9 +401,16 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
             <button
               type="button"
               className="button button-primary"
-              onClick={() => run(() => api.post(`/api/entities/${entity.id}/submit`))}
+              onClick={() =>
+                run(async () => {
+                  await api.post(`/api/entities/${entity.id}/submit`);
+                  // The cached list carries `state`, and submitting just
+                  // changed it; without this the chip stays on "Draft".
+                  invalidateEntities();
+                })
+              }
             >
-              Submit for review
+              {t('budget.submit')}
             </button>
           ) : null}
         </div>
@@ -402,7 +454,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
             onSetAmount={setAmount}
           />
         ) : (
-          <p className="empty">Loading…</p>
+          <p className="empty">{t('app.loading')}</p>
         )}
       </div>
 
@@ -427,13 +479,10 @@ function SignedOut(): JSX.Element {
         <span className="brand-mark" aria-hidden="true">
           <SpitfireMark />
         </span>
-        <h1>Spendifre</h1>
-        <p>
-          Sign in with your Birgma account. Access is granted by Entra ID group membership —
-          there is no local account and no password to reset.
-        </p>
+        <h1>{t('signIn.title')}</h1>
+        <p>{t('signIn.blurb')}</p>
         <a className="button button-primary" href="/auth/login">
-          Sign in with Microsoft Entra ID
+          {t('signIn.button')}
         </a>
       </div>
     </div>

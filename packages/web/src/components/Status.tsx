@@ -9,6 +9,8 @@
  */
 
 import type { ReactNode } from 'react';
+import type { RuleViolation } from '../types.ts';
+import { t } from '../i18n.ts';
 
 export type Tone = 'ok' | 'pending' | 'bad' | 'neutral';
 
@@ -61,7 +63,7 @@ export function CostCentreChip({
   code: string | null;
   status: string | null;
 }): JSX.Element {
-  if (!code) return <Status tone="bad">Not set</Status>;
+  if (!code) return <Status tone="bad">{t('status.notSet')}</Status>;
   // INV-2: a line booked to a rejected or pending centre keeps showing it,
   // flagged, rather than being silently cleared.
   if (status === 'approved') return <span className="currency-code">{code}</span>;
@@ -69,5 +71,31 @@ export function CostCentreChip({
     <Status tone={status === 'rejected' ? 'bad' : 'pending'}>
       {code} — {status === 'rejected' ? 'rejected' : 'pending'}
     </Status>
+  );
+}
+
+/**
+ * FR-057 validation summary.
+ *
+ * Lives here rather than in `views.tsx` because the budget workspace needs it
+ * on first paint. Keeping it in `views.tsx` meant that module was both
+ * statically and dynamically imported, and a bundler resolves that by not
+ * splitting it at all — the lazy imports were inert.
+ */
+export function ValidationBanner({ violations }: { violations: RuleViolation[] }): JSX.Element | null {
+  if (violations.length === 0) return null;
+  const blocking = violations.filter((v) => v.severity === 'blocking');
+  return (
+    <div className={`banner ${blocking.length > 0 ? 'banner-error' : 'banner-warn'}`}>
+      <span aria-hidden="true">{blocking.length > 0 ? '✕' : '!'}</span>
+      <ul>
+        {violations.map((v) => (
+          <li key={v.code}>
+            <strong>{v.severity === 'blocking' ? 'Blocking' : 'Warning'}:</strong> {v.description}{' '}
+            ({v.lineIds.length} lines)
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

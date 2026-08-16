@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.ts';
 import { formatDateTime } from '../format.ts';
 import { Status } from './Status.tsx';
+import { t } from '../i18n.ts';
 
 interface BackupManifest {
   id: string;
@@ -90,9 +91,9 @@ export function OperationsView(): JSX.Element {
         <div className="banner banner-warn">
           <span aria-hidden="true">!</span>
           <span>
-            This action needs a fresh sign-in. Backups and exports move the whole
+            {t('ops.thisActionNeedsAFreshSigninBackupsAndExp')}
             dataset, so re-authentication is required if your session has been open
-            a while (ZT-007). <a href="/auth/login">Sign in again</a> and retry.
+            a while (ZT-007). <a href="/auth/login">{t('ops.signInAgain')}</a> and retry.
           </span>
         </div>
       ) : null}
@@ -113,7 +114,7 @@ export function OperationsView(): JSX.Element {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Operations</h2>
+          <h2>{t('ops.operations')}</h2>
         </div>
         <div className="panel-body">
           <p>
@@ -140,14 +141,14 @@ export function OperationsView(): JSX.Element {
             </a>
           </div>
           <p className="currency-code">
-            Both actions are recorded in the audit trail with their row counts.
+            {t('ops.bothActionsAreRecordedInTheAuditTrailWit')}
           </p>
         </div>
       </section>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Backup history</h2>
+          <h2>{t('ops.backupHistory')}</h2>
         </div>
         <div className="table-scroll" tabIndex={0} role="group">
           <table>
@@ -158,14 +159,14 @@ export function OperationsView(): JSX.Element {
             </caption>
             <thead>
               <tr>
-                <th scope="col">Taken</th>
+                <th scope="col">{t('ops.taken')}</th>
                 <th scope="col">By</th>
-                <th scope="col">Region</th>
-                <th scope="col">Status</th>
-                <th scope="col" className="num">Rows</th>
-                <th scope="col" className="num">Size</th>
-                <th scope="col">Audit chain</th>
-                <th scope="col">Download</th>
+                <th scope="col">{t('ops.region')}</th>
+                <th scope="col">{t('ops.status')}</th>
+                <th scope="col" className="num">{t('ops.rows')}</th>
+                <th scope="col" className="num">{t('ops.size')}</th>
+                <th scope="col">{t('ops.auditChain')}</th>
+                <th scope="col">{t('ops.download')}</th>
               </tr>
             </thead>
             <tbody>
@@ -176,20 +177,20 @@ export function OperationsView(): JSX.Element {
                   <td className="currency-code">{b.region.toUpperCase()}</td>
                   <td>
                     {b.status === 'complete'
-                      ? <Status tone="ok">Complete</Status>
-                      : <Status tone="bad">Failed</Status>}
+                      ? <Status tone="ok">{t('ops.complete')}</Status>
+                      : <Status tone="bad">{t('ops.failed')}</Status>}
                   </td>
                   <td className="num">{totalRows(b.rowCounts) || '—'}</td>
                   <td className="num">{formatBytes(b.byteSize)}</td>
                   <td>
-                    {b.auditChainIntact === true ? <Status tone="ok">Intact</Status> : null}
-                    {b.auditChainIntact === false ? <Status tone="bad">Broken</Status> : null}
-                    {b.auditChainIntact === null ? <Status tone="neutral">Not recorded</Status> : null}
+                    {b.auditChainIntact === true ? <Status tone="ok">{t('ops.intact')}</Status> : null}
+                    {b.auditChainIntact === false ? <Status tone="bad">{t('ops.broken')}</Status> : null}
+                    {b.auditChainIntact === null ? <Status tone="neutral">{t('ops.notRecorded')}</Status> : null}
                   </td>
                   <td>
                     {b.status === 'complete' ? (
                       <a className="button" href={`/api/admin/backups/${b.id}/download`}>
-                        Download
+                        {t('ops.download')}
                       </a>
                     ) : null}
                   </td>
@@ -197,7 +198,7 @@ export function OperationsView(): JSX.Element {
               ))}
             </tbody>
           </table>
-          {backups.length === 0 ? <p className="empty">No backups taken yet.</p> : null}
+          {backups.length === 0 ? <p className="empty">{t('ops.noBackupsTakenYet')}</p> : null}
         </div>
       </section>
     </>

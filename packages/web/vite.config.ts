@@ -12,6 +12,12 @@ export default defineConfig({
         entryFileNames: 'assets/app.js',
         chunkFileNames: 'assets/[name].js',
         assetFileNames: 'assets/[name][extname]',
+        // React is separated from application code so a deploy that changes a
+        // view does not invalidate the framework a returning user already has.
+        // Deliberately just the framework: finer-grained vendor splitting trades
+        // cache hits for request count, and there is one other dependency.
+        manualChunks: (id) =>
+          /node_modules\/(react|react-dom|scheduler)\//.test(id) ? 'vendor' : undefined,
       },
     },
     // Source maps ship to the error tracker, not to the browser: they are a

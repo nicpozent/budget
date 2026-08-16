@@ -58,13 +58,38 @@ afterAll(async () => {
   await harness?.close();
 });
 
-async function auditPage(navLabel: string | null): Promise<AxeViolation[]> {
+interface PageAudit {
+  violations: AxeViolation[];
+  /** Asset files the browser actually fetched while rendering this view. */
+  chunks: string[];
+}
+
+async function auditPage(navLabel: string | null): Promise<PageAudit> {
   if (!browser) throw new Error('browser unavailable');
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.addCookies([
     { name: 'sid', value: sessionToken, url: origin, httpOnly: true, sameSite: 'Lax' },
   ]);
   const page = await context.newPage();
+
+  // A lazily-loaded view arrives through a dynamic `import()`, which the CSP
+  // evaluates against `script-src` — a nonce does not propagate to an imported
+  // module. Collecting violations here means a policy change that silently
+  // broke code splitting fails this suite instead of shipping.
+  const cspViolations: string[] = [];
+  page.on('console', (message) => {
+    const text = message.text();
+    if (/Content Security Policy/i.test(text)) cspViolations.push(text);
+  });
+
+  const chunks: string[] = [];
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    if (path.startsWith('/assets/') && path.endsWith('.js') && response.status() === 200) {
+      chunks.push(path.replace('/assets/', ''));
+    }
+  });
+
   await page.goto(origin, { waitUntil: 'networkidle' });
 
   if (navLabel) {
@@ -91,7 +116,10 @@ async function auditPage(navLabel: string | null): Promise<AxeViolation[]> {
   })) as { violations: AxeViolation[] };
 
   await context.close();
-  return result.violations;
+  if (cspViolations.length > 0) {
+    throw new Error(`CSP refused a resource on this view:\n${cspViolations.join('\n')}`);
+  }
+  return { violations: result.violations, chunks };
 }
 
 const VIEWS: [string, string | null][] = [
@@ -103,6 +131,9 @@ const VIEWS: [string, string | null][] = [
   ['data governance', 'Data governance'],
   ['cost centres', 'Cost centres'],
   ['operations', 'Operations'],
+  ['trend', 'Trend'],
+  ['allocations', 'Allocations'],
+  ['FX history', 'FX history'],
 ];
 
 describe('A11Y-002 axe', () => {
@@ -114,13 +145,38 @@ describe('A11Y-002 axe', () => {
         console.warn('chromium unavailable — a11y gate not enforced in this environment');
         return;
       }
-      const violations = await auditPage(navLabel);
+      const { violations } = await auditPage(navLabel);
       const summary = violations.map(
         (v) => `${v.id} (${v.impact}): ${v.help} @ ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
       );
       expect(summary, summary.join('\n')).toEqual([]);
     }, 120_000);
   }
+});
+
+/**
+ * Route splitting, asserted against a real browser under the real CSP.
+ *
+ * The absence of a console error is weak evidence — it also holds if nothing
+ * was ever requested. So this asserts the positive: opening a lazy view causes
+ * the browser to fetch a chunk it did not have on first paint. A dynamically
+ * imported module does not inherit the shell's nonce, so this is also the test
+ * that would fail if `script-src` lost `'self'`.
+ */
+describe('route splitting', () => {
+  it('loads the landing view without the lazy chunks', async () => {
+    if (!browser) return;
+    const { chunks } = await auditPage(null);
+    expect(chunks).toContain('app.js');
+    expect(chunks).not.toContain('reports.js');
+    expect(chunks).not.toContain('OperationsView.js');
+  }, 120_000);
+
+  it('fetches a view\'s chunk when it is first opened', async () => {
+    if (!browser) return;
+    const { chunks } = await auditPage('Trend');
+    expect(chunks).toContain('reports.js');
+  }, 120_000);
 });
 
 // ---------------------------------------------------------------------------

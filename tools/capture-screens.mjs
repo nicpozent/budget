@@ -118,6 +118,23 @@ await mkdir(OUT, { recursive: true });
   await page.waitForTimeout(1600);
   await shot(page, '23-cfo-consolidation');
 
+  await nav(page, 'Trend');
+  await page.waitForTimeout(1600);
+  await shot(page, '26-cfo-trend');
+
+  // FR-061 asks for a breakdown that explodes a category into its lines.
+  await page.getByLabel('Break down by').selectOption('category');
+  await page.waitForTimeout(1600);
+  await shot(page, '27-cfo-trend-by-category');
+
+  await nav(page, 'Allocations');
+  await page.waitForTimeout(1600);
+  await shot(page, '28-cfo-allocations');
+
+  await nav(page, 'FX history');
+  await page.waitForTimeout(1400);
+  await shot(page, '29-cfo-fx-history');
+
   await nav(page, 'Audit trail');
   await page.waitForTimeout(1400);
   await shot(page, '24-cfo-audit-all');

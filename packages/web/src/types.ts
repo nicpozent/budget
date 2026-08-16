@@ -169,3 +169,30 @@ export interface RuleViolation {
   severity: 'blocking' | 'warning';
   lineIds: string[];
 }
+
+/** FR-061. `total` and each series are keyed by fiscal year. */
+export interface Trend {
+  years: number[];
+  total: Record<number, string>;
+  series: { id: string; label: string; values: Record<number, string> }[];
+}
+
+/** FR-063. */
+export interface FxHistory {
+  currency: string;
+  history: { year: number; rate: string }[];
+  drift: string;
+}
+
+/** FR-023. `chargedReadOnly` carries INV-6 to the client as data, not styling. */
+export interface Allocations {
+  pools: { name: string; amount: string; currency: string; driverKey: string }[];
+  entities: {
+    id: string;
+    code: string;
+    own: string;
+    charged: string;
+    total: string;
+    chargedReadOnly: boolean;
+  }[];
+}

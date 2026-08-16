@@ -19,6 +19,7 @@ import { useMemo, useState } from 'react';
 import type { BudgetLine, BudgetView, CostCentre } from '../types.ts';
 import { PERIOD_LABELS, formatMoney, formatNumber, toInputValue } from '../format.ts';
 import { CostCentreChip, Status } from './Status.tsx';
+import { t } from '../i18n.ts';
 
 export type Unit = 'local' | 'eur';
 
@@ -93,19 +94,19 @@ export function BudgetGrid({
                   aria-label="Select all lines"
                 />
               </th>
-              <th scope="col">Line</th>
-              <th scope="col">Vendor</th>
-              <th scope="col">Cost centre</th>
-              <th scope="col">Currency</th>
+              <th scope="col">{t('grid.line')}</th>
+              <th scope="col">{t('grid.vendor')}</th>
+              <th scope="col">{t('grid.costCentre')}</th>
+              <th scope="col">{t('grid.currency')}</th>
               {labels.map((label) => (
                 <th scope="col" className="num" key={label}>
                   {label}
                 </th>
               ))}
               <th scope="col" className="num">
-                Total
+                {t('grid.total')}
               </th>
-              <th scope="col">Status</th>
+              <th scope="col">{t('grid.status')}</th>
             </tr>
           </thead>
 
@@ -149,7 +150,7 @@ export function BudgetGrid({
           <tfoot>
             <tr>
               <td colSpan={5 + labels.length} className="num">
-                <strong>Entity total (EUR)</strong>
+                <strong>{t('grid.entityTotalEur')}</strong>
               </td>
               <td className="num">
                 <strong>{formatMoney(view.entityTotal.plan, 'EUR')}</strong>
@@ -257,11 +258,11 @@ function GridRow({
       <td>
         {/* Several conditions can apply at once; each is its own cue rather
             than being collapsed into a single colour. */}
-        {line.dormant ? <Status tone="neutral">Dormant</Status> : null}
-        {line.costCentreException ? <Status tone="bad">Cost centre</Status> : null}
-        {line.overPace ? <Status tone="pending">Over pace</Status> : null}
-        {line.aboveThreshold ? <Status tone="pending">Above threshold</Status> : null}
-        {line.complete && !line.costCentreException ? <Status tone="ok">Complete</Status> : null}
+        {line.dormant ? <Status tone="neutral">{t('grid.dormant')}</Status> : null}
+        {line.costCentreException ? <Status tone="bad">{t('grid.costCentre')}</Status> : null}
+        {line.overPace ? <Status tone="pending">{t('grid.overPace')}</Status> : null}
+        {line.aboveThreshold ? <Status tone="pending">{t('grid.aboveThreshold')}</Status> : null}
+        {line.complete && !line.costCentreException ? <Status tone="ok">{t('grid.complete')}</Status> : null}
       </td>
     </tr>
   );
@@ -296,7 +297,7 @@ export function BulkBar({
       <strong>{count} selected</strong>
 
       <div className="field">
-        <label htmlFor="bulk-uplift">Uplift %</label>
+        <label htmlFor="bulk-uplift">{t('grid.uplift')}</label>
         <input
           id="bulk-uplift"
           className="input num"
@@ -306,18 +307,18 @@ export function BulkBar({
         />
       </div>
       <button type="button" className="button" onClick={() => onUplift(percent)}>
-        Apply uplift
+        {t('grid.applyUplift')}
       </button>
 
       <div className="field">
-        <label htmlFor="bulk-centre">Move to cost centre</label>
+        <label htmlFor="bulk-centre">{t('grid.moveToCostCentre')}</label>
         <select
           id="bulk-centre"
           className="select"
           value={centre}
           onChange={(e) => setCentre(e.target.value)}
         >
-          <option value="">Choose…</option>
+          <option value="">{t('grid.choose')}</option>
           {approved.map((c) => (
             <option key={c.id} value={c.id}>
               {c.code} — {c.description}
@@ -331,17 +332,17 @@ export function BulkBar({
         disabled={!centre}
         onClick={() => onReassign(centre)}
       >
-        Reassign
+        {t('grid.reassign')}
       </button>
 
       <button type="button" className="button" onClick={onCopyPriorYear}>
-        Copy prior year
+        {t('grid.copyPriorYear')}
       </button>
       <button type="button" className="button button-danger" onClick={onDelete}>
-        Delete
+        {t('grid.delete')}
       </button>
       <button type="button" className="button" onClick={onClear}>
-        Clear selection
+        {t('grid.clearSelection')}
       </button>
     </div>
   );
