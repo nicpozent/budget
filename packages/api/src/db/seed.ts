@@ -344,6 +344,8 @@ if (isEntrypoint) {
     DATABASE_URL: url,
     DB_POOL_MAX: 4,
     DB_STATEMENT_TIMEOUT_MS: 60_000,
+    DB_SSL_MODE: (process.env.DB_SSL_MODE ?? 'disable') as 'disable' | 'require' | 'verify-full',
+    DB_CA_CERT: process.env.DB_CA_CERT,
   });
 
   seed(

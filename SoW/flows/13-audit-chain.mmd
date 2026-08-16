@@ -1,0 +1,16 @@
+graph LR
+  ACT(["State-changing action"]):::start --> TX["Same transaction"]:::data
+  TX --> BIZ["Business write"]:::data
+  TX --> AUD["audit_events insert"]:::data
+  AUD --> TRG["BEFORE INSERT trigger"]:::ctrl
+  TRG --> LOCK["advisory lock:<br/>serialise the chain"]:::ctrl
+  LOCK --> HASH["row_hash = sha256(prev_hash || content)"]:::ctrl
+  AUD -.->|insert fails| ROLL["Business write rolls back"]:::ctrl
+  HASH --> V["audit_verify_chain()<br/>returns first bad seq or null"]:::ctrl
+  V --> ALERT["Monitoring alerts on non-null<br/>(ZT-008)"]:::ext
+  UPD(["UPDATE / DELETE"]):::ext -.->|revoked grant<br/>+ trigger refusal| X["Refused (FR-073)"]:::ctrl
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

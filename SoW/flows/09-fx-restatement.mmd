@@ -1,0 +1,14 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrator
+  participant API as API
+  participant DB as PostgreSQL
+  participant R as Any report
+
+  A->>API: PUT /api/fx-rates {currency, year, rate}
+  API->>DB: upsert rate, audit old -> new
+  Note over DB: stored amounts are NOT rewritten
+  R->>API: GET /api/reports/consolidation
+  API->>DB: read amounts in local currency
+  API->>API: convert at read time (NFR-003)
+  API-->>R: every derived figure restated consistently

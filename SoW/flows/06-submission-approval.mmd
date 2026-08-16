@@ -1,0 +1,16 @@
+stateDiagram-v2
+  [*] --> draft
+  draft --> submitted: owner submits<br/>(blocking rules pass)
+  submitted --> approved: CFO approves
+  submitted --> changes_requested: CFO requests information
+  submitted --> draft: CFO rejects
+  changes_requested --> submitted: owner resubmits
+  approved --> locked: cycle locks
+  approved --> approved: edit refused (INV-5)<br/>unless CFO grants an exception
+  locked --> [*]
+  note right of submitted
+    Segregation of duties: the actor who
+    submitted can never be the actor who
+    decides. Enforced by a CHECK
+    constraint, not only in the handler.
+  end note

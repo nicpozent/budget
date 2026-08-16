@@ -1,0 +1,15 @@
+graph LR
+  SCOPE(["visibleEntityIds()"]):::start --> F1["Caller read scope"]:::ctrl
+  SCOPE --> F2["Deployment region"]:::ctrl
+  F1 & F2 --> IDS["Entity ids"]:::data
+  IDS --> LINES["loadLines() one query"]:::data
+  LINES --> TOT["computeLineTotals()<br/>FX at read time"]:::data
+  TOT --> C["rollUp by category"]:::data
+  TOT --> E["rollUp by entity"]:::data
+  TOT --> G["group total"]:::data
+  C & E & G --> INV["INV-4: both partitions add<br/>back to the same whole"]:::ctrl
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

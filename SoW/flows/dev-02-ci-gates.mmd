@@ -1,0 +1,18 @@
+graph TB
+  PR(["Pull request"]):::start --> TC["typecheck"]:::ctrl
+  PR --> LINT["eslint<br/>incl. no concatenated SQL,<br/>no dangerouslySetInnerHTML"]:::ctrl
+  PR --> AUD["npm audit high, prod deps"]:::ctrl
+  PR --> BUILD["vite build"]:::ctrl
+  PR --> TEST["vitest: authz matrix, security,<br/>invariants, a11y, operations"]:::ctrl
+  PR --> SBOM["CycloneDX SBOM artefact"]:::data
+  PR --> SAST["CodeQL security-extended"]:::ctrl
+  PR --> SEC["gitleaks over full history"]:::ctrl
+  PR --> CONF["Refuse any import of the<br/>confidential workbook"]:::ctrl
+  TC & LINT & AUD & BUILD & TEST & SAST & SEC & CONF --> M{"All green?"}
+  M -->|no| BLOCK["Merge blocked"]:::ctrl
+  M -->|yes| OK["Mergeable"]:::data
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

@@ -21,10 +21,14 @@
     "db:seed": "node --experimental-strip-types packages/api/src/db/seed.ts",
     "dev": "npm run dev --workspace @spendifre/api",
     "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json",
-    "audit:ci": "npm audit --audit-level=high --omit=dev"
+    "audit:ci": "npm audit --audit-level=high --omit=dev",
+    "flows": "node tools/render-flows.mjs",
+    "screenshots": "node tools/capture-screens.mjs",
+    "docs:html": "node tools/render-docs.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "@mermaid-js/mermaid-cli": "^11.16.0",
     "@types/node": "^22.10.7",
     "@vitest/coverage-v8": "^3.0.4",
     "axe-core": "^4.13.0",

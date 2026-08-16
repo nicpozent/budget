@@ -1,0 +1,14 @@
+graph TB
+  U(["Any read"]):::start --> RES["visibleEntityIds(request, region)"]:::ctrl
+  RES --> S1["Caller read scope<br/>own entities or all"]:::ctrl
+  RES --> S2["entities.residency = deployment region"]:::ctrl
+  S1 & S2 --> OUT["Entity ids"]:::data
+  OUT --> EU["EU deployment serves eu rows"]:::data
+  X1["ch rows"]:::ext -.->|404| EU
+  X2["apac rows"]:::ext -.->|404| EU
+  X3["cn rows"]:::ext -.->|404 even for admin<br/>CMP-140| EU
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

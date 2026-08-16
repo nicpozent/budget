@@ -1,0 +1,15 @@
+graph TB
+  REC(["Record spend"]):::start --> EL{"Period elapsed?<br/>server clock"}:::ctrl
+  EL -->|no| R403["403 refused (FR-041)"]:::ctrl
+  EL -->|yes| SRC{"Period owned<br/>by the ledger?"}
+  SRC -->|yes| R403B["403 — nightly refresh<br/>would overwrite it"]:::ctrl
+  SRC -->|no| SAVE["Upsert actual + audit"]:::data
+  SAVE --> CALC["Per line: plan, spend to date,<br/>YTD plan, variance, consumed %"]:::data
+  CALC --> PACE{"spend > plan x elapsed/periods?"}
+  PACE -->|yes| FLAG["Flagged over pace (FR-042)"]:::ctrl
+  CALC --> ROLL["Roll up to category,<br/>entity and group (FR-043)"]:::data
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

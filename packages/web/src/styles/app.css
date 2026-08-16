@@ -226,6 +226,14 @@ body {
   flex-wrap: wrap;
 }
 
+/* Row containing the scrolling view and, when open, the line drawer. */
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .view {
   flex: 1;
   overflow: auto;

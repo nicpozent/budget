@@ -1,0 +1,17 @@
+graph LR
+  RAW(["design/budget-data.js<br/>Confidential"]):::ext --> TOOL["tools/anonymise.ts<br/>offline only"]:::ctrl
+  TOOL --> R1["Discard names and free text"]:::ctrl
+  TOOL --> R2["Jitter then round amounts"]:::ctrl
+  TOOL --> R3["Shuffle order"]:::ctrl
+  TOOL --> R4["Report singleton classes"]:::ctrl
+  R1 & R2 & R3 & R4 --> FIX["db/fixtures/anonymised.json<br/>Internal, gitignored"]:::data
+  FIX --> DS{"SEED_MODE"}
+  SYN["syntheticDataset()"]:::data --> DS
+  DS --> LOADER["One loader, one Dataset"]:::data
+  LOADER --> DB[("PostgreSQL")]:::data
+  RAW -.->|CI refuses any import<br/>from packages/ or test/| X["Blocked"]:::ctrl
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

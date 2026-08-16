@@ -5,13 +5,32 @@ moves. This is the baseline model for v1. It is written to be *falsifiable*:
 every mitigation names the control that implements it and, where one exists, the
 test that fails if the control is removed.
 
-Last reviewed: at implementation of the v1 core.
-Next review trigger: any change to §2's boundaries — a new ingress, a new
-processor, a new region, or a change to how identity is established.
+| | |
+|---|---|
+| **System** | Spendifre — Birgma / Biltema Group IT budget platform |
+| **Version** | v1 core, as implemented |
+| **Method** | STRIDE per trust boundary · LINDDUN for privacy · MITRE ATT&CK mapping · attack trees for the highest-value goals |
+| **Last reviewed** | At implementation of the v1 core |
+| **Next review trigger** | Any change to the boundaries in §2 — a new ingress, a new processor, a new region, or a change to how identity is established |
+
+## 1. Scope & assumptions
+
+**In scope.** The application (API + SPA), its PostgreSQL store, the Entra ID
+integration, the XLSX export, and the backup artefact.
+
+**Out of scope, and assumed sound.** Azure platform security, the Entra tenant's
+Conditional Access and PIM configuration, corporate endpoint management, and
+physical security. Where the application *depends* on one of these it re-checks
+the result rather than trusting it — privileged roles have their device
+compliance and `amr` re-verified per request precisely so a policy gap fails
+closed.
+
+**Assumed hostile.** The browser, the network, every request body, and any
+authenticated user acting outside their remit.
 
 ---
 
-## 1. What is worth attacking
+## 2. Assets & security objectives
 
 Ranked by what an attacker would actually want, not by CVSS.
 
@@ -30,7 +49,7 @@ looks legitimate in the record.
 
 ---
 
-## 2. Trust boundaries
+## 3. System decomposition & trust boundaries
 
 ```
    ┌─ Internet ──────────────────────────────────────────────────────────┐
@@ -65,7 +84,7 @@ treated as a first-class finding rather than an output-formatting nicety.
 
 ---
 
-## 3. STRIDE
+## 4. STRIDE analysis
 
 ### B1 — Browser → API
 
@@ -144,7 +163,89 @@ file, outside the database's access controls.
 
 ---
 
-## 4. MITRE ATT&CK mapping
+## 5. LINDDUN privacy analysis
+
+STRIDE covers security; LINDDUN covers the privacy failures that a purely
+security-shaped model misses. The personal data here is modest but real: budget
+owners, approvers, comment authors, audit actors, and headcount driver values.
+
+| Threat | Where it applies | Position |
+|---|---|---|
+| **L**inking | Audit events link a named actor to every action they take across entities and time — a detailed activity profile of an employee | Inherent to `FR-070` and required for `CMP-150`. Mitigated by scoping (`FR-071`: managers see only their own), 84-month retention, and pseudonymisation on erasure. **Requires disclosure**: this is employee monitoring and needs the notice in `CMP-131`. |
+| **I**dentifying | Session IP and user-agent could build a location and device history | Stored **only** as salted SHA-256. Enough to detect session relocation, not enough to reconstruct a history. |
+| **N**on-repudiation | *Desired* here, not a threat — the audit chain exists to make repudiation impossible | Deliberate. Noted because LINDDUN normally treats it as harmful; in a financial-control system it is the objective. |
+| **D**etecting | Response differences could reveal that a record exists | Out-of-scope reads return 404, not 403; authentication failures are uniform across unknown account, bad nonce and missing role group. |
+| **D**ata disclosure | Vendor names, contract values, comment text | Classified `Confidential`; entity scope on every query; export rate-limited and audited. |
+| **U**nawareness | Users may not know the audit trail records them | **Open** — `CMP-131`. The audit view tells a manager their own events are recorded; there is no employee-facing privacy notice yet. |
+| **N**on-compliance | Retention documented but not executed; anonymised data described as anonymous when it is not | Retention is executed by a job that audits its own counts (`PRIV-001`). The anonymiser reports that 16 of 21 entities remain structurally unique, so the fixture is **pseudonymous** — recorded in ADR-0005 and `docs/dpia-personnel-data.md`. |
+
+### 5.1 The headcount question
+
+Driver values include headcount per entity. At 21 entities these are aggregate
+figures, not individual records. They become personal-data-adjacent if
+granularity ever drops to team or individual level, which is why `CMP-134`
+flags headcount planning as profiling-adjacent and why a DPIA is required
+before that granularity changes.
+
+## 6. Attack trees — the two goals worth modelling
+
+Not every threat deserves a tree. These two do, because they are the goals a
+competent attacker would actually set.
+
+### 6.1 Goal: approve a budget fraudulently
+
+```mermaid
+flowchart TB
+  G(["GOAL: a budget is approved that should not be"])
+  G --- A["A. Become the CFO"]
+  G --- B["B. Bypass the approval check"]
+  G --- C["C. Approve one's own submission"]
+
+  A --- A1["A1. Phish CFO credentials<br/>MITIGATED: phishing-resistant MFA required"]
+  A --- A2["A2. Steal the session cookie<br/>MITIGATED: HttpOnly + strict CSP + no localStorage"]
+  A --- A3["A3. Add self to SG-Spendifre-CFO<br/>PARTIAL: PIM + quarterly access review — tenant, not app"]
+  A --- A4["A4. Forge a role in the request<br/>CLOSED: role is never read from the request"]
+
+  B --- B1["B1. Call the endpoint directly<br/>CLOSED: server-side capability check, 203 assertions"]
+  B --- B2["B2. Find an endpoint with no check<br/>CLOSED: undeclared route fails at registration"]
+  B --- B3["B3. Reuse a stale privileged session<br/>MITIGATED: decision is a step-up capability"]
+
+  C --- C1["C1. Submit then approve<br/>CLOSED: CHECK submission_sod, in the database"]
+  C --- C2["C2. Two colluding actors<br/>NOT MITIGATED by the app — detection only, via the audit chain"]
+```
+
+The honest leaf is **C2**. Collusion between a real submitter and a real
+approver is not preventable by software; the audit chain makes it
+*reconstructable*, which is what `CMP-150` actually asks for.
+
+### 6.2 Goal: exfiltrate the group budget
+
+```mermaid
+flowchart TB
+  G(["GOAL: obtain the FY budget for all 21 entities"])
+  G --- A["A. Through the application"]
+  G --- B["B. Around the application"]
+  G --- C["C. From an artefact"]
+
+  A --- A1["A1. Read another entity's budget<br/>CLOSED: scope re-derived per request, 404 on miss"]
+  A --- A2["A2. Aggregate report leaks out-of-scope rows<br/>CLOSED: scope applied before aggregation"]
+  A --- A3["A3. Repeated XLSX export<br/>MITIGATED: 5 per 5 min, audited with counts, ZT-008 alert"]
+
+  B --- B1["B1. Stolen app DB credential<br/>MITIGATED: least privilege, TLS verify-full, private network"]
+  B --- B2["B2. Read a replica or backup volume<br/>MITIGATED: backups AES-256-GCM; DB at rest via CMK"]
+  B --- B3["B3. SQL injection<br/>CLOSED: bound parameters, allow-listed identifiers, lint gate"]
+
+  C --- C1["C1. Steal a backup archive<br/>MITIGATED: inert without the Key Vault key"]
+  C --- C2["C2. Read design/budget-data.js from the repo<br/>OPEN: see docs/osint-exposure.md §1"]
+  C --- C3["C3. Recover the source from the anonymised fixture<br/>PARTIAL: pseudonymous, 16/21 structurally unique"]
+```
+
+The weakest leaf is **C2**, and it is not a code defect: the real FY2026
+workbook extract is present in the repository. That is the single highest-value
+finding in this model.
+
+
+## 7. MITRE ATT&CK mapping
 
 Enterprise techniques judged plausible against this application, with the
 control that addresses them. Techniques we do **not** claim to mitigate are
@@ -168,7 +269,7 @@ listed honestly in §5.
 | Exfiltration | T1567 Exfiltration Over Web Service | Bulk export | 5 exports per 5 minutes, audited with counts; ZT-008 alert on mass export |
 | Impact | T1565.001 Stored Data Manipulation | Silently altering approved figures | `INV-5` immutability, optimistic concurrency, audit chain |
 
-## 5. Not mitigated by the application
+## 8. Not mitigated by the application
 
 Stating these plainly is more useful than a table of green ticks.
 
@@ -187,7 +288,7 @@ Stating these plainly is more useful than a table of green ticks.
 - **Physical and personnel security**, covered by ISO 27001 controls tracked in
   `SPEC.md` §8.1, not by code.
 
-## 6. Residual risk register
+## 9. Residual risk register
 
 | Risk | Likelihood | Impact | Owner | Treatment |
 |---|---|---|---|---|

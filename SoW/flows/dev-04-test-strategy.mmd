@@ -1,0 +1,13 @@
+graph TB
+  T(["360 tests"]):::start --> A["authz.test.ts<br/>every role x every capability"]:::ctrl
+  T --> S["security.test.ts<br/>XSS, SQLi, CSRF, IDOR, headers,<br/>formula injection, config"]:::ctrl
+  T --> I["invariants.test.ts<br/>INV-1..6, money, FX, concurrency"]:::ctrl
+  T --> Y["a11y.test.ts<br/>axe in a real browser + contrast"]:::ctrl
+  T --> O["operations.test.ts<br/>anonymiser, seed modes, backup"]:::ctrl
+  A & S & I & Y & O --> PG[("Real PostgreSQL<br/>throwaway DB per run")]:::data
+  PG --> WHY["Constraints, triggers and grants<br/>are half the controls — a mock<br/>would only test the mock"]:::ctrl
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

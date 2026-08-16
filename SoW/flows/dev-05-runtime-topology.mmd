@@ -1,0 +1,23 @@
+graph TB
+  subgraph edge["Public edge"]
+    FD["Azure Front Door + WAF<br/>TLS 1.3 termination"]:::ext
+  end
+  subgraph private["Private network — no public ingress"]
+    API["Container App: Spendifre API<br/>serves SPA shell + REST"]:::data
+    PG[("Azure Database for PostgreSQL<br/>TLS verify-full, CMK at rest")]:::data
+    BLOB[("Blob: backups<br/>CMK + immutability")]:::data
+    KV["Key Vault<br/>DB creds, backup key, client secret"]:::ctrl
+  end
+  ENTRA["Microsoft Entra ID"]:::ext
+  SIEM["SIEM / OTLP backend"]:::ext
+  FD --> API
+  API -->|workload identity| PG
+  API -->|workload identity| BLOB
+  API -->|managed identity| KV
+  API -->|OIDC + PKCE| ENTRA
+  API -->|auth, denials, admin actions| SIEM
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

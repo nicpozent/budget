@@ -1,0 +1,68 @@
+<style>
+  :root{--bg:#f6f8f7;--surface:#ffffff;--ink:#0c111e;--body:#333c4d;--muted:#55647c;--faint:#8994a6;
+    --accent:#0b7a5a;--accent-ink:#08573f;--accent-soft:#e9f6f1;--accent-line:#bfe0d4;--border:#e2e8ea;
+    --shadow:0 1px 2px rgba(12,17,30,.06),0 8px 26px rgba(12,17,30,.07);--radius:14px;
+    --font-body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0e17;--surface:#0c111e;--ink:#e6edf7;--body:#c3ccdb;--muted:#93a1b8;--faint:#7d8ca6;--accent:#34d399;--accent-ink:#5fe0b3;--accent-soft:#0f2b23;--accent-line:#1e4a3c;--border:#1a2335;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);}}
+  :root[data-theme="dark"]{--bg:#0a0e17;--surface:#0c111e;--ink:#e6edf7;--body:#c3ccdb;--muted:#93a1b8;--faint:#7d8ca6;--accent:#34d399;--accent-ink:#5fe0b3;--accent-soft:#0f2b23;--accent-line:#1e4a3c;--border:#1a2335;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);}
+  *{box-sizing:border-box} body{background:var(--bg);color:var(--body);font-family:var(--font-body);margin:0;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:76rem;margin:0 auto;padding:clamp(1.25rem,4vw,3rem) clamp(1rem,4vw,2.5rem) 4rem;}
+  header.top{border-bottom:2px solid var(--accent);padding-bottom:1.3rem;margin-bottom:1rem;}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:0 0 .55rem;}
+  h1{color:var(--ink);font-size:clamp(1.7rem,4vw,2.4rem);line-height:1.12;letter-spacing:-.015em;margin:0 0 .3rem;font-weight:700;}
+  .lede{color:var(--muted);max-width:66ch;margin:.3rem 0 0;}
+  h2.sec{color:var(--ink);font-size:1.2rem;font-weight:700;margin:2.6rem 0 .4rem;padding-bottom:.5rem;border-bottom:1px solid var(--accent-line);display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;}
+  h2.sec .tag{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:6px;padding:.12rem .5rem;}
+  .seclede{color:var(--muted);margin:.1rem 0 1.2rem;font-size:.94rem;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,26rem),1fr));gap:1.5rem;}
+  figure.flow{margin:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;}
+  figcaption{display:flex;align-items:baseline;gap:.6rem;padding:.85rem 1.05rem;font-weight:650;color:var(--ink);font-size:.96rem;border-bottom:1px solid var(--border);background:var(--accent-soft);}
+  .fnum{font-family:var(--font-mono);font-size:.74rem;color:var(--accent-ink);background:var(--surface);border:1px solid var(--accent-line);border-radius:6px;padding:.05rem .4rem;flex:none;}
+  .imgwrap{padding:1rem;display:flex;align-items:center;justify-content:center;background:var(--surface);overflow-x:auto;}
+  .imgwrap img{max-width:100%;height:auto;display:block;}
+  footer{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem;}
+  code{font-family:var(--font-mono);font-size:.85em;}
+</style>
+<div class="wrap"><header class="top">
+<p class="eyebrow">Spendifre · Statement of Work</p><h1>Functional Flows</h1>
+<p class="lede">Three views of Spendifre — how the <strong>system</strong> moves data and where each control sits, how <strong>users</strong> get work done per role, and how the <strong>engineering</strong> pieces interact at build, test, run and deploy.</p>
+</header>
+<h2 class="sec">System & data flows<span class="tag">18 diagrams</span></h2>
+<p class="seclede">How Spendifre moves data and where each control sits in the path.</p><div class="grid">
+<figure class="flow"><figcaption><span class="fnum">01</span>Application map & navigation</figcaption><div class="imgwrap"><img src="images/00-app-sitemap.svg" alt="Application map & navigation — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">02</span>Authentication — Entra ID, OIDC + PKCE</figcaption><div class="imgwrap"><img src="images/01-auth-rbac.svg" alt="Authentication — Entra ID, OIDC + PKCE — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">03</span>Request lifecycle & authorisation gate</figcaption><div class="imgwrap"><img src="images/02-request-authorisation.svg" alt="Request lifecycle & authorisation gate — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">04</span>Budget entry — grid edit round trip</figcaption><div class="imgwrap"><img src="images/03-budget-entry.svg" alt="Budget entry — grid edit round trip — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">05</span>Line detail, drivers and dormancy</figcaption><div class="imgwrap"><img src="images/04-line-detail-drivers.svg" alt="Line detail, drivers and dormancy — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">06</span>Bulk operations over a selection</figcaption><div class="imgwrap"><img src="images/05-bulk-operations.svg" alt="Bulk operations over a selection — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">07</span>Submission & approval state machine</figcaption><div class="imgwrap"><img src="images/06-submission-approval.svg" alt="Submission & approval state machine — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">08</span>Cost centre lifecycle & segregation of duties</figcaption><div class="imgwrap"><img src="images/07-cost-centre-lifecycle.svg" alt="Cost centre lifecycle & segregation of duties — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">09</span>Actuals, elapsed periods and pace</figcaption><div class="imgwrap"><img src="images/08-actuals-consumption.svg" alt="Actuals, elapsed periods and pace — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">10</span>FX restatement at read time</figcaption><div class="imgwrap"><img src="images/09-fx-restatement.svg" alt="FX restatement at read time — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">11</span>Consolidation & the INV-4 fold</figcaption><div class="imgwrap"><img src="images/10-consolidation-reporting.svg" alt="Consolidation & the INV-4 fold — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">12</span>Capex asset life & depreciation</figcaption><div class="imgwrap"><img src="images/11-capex-depreciation.svg" alt="Capex asset life & depreciation — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">13</span>Allocations & chargeback</figcaption><div class="imgwrap"><img src="images/12-allocations-chargeback.svg" alt="Allocations & chargeback — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">14</span>Append-only audit & hash chain</figcaption><div class="imgwrap"><img src="images/13-audit-chain.svg" alt="Append-only audit & hash chain — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">15</span>Retention job & data subject rights</figcaption><div class="imgwrap"><img src="images/14-retention-dsr.svg" alt="Retention job & data subject rights — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">16</span>Admin backup — encrypt, attest, download</figcaption><div class="imgwrap"><img src="images/15-backup.svg" alt="Admin backup — encrypt, attest, download — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">17</span>XLSX export & formula-injection guard</figcaption><div class="imgwrap"><img src="images/16-export-xlsx.svg" alt="XLSX export & formula-injection guard — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">18</span>Residency routing (CMP-140)</figcaption><div class="imgwrap"><img src="images/17-residency-routing.svg" alt="Residency routing (CMP-140) — flow diagram"></div></figure>
+</div>
+<h2 class="sec">User journeys<span class="tag">4 diagrams</span></h2>
+<p class="seclede">What each role actually does, in the order they do it.</p><div class="grid">
+<figure class="flow"><figcaption><span class="fnum">19</span>Budget owner</figcaption><div class="imgwrap"><img src="images/user-01-budget-owner.svg" alt="Budget owner — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">20</span>CFO</figcaption><div class="imgwrap"><img src="images/user-02-cfo.svg" alt="CFO — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">21</span>Administrator (Group IT Finance)</figcaption><div class="imgwrap"><img src="images/user-03-administrator.svg" alt="Administrator (Group IT Finance) — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">22</span>Finance Manager — the dual role</figcaption><div class="imgwrap"><img src="images/user-04-finance-manager.svg" alt="Finance Manager — the dual role — flow diagram"></div></figure>
+</div>
+<h2 class="sec">Software-development interaction<span class="tag">6 diagrams</span></h2>
+<p class="seclede">How the pieces interact at build, test, run and deploy.</p><div class="grid">
+<figure class="flow"><figcaption><span class="fnum">23</span>Change lifecycle — requirement to merge</figcaption><div class="imgwrap"><img src="images/dev-01-change-lifecycle.svg" alt="Change lifecycle — requirement to merge — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">24</span>CI gates</figcaption><div class="imgwrap"><img src="images/dev-02-ci-gates.svg" alt="CI gates — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">25</span>Seed data & anonymisation boundary</figcaption><div class="imgwrap"><img src="images/dev-03-seed-anonymise.svg" alt="Seed data & anonymisation boundary — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">26</span>Test strategy</figcaption><div class="imgwrap"><img src="images/dev-04-test-strategy.svg" alt="Test strategy — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">27</span>Runtime topology (target)</figcaption><div class="imgwrap"><img src="images/dev-05-runtime-topology.svg" alt="Runtime topology (target) — flow diagram"></div></figure>
+<figure class="flow"><figcaption><span class="fnum">28</span>Local development</figcaption><div class="imgwrap"><img src="images/dev-06-local-dev.svg" alt="Local development — flow diagram"></div></figure>
+</div>
+<footer>Rendered from <code>flows/*.mmd</code> with <code>@mermaid-js/mermaid-cli</code>. Regenerate with <code>npm run flows</code>.</footer></div>

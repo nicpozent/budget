@@ -528,6 +528,22 @@ describe('Configuration fails closed', () => {
     expect(() => loadConfig({ ...base, RATE_LIMIT: 'off' })).toThrow(/RATE_LIMIT/);
   });
 
+  it('refuses a plaintext database connection in production', () => {
+    // node-postgres does not negotiate TLS unless asked, so an unset mode is a
+    // plaintext hop, not an encrypted one (ZT-006).
+    expect(() => loadConfig({ ...base, DB_SSL_MODE: 'disable' })).toThrow(/DB_SSL_MODE/);
+    expect(() => loadConfig({ ...base, DB_SSL_MODE: 'verify-full' })).not.toThrow();
+  });
+
+  it('defaults the database to plaintext only outside production', () => {
+    const dev = loadConfig({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgres://x/y',
+      TELEMETRY_SALT: 'a-sufficiently-long-salt',
+    });
+    expect(dev.DB_SSL_MODE).toBe('disable');
+  });
+
   it('refuses plaintext origins in production', () => {
     expect(() => loadConfig({ ...base, PUBLIC_ORIGIN: 'http://spendifre.example' }))
       .toThrow(/https/);

@@ -1,0 +1,14 @@
+graph LR
+  A(["Admin creates centre"]):::start --> P["pending"]:::ctrl
+  P --> CFO{"CFO decision"}
+  CFO -->|approve| OK["approved"]:::data
+  CFO -->|reject| NO["rejected"]:::ctrl
+  A -.->|creator cannot approve<br/>CHECK cost_centre_sod| CFO
+  OK --> USE["Selectable on a budget line"]
+  NO --> STALE["Existing references stay visible,<br/>flagged red (INV-2)"]:::ctrl
+  P --> STALE
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

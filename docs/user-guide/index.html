@@ -1,0 +1,185 @@
+<style>
+  :root{--bg:#f6f8f7;--surface:#ffffff;--ink:#0c111e;--body:#333c4d;--muted:#55647c;--faint:#8994a6;
+    --accent:#0b7a5a;--accent-ink:#08573f;--accent-soft:#e9f6f1;--accent-line:#bfe0d4;--border:#e2e8ea;
+    --code-bg:#f2f5f4;--shadow:0 1px 2px rgba(12,17,30,.06),0 8px 26px rgba(12,17,30,.07);--radius:12px;
+    --font-body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0e17;--surface:#0c111e;--ink:#e6edf7;--body:#c3ccdb;--muted:#93a1b8;--faint:#7d8ca6;--accent:#34d399;--accent-ink:#5fe0b3;--accent-soft:#0f2b23;--accent-line:#1e4a3c;--border:#1a2335;--code-bg:#111a2b;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);}}
+  :root[data-theme="dark"]{--bg:#0a0e17;--surface:#0c111e;--ink:#e6edf7;--body:#c3ccdb;--muted:#93a1b8;--faint:#7d8ca6;--accent:#34d399;--accent-ink:#5fe0b3;--accent-soft:#0f2b23;--accent-line:#1e4a3c;--border:#1a2335;--code-bg:#111a2b;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);}
+  *{box-sizing:border-box} body{background:var(--bg);color:var(--body);font-family:var(--font-body);margin:0;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:64rem;margin:0 auto;padding:clamp(1.25rem,4vw,3rem) clamp(1rem,4vw,2.5rem) 4rem;}
+  header.top{border-bottom:2px solid var(--accent);padding-bottom:1.3rem;margin-bottom:1.6rem;}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:0 0 .55rem;}
+  h1{color:var(--ink);font-size:clamp(1.7rem,4vw,2.4rem);line-height:1.12;letter-spacing:-.015em;margin:0;font-weight:700;}
+  h2{color:var(--ink);font-size:1.32rem;font-weight:700;margin:2.6rem 0 .9rem;padding-bottom:.45rem;border-bottom:1px solid var(--accent-line);scroll-margin-top:1rem;}
+  h3{color:var(--ink);font-size:1.06rem;font-weight:650;margin:1.9rem 0 .6rem;}
+  h4{color:var(--ink);font-size:.97rem;font-weight:650;margin:1.4rem 0 .4rem;}
+  p{margin:.75rem 0;} a{color:var(--accent-ink);text-underline-offset:2px;}
+  ul,ol{margin:.7rem 0;padding-left:1.4rem;} li{margin:.3rem 0;}
+  blockquote{margin:1.2rem 0;padding:.85rem 1.1rem;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;color:var(--body);}
+  blockquote p{margin:0;}
+  code{font-family:var(--font-mono);font-size:.86em;background:var(--code-bg);border:1px solid var(--border);border-radius:5px;padding:.06em .35em;}
+  pre.code{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;overflow-x:auto;margin:1.1rem 0;}
+  pre.code code{background:none;border:0;padding:0;font-size:.82rem;line-height:1.55;}
+  pre.code .lang{position:absolute;top:.5rem;right:.7rem;font-family:var(--font-mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);}
+  .tablewrap{overflow-x:auto;margin:1.1rem 0;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);background:var(--surface);}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;}
+  th,td{text-align:left;padding:.6rem .85rem;border-bottom:1px solid var(--border);vertical-align:top;}
+  thead th{background:var(--accent-soft);color:var(--ink);font-weight:650;font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:0;}
+  hr{border:0;border-top:1px solid var(--border);margin:2.2rem 0;}
+  nav.toc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;margin:0 0 2rem;box-shadow:var(--shadow);}
+  nav.toc p{margin:0 0 .5rem;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;}
+  nav.toc ol{columns:2;column-gap:2rem;margin:0;padding-left:1.2rem;font-size:.9rem;}
+  @media (max-width:44rem){nav.toc ol{columns:1;}}
+  footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem;}
+</style>
+<div class="wrap">
+<header class="top"><p class="eyebrow">Spendifre · User Guide</p><h1>Spendifre — User Guide</h1></header>
+<nav class="toc"><p>Contents</p><ol><li><a href="#1-signing-in">1. Signing in</a></li><li><a href="#2-finding-your-way-around">2. Finding your way around</a></li><li><a href="#3-budget-owner">3. Budget owner</a></li><li><a href="#4-cfo">4. CFO</a></li><li><a href="#5-administrator">5. Administrator</a></li><li><a href="#6-finance-manager-the-extra-powers">6. Finance Manager — the extra powers</a></li><li><a href="#7-everyone">7. Everyone</a></li><li><a href="#8-what-each-role-can-and-cannot-do">8. What each role can and cannot do</a></li><li><a href="#9-when-something-is-refused">9. When something is refused</a></li></ol></nav>
+<p>How to use Spendifre, feature by feature, for each role. <strong>What you see depends on your role</strong>, so this guide is organised by role: work through the section for yours and ignore the rest.</p>
+<p>Screenshots are captured from the running application against synthetic demonstration data — no real budget figures or vendor names appear anywhere in this guide. Regenerate them with <code>npm run screenshots</code>.</p>
+<div class="tablewrap"><table><thead><tr><th>Section</th><th>Read this if you are</th></tr></thead><tbody><tr><td><a href="#1-signing-in">1. Signing in</a></td><td>Everyone</td></tr><tr><td><a href="#2-finding-your-way-around">2. Finding your way around</a></td><td>Everyone</td></tr><tr><td><a href="#3-budget-owner">3. Budget owner</a></td><td>Finance Manager, CIO, CTO, Infrastructure, Security, Architecture, PMO</td></tr><tr><td><a href="#4-cfo">4. CFO</a></td><td>CFO</td></tr><tr><td><a href="#5-administrator">5. Administrator</a></td><td>Group IT Finance</td></tr><tr><td><a href="#6-finance-manager--the-extra-powers">6. Finance Manager — the extra powers</a></td><td>Finance Manager</td></tr><tr><td><a href="#7-everyone">7. Everyone — audit, themes, accessibility</a></td><td>Everyone</td></tr><tr><td><a href="#8-what-each-role-can-and-cannot-do">8. What each role can and cannot do</a></td><td>Everyone</td></tr><tr><td><a href="#9-when-something-is-refused">9. When something is refused</a></td><td>Everyone</td></tr></tbody></table></div>
+<hr>
+<h2 id="1-signing-in">1. Signing in</h2>
+<p>!<a href="#">Sign-in screen</a></p>
+<p>Spendifre has <strong>no password of its own</strong>. Select <em>Sign in with Microsoft Entra ID</em> and you are authenticated with your normal Birgma account, including whatever multi-factor step your account requires.</p>
+<p><strong>Your role is decided by your Entra group membership</strong>, not by anything you choose here. There is no role picker. If you believe your access is wrong, that is a directory-group change, not a setting inside Spendifre — talk to Group IT Finance.</p>
+<p>If you belong to more than one Spendifre group, you receive the <strong>least</strong> privileged of them. That is deliberate: group membership sprawl should never quietly escalate what someone can do.</p>
+<hr>
+<h2 id="2-finding-your-way-around">2. Finding your way around</h2>
+<p>Every screen shares the same frame:</p>
+<ul><li><strong>The left sidebar</strong> groups sections under <em>Plan</em>, <em>Analyse</em>, <em>Approve</em> and <em>Govern</em>. <strong>You only see the sections your role can use</strong> — if you cannot find something described below, your role does not have it.</li><li><strong>The header</strong> shows where you are, the entity you are working on, and the actions available on that screen.</li><li><strong>The footer of the sidebar</strong> shows who you are signed in as, your role, and the region your data is served from, plus the theme toggle and <em>Sign out</em>.</li></ul>
+<p>Two conventions worth learning once:</p>
+<p><strong>Money is monospaced</strong> so columns line up, and always shows which currency it is in.</p>
+<p><strong>Increases are red, decreases are green</strong> — the opposite of what you may expect. This is a cost tool: growth is the unwanted direction. Every colour is paired with a symbol (<code>▲ ▼ ✓ ◷ ✕</code>) so the meaning does not depend on seeing colour.</p>
+<hr>
+<h2 id="3-budget-owner">3. Budget owner</h2>
+<p>You own one or more entities. You build their budgets, record what has been spent, and submit for the CFO's approval.</p>
+<h3 id="31-the-budget-grid">3.1 The budget grid</h3>
+<p>!<a href="#">Budget entry grid</a></p>
+<p>Your lines, grouped by category, with a column per quarter and a running total.</p>
+<p><strong>To edit an amount</strong>, click the cell, type, and click away or press Tab. It saves as you leave the field. There is no <em>Save</em> button.</p>
+<p><strong>The warning banner</strong> above the grid lists anything that would fail validation. Amber warnings do not stop you submitting; red blocking errors do.</p>
+<p><strong>The Status column</strong> tells you what needs attention:</p>
+<div class="tablewrap"><table><thead><tr><th>Chip</th><th>Meaning</th><th>What to do</th></tr></thead><tbody><tr><td>✓ Complete</td><td>The line has everything it needs</td><td>Nothing</td></tr><tr><td>✕ Cost centre</td><td>Booked to a centre that is pending or rejected</td><td>Open the line and pick an approved centre</td></tr><tr><td>◷ Over pace</td><td>Spending faster than the year is elapsing</td><td>Check the Actuals screen</td></tr><tr><td>◷ Above threshold</td><td>Above the approval threshold</td><td>Add a justification — the CFO will ask otherwise</td></tr><tr><td>· Dormant</td><td>Headcount-linked while headcount planning is off</td><td>Nothing; it will wake up if planning is re-enabled</td></tr></tbody></table></div>
+<p><strong>Category rows show the category total in EUR.</strong> Those totals are always the sum of the lines beneath them — if a line changes, the total changes. There is no separately maintained figure to disagree.</p>
+<h3 id="32-local-and-eur">3.2 Local and EUR</h3>
+<p>!<a href="#">EUR toggle</a></p>
+<p><em>Local</em> shows each line in its own currency. <em>EUR</em> shows everything converted at the year-locked rate.</p>
+<p><strong>A row never mixes currencies.</strong> Whichever unit you pick applies to every money column in that row, and the line's own currency code is always shown.</p>
+<p><strong>You can type in either unit.</strong> If you are in EUR mode and type a figure, it is converted back to the line's local currency before it is stored — storage is always local, so if Group IT Finance later restates an FX rate, every EUR figure updates and nothing you typed is lost.</p>
+<h3 id="33-the-line-drawer">3.3 The line drawer</h3>
+<p>!<a href="#">Line detail drawer</a></p>
+<p>Click a line's name to open it. The drawer shows <strong>every</strong> field, including ones hidden from the grid, plus phasing, justification and the comment thread.</p>
+<ul><li><strong>Vendor, GL account, justification</strong> — type and click away to save.</li><li><strong>Cost centre</strong> — a list of <em>approved</em> centres only. If the line is currently booked to a rejected or pending centre, you will still see that code displayed and flagged; it is not cleared behind your back, because losing the reference would lose the information that something needs fixing.</li><li><strong>Phasing</strong> — the plan and any recorded spend per period. If the line is driver-linked, these are computed and read-only.</li><li><strong>Comments</strong> — the discussion record. Anything you write here is stored exactly as typed and displayed as text; it is purged after 36 months.</li></ul>
+<p>Press <code>Escape</code> or the ✕ to close.</p>
+<h3 id="34-working-on-many-lines-at-once">3.4 Working on many lines at once</h3>
+<p>!<a href="#">Bulk operations</a></p>
+<p>Tick the checkbox on any line and the bulk bar appears.</p>
+<div class="tablewrap"><table><thead><tr><th>Action</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Apply uplift</strong></td><td>Raises (or lowers, with a negative) every selected line by a percentage</td></tr><tr><td><strong>Reassign</strong></td><td>Moves the selection to a different approved cost centre</td></tr><tr><td><strong>Copy prior year</strong></td><td>Copies last year's quarterly figures onto the selected lines</td></tr><tr><td><strong>Delete</strong></td><td>Removes the selected lines</td></tr></tbody></table></div>
+<p>Each bulk action is recorded once in the audit trail with the number of lines it touched. If any selected line is outside what you may edit, the whole action is refused rather than partly applied.</p>
+<h3 id="35-recording-actual-spend">3.5 Recording actual spend</h3>
+<p>!<a href="#">Actuals and consumption</a></p>
+<p>Enter what has actually been spent, per line, per period.</p>
+<p><strong>You can only record spend against periods that have already elapsed.</strong> That is decided from the server's calendar, not your computer's — a future quarter is refused.</p>
+<p>The KPIs across the top compare full-year plan, spend to date, plan to date, and the variance between the last two. Lines flagged <strong>Over pace</strong> are consuming faster than the year is passing: two quarters in, a line that has spent more than half its plan appears here.</p>
+<p>If your entity's actuals are fed from the finance ledger, those periods are read-only — hand-editing them would be silently overwritten by the next refresh.</p>
+<h3 id="36-variance">3.6 Variance</h3>
+<p>!<a href="#">Variance</a></p>
+<p>This year against last, biggest movements first. Remember the convention: <strong>red with ▲ means it went up</strong>, which in a cost tool is the direction that needs explaining.</p>
+<h3 id="37-submitting">3.7 Submitting</h3>
+<p>Use <strong>Submit for review</strong> in the header.</p>
+<p>Before it goes, Spendifre re-checks the validation rules <strong>on the server</strong>:</p>
+<ul><li><strong>Blocking</strong> rules stop the submission and tell you which rule and how many lines. Fix them and try again.</li><li><strong>Warnings</strong> do not stop you, but the CFO will see the same flags.</li></ul>
+<p>!<a href="#">Submissions</a></p>
+<p>The Submissions screen shows what you have sent and where it stands. When the CFO decides, their comment appears here.</p>
+<div class="tablewrap"><table><thead><tr><th>State</th><th>Meaning</th></tr></thead><tbody><tr><td>Draft</td><td>Not yet submitted; editable</td></tr><tr><td>Submitted</td><td>With the CFO</td></tr><tr><td>Changes requested</td><td>Returned to you with a comment; edit and resubmit</td></tr><tr><td>Approved</td><td>Locked. Editing needs a CFO or Finance Manager exception</td></tr><tr><td>Locked</td><td>The cycle is closed</td></tr></tbody></table></div>
+<p><strong>Once approved, your budget is immutable.</strong> If something genuinely must change, ask the CFO or a Finance Manager for a late-edit exception; it is time-limited and recorded with the reason.</p>
+<hr>
+<h2 id="4-cfo">4. CFO</h2>
+<p>You review and decide every submission. <strong>You cannot edit budget figures</strong> — that is deliberate, so that the person who decides is never the person who prepared.</p>
+<p>!<a href="#">CFO landing</a></p>
+<p>You can see every entity's budget in full; the editing controls are simply not there for you.</p>
+<h3 id="41-reviewing-submissions">4.1 Reviewing submissions</h3>
+<p>!<a href="#">CFO submissions</a></p>
+<p>One card per submission, with who submitted it, when, and how many lines have been approved or rejected so far.</p>
+<p><strong>Write your comment first</strong>, in the box above the cards — it is sent with your decision and is what the owner reads.</p>
+<div class="tablewrap"><table><thead><tr><th>Decision</th><th>Effect</th></tr></thead><tbody><tr><td><strong>Approve</strong></td><td>The budget is approved and becomes immutable</td></tr><tr><td><strong>Request more information</strong></td><td>Returns to the owner as <em>changes requested</em>, with your comment</td></tr><tr><td><strong>Reject</strong></td><td>Returns to draft</td></tr></tbody></table></div>
+<p>You can also decide <strong>individual lines</strong> — approve, reject, or ask a question against a specific line — or approve them all in one action.</p>
+<p><strong>You cannot approve a submission you made yourself.</strong> The database refuses it, not just the screen.</p>
+<h3 id="42-cost-centres">4.2 Cost centres</h3>
+<p>!<a href="#">Cost centre registry</a></p>
+<p>Group IT Finance creates cost centres; <strong>you approve them</strong>. Managers can only book budget lines to approved centres.</p>
+<p>You cannot approve a cost centre you created yourself — same rule as submissions, enforced the same way.</p>
+<p>Rejecting a centre does not silently clear it from lines already using it. Those lines keep showing the code, flagged, so the owner can see what needs changing.</p>
+<h3 id="43-consolidation">4.3 Consolidation</h3>
+<p>!<a href="#">Consolidation</a></p>
+<p>The group position: total, recorded spend, consumed percentage, category split and submission status per entity.</p>
+<p>Every figure is summed from line level. The category totals and the entity totals both add back to the same group total — if they ever did not, that is a bug, and there is a test that would have caught it.</p>
+<p>You only see entities in <strong>your deployment's region</strong>. Swiss and APAC entities are served by their own deployments; this is a data-residency requirement, not a permission.</p>
+<h3 id="44-cycle-control">4.4 Cycle control</h3>
+<p>You and the Finance Managers jointly own the cycle:</p>
+<ul><li><strong>Phase</strong> — collection → review → locked → reforecast.</li><li><strong>Lock date</strong> — closes submission on a date.</li><li><strong>Late-edit exceptions</strong> — reopen one entity for a set number of days, with a recorded reason.</li><li><strong>Validation rules</strong> — turn individual rules on or off, and choose whether each blocks or warns.</li></ul>
+<p>These are high-impact, so Spendifre asks you to sign in again if your session has been open for a while.</p>
+<hr>
+<h2 id="5-administrator">5. Administrator</h2>
+<p>You are Group IT Finance. You set up the cycle and run the platform.</p>
+<h3 id="51-template-and-reference-data">5.1 Template and reference data</h3>
+<ul><li><strong>Template fields</strong> — rename, reorder, require or hide any field. Applies to every entity in the cycle.</li><li><strong>Approval threshold</strong> — the EUR figure above which lines are flagged.</li><li><strong>Categories</strong> — add, rename, reorder, mark capex or opex.</li><li><strong>Cost centres</strong> — you create them; the CFO approves them.</li><li><strong>Entities</strong> — create, remove, assign owners, set the residency region.</li><li><strong>FX rates</strong> — the year-locked rate per currency.</li><li><strong>Allocation pools</strong> — central costs charged out on a driver key.</li><li><strong>Reminders</strong> — a message to a target role, with a sent log.</li></ul>
+<p><strong>On FX rates:</strong> changing a rate does <strong>not</strong> rewrite any stored figure. Amounts are held in each line's own currency and converted when read, so one change restates every derived figure consistently. Rates accept up to eight decimal places, which matters for currencies like VND and LAK.</p>
+<h3 id="52-consolidation">5.2 Consolidation</h3>
+<p>!<a href="#">Admin consolidation</a></p>
+<p>The same group view as the CFO, across every entity in your region.</p>
+<h3 id="53-data-governance">5.3 Data governance</h3>
+<p>!<a href="#">Data governance</a></p>
+<p><strong>Field classification</strong> — every field carries exactly one of Public, Internal, Confidential or Personal data.</p>
+<p><strong>Retention</strong> — how long each kind of data is kept. These are enforced by a scheduled job that records what it purged, not by policy alone.</p>
+<p><strong>Audit chain integrity</strong> — the banner at the top confirms the audit trail verifies end to end. Every audit entry is cryptographically linked to the one before it, so if any entry were altered or removed — even directly in the database — this check would name the exact point. <strong>If it ever shows a break, escalate immediately.</strong></p>
+<p><strong>Data subject requests</strong> — export everything held about one person, or pseudonymise a departed employee. Pseudonymising replaces their name and email and deletes their comments, but <strong>keeps the audit entries</strong>, which still prove who approved what without identifying a person. Deleting them would break both the audit chain and the statutory accounting record.</p>
+<h3 id="54-operations">5.4 Operations</h3>
+<p>!<a href="#">Operations</a></p>
+<p><strong>Run backup</strong> captures every table except live sessions, encrypted before it touches storage.</p>
+<p>!<a href="#">Backup complete</a></p>
+<p>Each backup records:</p>
+<div class="tablewrap"><table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td>Rows</td><td>How many records it captured</td></tr><tr><td>Size</td><td>Encrypted size</td></tr><tr><td><strong>Audit chain</strong></td><td>Whether the audit trail verified <strong>at the moment the backup was taken</strong></td></tr></tbody></table></div>
+<p>That last column is the useful one. A backup that captured an intact chain is evidence the record was sound at that point; one that captured a break tells you <em>when</em> the break happened.</p>
+<p><strong>Download</strong> decrypts and streams the archive to you. The file on disk stays encrypted, and its integrity is verified twice before a single byte is returned.</p>
+<p><strong>Export consolidation (XLSX)</strong> downloads the group position as a spreadsheet. Text is made safe to open — a vendor name beginning with <code>=</code> cannot execute as a formula in your Excel.</p>
+<p>Both actions are recorded in the audit trail with their row counts, and both ask you to re-authenticate if your session has been open a while. They move the entire dataset in one action, so that is intentional friction.</p>
+<blockquote>If <em>Run backup</em> is disabled, the deployment has no encryption key configured. Spendifre refuses to create a backup rather than writing one unencrypted.</blockquote>
+<hr>
+<h2 id="6-finance-manager-the-extra-powers">6. Finance Manager — the extra powers</h2>
+<p>You are a budget owner like any other, <strong>plus</strong> two things nobody else has:</p>
+<p><strong>Capex asset lives.</strong> You are the only role that can approve or reject the asset life on a capex line. Until you do, its depreciation schedule is provisional. Not the CFO, not the Administrator — only you.</p>
+<p><strong>Cycle co-ownership.</strong> You share phase, lock date, exceptions and validation rules with the CFO.</p>
+<hr>
+<h2 id="7-everyone">7. Everyone</h2>
+<h3 id="71-the-audit-trail">7.1 The audit trail</h3>
+<p>Everyone can see the audit trail, but <strong>what you see depends on your role</strong>.</p>
+<p>!<a href="#">Manager audit — own actions only</a></p>
+<p>Managers see <strong>only their own actions</strong>. This is not a display filter — the records are never fetched. The banner says so explicitly.</p>
+<p>!<a href="#">CFO audit — everything</a></p>
+<p>Administrators and the CFO see everything: every action, every actor, every entity.</p>
+<p>Filter by kind (change, approval, workflow, governance) or search the text. <strong>No one can edit or delete an audit entry</strong> — not administrators, not the database owner.</p>
+<h3 id="72-themes">7.2 Themes</h3>
+<p>!<a href="#">Light theme</a></p>
+<p><em>Light theme</em> / <em>Dark theme</em> at the bottom of the sidebar. Both meet the same contrast standard.</p>
+<h3 id="73-accessibility">7.3 Accessibility</h3>
+<ul><li>Everything is reachable by keyboard; a <em>Skip to main content</em> link appears on the first Tab.</li><li>The grid is a real table, so a screen reader announces the line, the period and the currency for each cell.</li><li>Every status colour is paired with a symbol.</li><li>Body text is never smaller than 14px.</li></ul>
+<h3 id="74-if-you-only-own-one-entity">7.4 If you only own one entity</h3>
+<p>!<a href="#">Single-entity role</a></p>
+<p>Roles scoped to one entity — Security, Architecture and PMO Managers — see no entity picker and no filter rows, because there is nothing to choose between. Consolidation is absent for the same reason.</p>
+<hr>
+<h2 id="8-what-each-role-can-and-cannot-do">8. What each role can and cannot do</h2>
+<p>The authoritative rules are in <code>SPEC.md</code> §5 and are enforced by the server. Hiding a button is presentation; the refusal is real.</p>
+<div class="tablewrap"><table><thead><tr><th>Capability</th><th>Admin</th><th>CFO</th><th>Finance Mgr</th><th>CIO/CTO/Infra</th><th>Security/Arch/PMO</th></tr></thead><tbody><tr><td>Edit own entity's lines</td><td>✓</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>Edit another entity's lines</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><td>View another entity's budget</td><td>✓</td><td>✓</td><td>read</td><td>read</td><td>—</td></tr><tr><td>Submit a budget</td><td>—</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>Approve / reject a submission</td><td>—</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Decide individual lines</td><td>—</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Approve a cost centre</td><td>—</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Create a cost centre</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Approve a capex asset life</td><td>—</td><td>—</td><td>✓</td><td>—</td><td>—</td></tr><tr><td>Move the cycle phase / lock date</td><td>—</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr><tr><td>Grant a late-edit exception</td><td>—</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr><tr><td>Define template fields</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Create / remove an entity</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Edit FX rates</td><td>✓</td><td>—</td><td>—</td><td>read</td><td>read</td></tr><tr><td>Record actual spend</td><td>✓</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>Edit allocation pools</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><td>View the full audit trail</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr><tr><td>View <strong>your own</strong> audit entries</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>Change classification / retention</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Run / download a backup</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div>
+<p>Two consequences worth stating plainly:</p>
+<ul><li><strong>The CFO cannot edit any figure.</strong> They approve, reject and ask questions.</li><li><strong>Only the Finance Manager approves capex asset lives</strong> — a deliberate split so no single person controls both the capital plan and its accounting treatment.</li></ul>
+<hr>
+<h2 id="9-when-something-is-refused">9. When something is refused</h2>
+<div class="tablewrap"><table><thead><tr><th>Message</th><th>Why</th><th>What to do</th></tr></thead><tbody><tr><td><em>You do not have permission to perform this action.</em></td><td>Your role does not hold the capability</td><td>Check §8. If it looks wrong, it is a group-membership question</td></tr><tr><td><em>Not found</em> on an entity you expected</td><td>Either it is outside your scope, or it belongs to another region</td><td>Deliberate: Spendifre does not confirm the existence of things you cannot see</td></tr><tr><td><em>Re-authentication is required for this action.</em></td><td>High-impact action, session open too long</td><td>Sign in again and retry</td></tr><tr><td><em>The record changed since you loaded it.</em></td><td>Someone else edited the same line</td><td>Reload and reapply your change — deliberately not silently overwritten</td></tr><tr><td><em>Budget is approved and immutable</em></td><td>The budget is approved or the cycle is locked</td><td>Ask the CFO or a Finance Manager for a late-edit exception</td></tr><tr><td><em>Cost centre is not approved</em></td><td>The centre is pending or rejected</td><td>Choose an approved centre, or ask the CFO to approve it</td></tr><tr><td><em>Only elapsed periods accept recorded spend</em></td><td>The period has not finished</td><td>Wait, or record against the current period</td></tr><tr><td><em>Amount is driver-computed</em></td><td>The line is driver-linked</td><td>Change the driver value or the rate, or unlink the driver</td></tr><tr><td><em>Blocking validation rules</em></td><td>A rule set to block is failing</td><td>The message names the rules; fix and resubmit</td></tr></tbody></table></div>
+<hr>
+<p><em>Spendifre is the Birgma / Biltema Group IT budget platform. Its governing specification is <code>SPEC.md</code>. For architecture see <a href="../architecture/"><code>docs/architecture/</code></a>; for the security posture see <a href="../threat-model.md"><code>docs/threat-model.md</code></a>.</em></p>
+<footer>Generated from <code>docs/user-guide/README.md</code>. Regenerate with <code>npm run docs:html</code>.</footer>
+</div>

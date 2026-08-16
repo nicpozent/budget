@@ -1,0 +1,17 @@
+sequenceDiagram
+  autonumber
+  actor O as Budget owner
+  participant UI as Bulk bar
+  participant API as API
+  participant DB as PostgreSQL
+
+  O->>UI: select lines, choose operation
+  UI->>API: POST /api/lines/bulk {operation, lineIds, ...}
+  API->>DB: load all named lines
+  API->>API: every line re-authorised individually
+  Note over API: a line from another entity<br/>cannot be smuggled into the list
+  API->>API: editability per entity (lock, phase, INV-5)
+  API->>DB: apply in one transaction
+  Note over API,DB: uplift goes through Money,<br/>not a SQL multiply, so rounding<br/>matches everywhere else
+  API->>DB: one audit event with the affected count
+  API-->>UI: {affected}

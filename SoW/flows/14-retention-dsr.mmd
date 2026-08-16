@@ -1,0 +1,14 @@
+graph TB
+  JOB(["Retention run"]):::start --> FT["free_text 36m:<br/>delete comments"]:::data
+  JOB --> IU["inactive_users 24m:<br/>deactivate"]:::data
+  JOB --> AUD["audit 84m:<br/>SECURITY DEFINER purge only"]:::ctrl
+  AUD --> RE["Re-anchor hash chain<br/>to the surviving head"]:::ctrl
+  JOB --> EV["Audit event with counts purged<br/>(PRIV-001)"]:::data
+  DSR(["Data subject request"]):::start --> EXP["Export: user record,<br/>own comments, own audit entries"]:::data
+  DSR --> PSE["Pseudonymise: email, name and oid<br/>replaced, free text deleted"]:::ctrl
+  PSE --> KEEP["Audit events survive and still<br/>hash-link — erasure must not<br/>break the chain (CMP-133)"]:::ctrl
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

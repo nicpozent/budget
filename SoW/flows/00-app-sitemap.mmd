@@ -1,0 +1,20 @@
+graph LR
+  APP(["Spendifre"]):::start
+  APP --> PLAN["Plan"]
+  APP --> ANALYSE["Analyse"]
+  APP --> APPROVE["Approve"]
+  APP --> GOVERN["Govern"]
+  PLAN --> P1["Budget entry<br/>grid, line drawer, bulk ops"]
+  PLAN --> P2["Actuals<br/>consumption vs pace"]
+  ANALYSE --> A1["Variance<br/>this year vs prior"]
+  ANALYSE --> A2["Consolidation<br/>group total, category split"]
+  APPROVE --> R1["Submissions<br/>submit / decide / per-line"]
+  APPROVE --> R2["Cost centres<br/>registry and approval"]
+  GOVERN --> G1["Audit trail"]
+  GOVERN --> G2["Data governance<br/>classification, retention, DSR"]
+  GOVERN --> G3["Operations<br/>backup, export"]
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

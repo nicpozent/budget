@@ -21,6 +21,25 @@ const envSchema = z.object({
   DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
 
   /**
+   * TLS for the application -> database hop (ZT-006).
+   *
+   * node-postgres does NOT negotiate TLS unless asked, and even `require` does
+   * not validate the server certificate — it encrypts against a passive
+   * listener but not against an active one. `verify-full` is the only mode that
+   * defends the path an attacker on the network segment would actually take, so
+   * it is the production default and `disable` is refused there.
+   *
+   *   disable      plaintext. Local development against a container with no cert.
+   *   require      encrypt, do not verify. Better than nothing, not a defence
+   *                against a man in the middle.
+   *   verify-full  encrypt, verify the chain and the hostname. Needs DB_CA_CERT
+   *                unless the server chains to a root the platform already trusts.
+   */
+  DB_SSL_MODE: z.enum(['disable', 'require', 'verify-full']).default('disable'),
+  /** PEM for the CA that signed the database's certificate, or a path to one. */
+  DB_CA_CERT: z.string().optional(),
+
+  /**
    * SPEC §9.4. The deployment's region. The application refuses to return a row
    * whose residency does not match, so a misrouted replica or a mistaken
    * connection string fails closed rather than exporting data across a border.
@@ -107,6 +126,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     }
     if (!cfg.PUBLIC_ORIGIN.startsWith('https://')) {
       throw new Error('PUBLIC_ORIGIN must be https in production');
+    }
+    if (cfg.DB_SSL_MODE === 'disable') {
+      throw new Error('DB_SSL_MODE must be require or verify-full in production');
     }
     if (cfg.SEED_MODE !== 'synthetic') {
       // Seeding a production database from any fixture is a mistake; the

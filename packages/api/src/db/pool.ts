@@ -9,6 +9,7 @@
  * values from a caller-supplied allow-list.
  */
 
+import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import type { AppConfig } from '../config.ts';
 
@@ -168,7 +169,43 @@ class PoolDb implements Db {
   }
 }
 
-export function createDb(config: Pick<AppConfig, 'DATABASE_URL' | 'DB_POOL_MAX' | 'DB_STATEMENT_TIMEOUT_MS'>): Db {
+export type DbConfig = Pick<
+  AppConfig,
+  'DATABASE_URL' | 'DB_POOL_MAX' | 'DB_STATEMENT_TIMEOUT_MS' | 'DB_SSL_MODE' | 'DB_CA_CERT'
+>;
+
+/**
+ * TLS settings for the connection (ZT-006).
+ *
+ * `require` is written as `rejectUnauthorized: false` because that is what it
+ * means: encrypt the channel, accept any certificate. It stops a passive
+ * listener and does nothing about an active one, which is why production
+ * refuses `disable` and should prefer `verify-full`.
+ */
+function sslOptions(config: DbConfig): false | { rejectUnauthorized: boolean; ca?: string } {
+  switch (config.DB_SSL_MODE) {
+    case 'disable':
+      return false;
+    case 'require':
+      return { rejectUnauthorized: false };
+    case 'verify-full':
+      return {
+        rejectUnauthorized: true,
+        // A PEM passed inline, or a path to one. Absent, Node falls back to the
+        // platform trust store, which is correct for Azure Database for
+        // PostgreSQL and wrong for a private CA — hence the explicit option.
+        ...(config.DB_CA_CERT
+          ? { ca: config.DB_CA_CERT.includes('BEGIN CERTIFICATE')
+              ? config.DB_CA_CERT
+              : readFileSync(config.DB_CA_CERT, 'utf8') }
+          : {}),
+      };
+    default:
+      return { rejectUnauthorized: true };
+  }
+}
+
+export function createDb(config: DbConfig): Db {
   const pool = new Pool({
     connectionString: config.DATABASE_URL,
     max: config.DB_POOL_MAX,
@@ -176,6 +213,7 @@ export function createDb(config: Pick<AppConfig, 'DATABASE_URL' | 'DB_POOL_MAX' 
     // Bound how long a single transaction may hold a connection open.
     idle_in_transaction_session_timeout: config.DB_STATEMENT_TIMEOUT_MS * 4,
     application_name: 'spendifre-api',
+    ssl: sslOptions(config),
   });
   return new PoolDb(pool, pool);
 }

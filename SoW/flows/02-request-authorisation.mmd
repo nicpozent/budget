@@ -1,0 +1,31 @@
+graph TB
+  REQ(["Incoming request"]):::start --> HDR["Security headers<br/>CSP nonce, HSTS, no-store"]:::ctrl
+  HDR --> DECL{"Route has a security<br/>declaration?"}:::ctrl
+  DECL -->|no| BOOT["Refused at registration<br/>server does not start"]:::ctrl
+  DECL -->|yes| RL["Rate limit<br/>per user, else per IP"]:::ctrl
+  RL --> SESS{"Valid session?"}
+  SESS -->|no| PUB{"Route public?"}
+  PUB -->|no| E401["401 unauthenticated"]:::ctrl
+  PUB -->|yes| H
+  SESS -->|yes| PRIV{"Privileged role?"}
+  PRIV -->|yes| DEV{"Compliant device<br/>and strong amr?"}:::ctrl
+  DEV -->|no| E401
+  DEV -->|yes| CSRF
+  PRIV -->|no| CSRF{"State-changing?"}
+  CSRF -->|yes| TOK{"CSRF token and<br/>same origin?"}:::ctrl
+  TOK -->|no| E403["403 forbidden"]:::ctrl
+  TOK -->|yes| CAP
+  CSRF -->|no| CAP{"Role holds the<br/>capability?"}
+  CAP -->|no| E403
+  CAP -->|yes| STEP{"Step-up capability?"}
+  STEP -->|yes, auth stale| E401S["401 step_up_required"]:::ctrl
+  STEP -->|no| H["Handler"]
+  H --> SCOPE{"Entity in scope<br/>and in region?"}
+  SCOPE -->|read, no| E404["404 not found"]:::ctrl
+  SCOPE -->|write, no| E403
+  SCOPE -->|yes| TX["Transaction:<br/>mutate + audit together"]:::data
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+

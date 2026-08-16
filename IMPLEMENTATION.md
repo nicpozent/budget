@@ -12,10 +12,11 @@ db/migrations      schema, append-only audit, least-privilege roles, backup mani
 db/fixtures        generated anonymised seed (gitignored — see below)
 tools/             offline tooling; the anonymiser lives here, not in packages/
 design/            the original prototypes, logos, and the real workbook extract
+docs/              architecture, security, privacy, operations — see docs/README.md
 docs/adr           five decisions with their reasoning
-docs/security      threat model (STRIDE + ATT&CK), NIST/Zero Trust, OSINT assessment
-docs/compliance    NIS2, GDPR/revFADP, APAC/PIPL position
-test/              359 tests: authorisation matrix, security, invariants, a11y, operations
+docs/user-guide    per-role guide, every feature, with screenshots
+SoW/               statement of work and the 28 flow diagrams
+test/              362 tests: authorisation matrix, security, invariants, a11y, operations
 ```
 
 ### Why the layout is this shape
@@ -78,7 +79,7 @@ npm run audit:ci
 | `SEC-022` boundary validation | Zod schemas, allow-list; `Money` rejects `NaN`, `Infinity` and exponent notation |
 | `SEC-023` formula injection | `escapeSpreadsheetValue`, applied to every text cell in the export |
 | `SEC-030`–`SEC-035` XSS, CSP, cookies, redirects | `http/security.ts`; nonce-based CSP with no `unsafe-inline` |
-| `ZT-001`–`ZT-008` Zero Trust | `auth/session.ts`, `http/guard.ts`; see `docs/security/nist-and-zero-trust.md` |
+| `ZT-001`–`ZT-008` Zero Trust | `auth/session.ts`, `http/guard.ts`; see `docs/nist-and-zero-trust.md` |
 | `FR-070`–`FR-073` audit | Append-only by grant **and** trigger **and** SHA-256 hash chain |
 | `A11Y-001`/`A11Y-002` | axe against the running app in a real browser, plus contrast maths over the palette |
 
@@ -136,7 +137,7 @@ false confidence. `CMP-107` needs a tested RTO/RPO.
 the FY2026 extract: live vendor names, contract values, and named individuals in
 the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
-`docs/security/osint-exposure.md`, which is the most important document here.
+`docs/osint-exposure.md`, which is the most important document here.
 
 **Residency is enforced in one place.** Every entity carries a region; the
 deployment carries its own. The single scope resolver applies both the caller's
@@ -176,6 +177,13 @@ Stated plainly rather than left to be discovered.
 - **`FR-080`** versions and scenarios remain deferred as the spec instructs, but
   amounts are addressable by `(line, fiscal_year, period, budget_version)` from
   day one, so adding the dimension is a data migration.
+- **Entra ID against a live tenant.** The OIDC client is written to spec —
+  authorisation code with PKCE S256, server-side single-use `state` and `nonce`
+  held in `auth_transactions`, discovery-driven metadata, and signature, issuer,
+  audience and nonce validation delegated to `openid-client` rather than
+  hand-rolled. It has never been pointed at a real tenant, so
+  treat first connection as an integration task with real findings in it
+  (group-to-role mapping and `amr` values in particular).
 - **Deployment:** no Bicep/Terraform, no SIEM wiring, no DAST run, no
   penetration test (`SEC-041`). The CI workflow defines the gates.
 - **`NFR-010`** strings are not externalised; formatting is locale-aware, the

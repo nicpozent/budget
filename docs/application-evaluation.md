@@ -1,0 +1,117 @@
+# Spendifre — Application Evaluation
+
+A structured assessment against engineering and product quality dimensions.
+Ratings are evidence-based (code, tests, CI, ADRs) and deliberately unkind where
+the evidence is thin. Scale:
+
+- **★★★★★ Excellent** — implemented, tested, documented, production-grade.
+- **★★★★☆ Strong** — implemented and tested; minor gaps noted.
+- **★★★☆☆ Adequate** — implemented; partial tests/docs or known limitations.
+- **★★☆☆☆ Partial** — scaffolded / in progress.
+- **★☆☆☆☆ Absent** — not started.
+
+_Last reviewed: v1 core, `claude/file-review-8a42qx`. 360 tests, 0 lint errors,
+0 dependency vulnerabilities, 6 direct production dependencies._
+
+## 1. Scorecard
+
+| # | Dimension | Rating | Evidence | Gaps / next |
+|---|---|---|---|---|
+| 1 | **Functional coverage** (vs `SPEC.md`) | ★★★☆☆ | Entry grid, line drawer, bulk ops, drivers, actuals/pace, capex schedules, submissions + per-line decisions, cost-centre registry, cycle/lock/exceptions, consolidation, variance, allocations, FX history, audit, governance, backup/export — all built and data-wired | **`FR-040` ledger integration absent** (largest gap); `FR-051` multi-stage approval, `FR-005` template versioning, `FR-033` depreciation flow-through; trend/FX-history/allocations have tested endpoints but no dedicated screen |
+| 2 | **Architecture & modularity** | ★★★★☆ | npm workspaces; pure `shared` package (no I/O) so the matrix and money type are directly testable; layered API; HLD + LLD + building blocks + 5 ADRs | Layer-split rather than feature-split — right at this size, revisit if the domain grows |
+| 3 | **Frontend engineering** | ★★★★☆ | React 18 + TS strict + Vite 6; external CSS tokens (no inline styles — the CSP forbids them); 0 lint errors; deterministic asset names | No route code-splitting (single 249 KB bundle — fine at this size); no client-side state library |
+| 4 | **Identity & access** | ★★★☆☆ | Entra OIDC authorisation code + **PKCE S256**, server-side state/nonce single-use, group→role with least privilege on multi-membership, JIT provisioning with safe account linking | **Never exercised against a live tenant.** The dev provider is what has been run. Conditional Access / PIM / FIDO2 are tenant configuration |
+| 5 | **Authorization model** | ★★★★★ | SPEC §5 matrix as frozen data; **an undeclared route throws at registration** so it cannot reach a running server; capability and entity scope as separate axes; 404-not-403 on out-of-scope reads; **203 assertions covering every role × capability pair**, generated from the matrix so a new capability without a probe fails the suite | — |
+| 6 | **Data & persistence** | ★★★★★ | PostgreSQL 16; three least-privilege roles; `numeric(18,4)` money with no float column anywhere; amounts addressable by `(line, year, period, version)` from day one; SoD as `CHECK` constraints; checksum-guarded migrations | — |
+| 7 | **Financial correctness** | ★★★★★ | `Money` over scaled `bigint`, string-only construction, rounding stated once; FX at read time so restatement is consistent; **`INV-4` property-tested over two partitions × five years**; optimistic concurrency with a real conflict path | — |
+| 8 | **Audit & non-repudiation** | ★★★★★ | Append-only by **grant, trigger and SHA-256 hash chain**; audit insert shares the handler transaction so an unrecorded change rolls back; `audit_verify_chain()` pinpoints tampering performed with the trigger disabled; completeness hook fails a 2xx state change that wrote no event | — |
+| 9 | **Security & hardening** | ★★★★☆ | Nonce CSP with no `unsafe-inline`; full header set; CSRF token + origin check + `SameSite`; rate limiting incl. per-route; bound-parameter SQL with an allow-list for identifiers and **lint rules that block the alternatives**; formula-injection guard verified by inflating a real workbook; step-up on irreversible actions; config fails closed in production; TLS to the database with `verify-full` | **No penetration test, no DAST** (`SEC-041`); no artefact signing; SIEM not wired |
+| 10 | **Privacy & data protection** | ★★★★☆ | Classification per field; retention enforced by a job that audits its counts; DSAR export and **erasure that pseudonymises while keeping the audit chain intact**; IP/UA only as salted hashes; residency enforced in the single scope resolver | Privacy notice, RoPA, DPIA sign-off and lawful basis are **open and organisational** (`CMP-130/131/134`) |
+| 11 | **Non-production data** | ★★★★☆ | Synthetic seed by default; offline anonymiser outside `packages/`; CI refuses any import of the workbook; **the anonymiser reports its own k-anonymity failure** rather than overclaiming | The real extract is still in the repository (`osint-exposure.md` §1); the anonymised fixture is pseudonymous, not anonymous |
+| 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | axe against the **running app in a real browser** across 8 views; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions | No external assistive-technology audit; no VPAT; strings not externalised |
+| 13 | **Observability** | ★★☆☆☆ | Structured JSON logs with credential redaction; per-request correlation ids; every authorisation denial logged with its reason; CSP violation sink; audit-completeness signal; health endpoint | **No OTLP traces, no metrics export, no SIEM shipping, no alert rules.** The three `ZT-008` alerts are specified, not configured. Weakest dimension |
+| 14 | **Testing** | ★★★★★ | 360 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **three real defects found by the suite during build** and each now has a regression test | No load test at monthly × version scale; no mutation testing |
+| 15 | **CI/CD** | ★★★★☆ | 8 gates: typecheck, lint, `npm audit`, build, tests, SBOM, CodeQL security-extended, gitleaks over full history, plus a confidential-data grep | **No deployment pipeline, no IaC**; no DAST stage; builds not reproducible or signed |
+| 16 | **Delivery & runtime** | ★★☆☆☆ | Single container serves shell + API; migrations separate by role; graceful shutdown; config fails closed | **No IaC, no container image, no environments provisioned.** Runtime topology is documented, not deployed |
+| 17 | **Backup & recovery** | ★★★☆☆ | Encrypted (AES-256-GCM, AAD binds id+region), integrity double-checked, **chain-attesting**, audited with counts, step-up and rate limited, admin UI | **Restore is not implemented** — deliberately, but it means `NFR-006`/`CMP-107` are unmet. No tested RTO/RPO |
+| 18 | **Supply chain** | ★★★★☆ | 6 direct production dependencies; lockfile; `npm audit` gate at high; SBOM per build; **two dependencies removed rather than accepted** after one produced a path-traversal advisory (ADR-0004) | No artefact signing, no reproducible builds, no provenance attestation |
+| 19 | **Governance & compliance** | ★★★★☆ | Threat model (STRIDE + LINDDUN + ATT&CK + attack trees), NIST CSF 2.0 profile, SP 800-207 maturity assessment, NIS2 position, GDPR/revFADP, Sweden-specific, DPIA input, pentest scope, OSINT assessment | Legal decisions outstanding: `CMP-140` PIPL (**blocks hosting**), `CMP-120` NIS2, lawful basis, MBL |
+| 20 | **Modelling depth** | ★★☆☆☆ | Single driver link with rate per unit; even spread with remainder; headcount toggle with dormancy; allocation pools on one driver key | **No scenarios/versions in use, no rolling forecast, no driver trees, no formula engine.** Schema is ready (`FR-080`); nothing writes a version other than `working` |
+| 21 | **i18n** | ★★☆☆☆ | Locale-aware currency, number and date formatting via `Intl` | Strings not externalised (`NFR-010`) |
+| 22 | **Documentation** | ★★★★★ | HLD, LLD, building blocks, 5 ADRs, threat model, security hardening, observability, accessibility, retention, secrets, Postgres TLS, Sweden compliance, DPIA input, pentest scope, OSINT, user stories, per-role user guide with screenshots, SoW with 28 flow diagrams | — |
+| 23 | **Maintainability / DX** | ★★★★☆ | Consistent patterns; comments explain *why* and cite requirement IDs; one command to migrate, seed, build and run; screenshots and flows regenerate from source | Node type-stripping means no parameter properties or enums — a small, documented constraint |
+
+## 2. Dimension notes
+
+**Authorization (5) is the strongest dimension** and deliberately so. The
+`onRoute` hook converts `SEC-010` from a review item into a framework
+guarantee: a route without a security declaration throws at registration, so it
+cannot reach a running server. The 203 assertions are generated *from the
+matrix*, which means adding a capability without wiring an endpoint fails the
+suite — the test cannot silently fall behind the model.
+
+**Audit (8) is the second.** Three independent controls — grants, trigger, hash
+chain — because any one can be misconfigured. The chain earns its place: a test
+disables the trigger, edits a row out of band, and asserts
+`audit_verify_chain()` names the exact sequence. That is the compromised-DBA and
+doctored-restore case, which grants and triggers cannot touch.
+
+**Observability (13) is the weakest**, and it is a real gap rather than a
+documentation one. Everything needed to *investigate* an incident exists; what
+is missing is anything that would *tell you* one is happening. The three
+`ZT-008` alerts are specified in `observability.md` §3 with the exact queries;
+nothing emits to a SIEM.
+
+**Identity (4) is rated 3 stars despite good code** because it has never run
+against a live tenant. The adapter is written to the OIDC specification with
+PKCE and single-use server-side state, and `mapGroupsToRole` is unit-tested —
+but "written correctly" and "verified end to end" are different claims and
+should not be conflated in an evaluation.
+
+**Modelling depth (20) is thin on purpose for v1**, and is the honest answer to
+"is this best of breed". Spendifre is a governed system of record; best-of-breed
+planning tools are calculation engines with a system of record attached. The
+version dimension exists in the schema, so scenarios are cheap to add — but
+today nothing writes anything except `working`.
+
+**Testing (14).** Worth recording that the suite found three genuine defects
+during construction: FX rates capped at 4 decimal places against a
+`numeric(18,8)` column (making VND, LAK and KRW unadministrable, *and* throwing
+inside a Zod refine so a 422 became a 500); the residency filter applied only to
+the entity list, so consolidation summed Swiss and Chinese entities into a EUR
+total served from the EU deployment; and framework-level 4xx errors reported as
+500. All three are now regression-tested.
+
+## 3. Top risks & recommended next steps
+
+| # | Risk | Impact | Recommendation |
+|---|---|---|---|
+| 1 | **`CMP-140` PIPL unresolved** | Blocks hosting topology and therefore go-live for CN entities | Legal decision. The code already fails closed — an EU deployment 404s `cn` rows even for an admin |
+| 2 | **Restore not implemented** | `NFR-006`/`CMP-107` unmet; a backup you cannot restore is not a backup | Build restore **and test it**. Publish RTO/RPO |
+| 3 | **Real workbook in the repository** | Vendor map, contract values and named employees exposed if the repo is or was public | Confirm visibility; remove; treat prior exposure as disclosure |
+| 4 | **No penetration test, no DAST** | Unknown unknowns in exactly the business-logic paths automation cannot reason about | Engage against staging using `pentest-scope.md` |
+| 5 | **No telemetry to a SIEM** | Mass export or a broken audit chain would be discovered by someone looking, not by an alert | Wire OTLP + the three named alert rules |
+| 6 | **Entra never tested live** | Sign-in may fail on first contact with the tenant | Stand up the app registration and run the flow end to end |
+| 7 | **No ledger integration** | Actuals are hand-typed; plan-vs-actual is only as good as data entry | `FR-040`. `actuals.source` is already the seam |
+| 8 | **No IaC or deployment pipeline** | Environments are hand-built and drift | Bicep/Terraform + a release pipeline |
+| 9 | **Anonymised fixture is pseudonymous** | Could be described as anonymous in a RoPA and be wrong | Already documented; needs Legal to agree the classification |
+
+## 4. Overall
+
+**★★★★☆ — strong engineering, incomplete product, undeployed.**
+
+The security, correctness and governance foundations are genuinely above what an
+internal tool of this size usually gets: authorisation that fails closed at
+registration time, an audit trail that detects tampering it cannot prevent,
+money that cannot lose precision, and a test suite that found three real defects
+while being written. The documentation set is complete enough for an ARB.
+
+Against that: it has never been deployed, never met a live Entra tenant, cannot
+restore its own backups, has no telemetry, and its planning model is thin
+compared with a commercial planning tool. None of those is a design flaw; all of
+them are work not yet done, and each is named in this document rather than left
+to be discovered.
+
+**Recommended posture:** treat v1 as feature-complete for a governed budget
+cycle, and spend the next increment on deployment readiness (restore, telemetry,
+IaC, penetration test, live Entra) before adding functionality.

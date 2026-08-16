@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor O as Budget owner
+  participant UI as Grid
+  participant API as API
+  participant DB as PostgreSQL
+
+  O->>UI: choose entity
+  UI->>API: GET /api/budget/:entityId
+  API->>DB: one query, lines + periods + actuals
+  API->>API: FX at read time, fold to totals
+  API-->>UI: lines, category totals, entity total
+  O->>UI: type a quarter amount
+  UI->>API: PUT /api/lines/:id/amounts {period, amount, unit, version}
+  API->>API: reject if driver-linked (INV-3)
+  API->>API: if unit=eur convert to local (FR-014)
+  API->>DB: version check, upsert amount, audit event
+  alt version stale
+    API-->>UI: 409 conflict, reload and retry
+  else applied
+    API-->>UI: 200, grid refetches
+  end

@@ -364,6 +364,10 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
         </div>
       </header>
 
+      {/* The drawer is a sibling of the scrolling view, not a child of it, so
+          it sits beside the grid rather than below it. `main` is a column, so
+          this row lives inside it. */}
+      <div className="workspace">
       <div className="view" tabIndex={0} aria-label="Budget entry content">
         {message ? <p className="banner banner-error">{message}</p> : null}
         <ValidationBanner violations={violations} />
@@ -411,6 +415,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
           onChanged={reload}
         />
       ) : null}
+      </div>
     </>
   );
 }

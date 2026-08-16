@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrator
+  participant API as API
+  participant DB as PostgreSQL
+  participant S as Encrypted storage
+
+  A->>API: POST /api/admin/backups
+  API->>API: capability + step-up + rate limit
+  API->>DB: reserve manifest row (status failed)
+  loop fixed table allow-list
+    API->>DB: select row_to_json(t)
+  end
+  API->>DB: audit_verify_chain() + head seq
+  API->>API: gzip, AES-256-GCM<br/>AAD = backup id : region
+  API->>S: write ciphertext (0600)
+  API->>DB: manifest: counts, sha256, iv, tag, chain state
+  API->>DB: audit event with row count
+  API-->>A: manifest
+  A->>API: GET /api/admin/backups/:id/download
+  API->>API: verify sha256, then GCM tag
+  API-->>A: attachment, audited separately

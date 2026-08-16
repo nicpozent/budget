@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant API as Spendifre API
+  participant DB as PostgreSQL
+  participant E as Microsoft Entra ID
+
+  B->>API: GET /auth/login?next=/
+  API->>DB: store state + nonce + PKCE verifier
+  API-->>B: 302 to Entra (code challenge S256)
+  B->>E: authenticate (Conditional Access, MFA, device)
+  E-->>B: 302 /auth/callback?code&state
+  B->>API: GET /auth/callback
+  API->>DB: consume state (single use)
+  API->>E: exchange code + PKCE verifier
+  E-->>API: id_token (groups, amr, oid, deviceid)
+  API->>API: groups to role, least privilege wins
+  API->>DB: link or provision user, create session
+  API-->>B: Set-Cookie sid (HttpOnly) + csrf
+  Note over API,DB: every later request re-derives<br/>role and entity scope from the session row

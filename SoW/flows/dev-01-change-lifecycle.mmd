@@ -1,0 +1,15 @@
+graph LR
+  REQ(["Requirement ID<br/>FR / SEC / ZT / PRIV"]):::start --> BR["Branch"]
+  BR --> CODE["Code + comment naming the ID"]
+  CODE --> TEST["Test that fails if the<br/>control is removed"]:::ctrl
+  TEST --> PR["Pull request"]
+  PR --> GATE["CI gates"]:::ctrl
+  GATE --> REV["Review against the<br/>definition of done"]
+  REV --> MERGE["Merge"]
+  MERGE --> ADR{"Decision worth<br/>recording?"}
+  ADR -->|yes| DOC["ADR in docs/adr"]:::data
+  classDef start fill:#0f9f76,stroke:#0b7a5a,color:#ffffff,font-weight:600;
+  classDef ctrl fill:#fdf0e3,stroke:#b45309,color:#7a3908;
+  classDef data fill:#e9f6f1,stroke:#0b7a5a,color:#08402f;
+  classDef ext fill:#eef2f7,stroke:#55647c,color:#22303f;
+
