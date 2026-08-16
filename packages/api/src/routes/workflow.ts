@@ -19,6 +19,8 @@ import { AppError, badRequest, conflict, forbidden, notFound } from '../http/err
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
 import { assertEntityEditable, evaluateValidationRules } from '../services/editability.ts';
+import { regenerateFlowThrough } from '../services/depreciation.ts';
+import { entityStateFor, outcomeOf, stageProgress } from '../services/approval.ts';
 import { visibleEntityIds } from './meta.ts';
 
 export async function registerWorkflowRoutes(
@@ -99,21 +101,52 @@ export async function registerWorkflowRoutes(
         throw forbidden('the actor who submits cannot be the actor who approves (SEC-012)');
       }
 
-      const nextState =
+      // FR-051 gates FR-052. Without this the CFO endpoint would be a bypass
+      // around any earlier stage an administrator configured, which would make
+      // the stages advisory rather than a control.
+      const progress = await stageProgress(db, submissionId);
+      const current = progress.find((s) => s.isCurrent);
+      if (current && current.requiredRole !== principal.role) {
+        // The reason travels in `fields`: which stage is waiting is already
+        // readable via GET /api/submissions/:id/stages, so stating it here is
+        // not a disclosure — and the generic conflict message would tell the
+        // CFO to reload, which would not help.
+        throw new AppError('conflict', `stage ${current.name} is not the CFO's`, {
+          stage: `"${current.name}" must be decided by ${current.requiredRole} before the CFO decides`,
+        });
+      }
+
+      const stageDecision =
         body.decision === 'approve' ? 'approved'
         : body.decision === 'reject' ? 'rejected'
         : 'changes_requested';
 
-      const entityState =
-        body.decision === 'approve' ? 'approved'
-        : body.decision === 'reject' ? 'draft'
-        : 'changes_requested';
+      const outcome = await db.transaction(async (tx) => {
+        // Record the CFO's decision against the stage it satisfies, so the two
+        // endpoints write one history rather than two that can disagree.
+        if (current) {
+          await tx.query(sql`
+            insert into submission_stage_decisions
+              (submission_id, stage_id, decision, comment, decided_by)
+            values (${submissionId}, ${current.id}, ${stageDecision}, ${body.comment},
+                    ${principal.userId})
+            on conflict (submission_id, stage_id)
+            do update set decision = excluded.decision, comment = excluded.comment,
+                          decided_by = excluded.decided_by, decided_at = now()
+          `);
+        }
 
-      await db.transaction(async (tx) => {
+        const resolved = current
+          ? outcomeOf(await stageProgress(tx, submissionId))
+          : ({ state: stageDecision } as const);
+        const entityState = entityStateFor(resolved);
+
         await tx.query(sql`
           update submissions
-          set state = ${nextState}, decided_by = ${principal.userId},
-              decided_at = now(), comment = ${body.comment}
+          set state = ${resolved.state},
+              decided_by = ${resolved.state === 'submitted' ? null : principal.userId},
+              decided_at = ${resolved.state === 'submitted' ? null : new Date()},
+              comment = ${body.comment}
           where id = ${submissionId}
         `);
         await tx.query(sql`
@@ -127,13 +160,19 @@ export async function registerWorkflowRoutes(
           entityId: submission.entity_id,
           // FR-052: the free-text request is part of the record and is visible
           // to the owner, so it belongs in the audit detail too.
-          detail: `${body.decision}: ${body.comment}`,
+          detail:
+            `${body.decision}: ${body.comment}` +
+            (current ? ` (stage "${current.name}")` : ''),
           kind: 'approval',
           request,
         });
+        return resolved;
       });
 
-      return { state: nextState };
+      return {
+        state: outcome.state,
+        awaiting: outcome.state === 'submitted' ? outcome.awaiting.name : null,
+      };
     },
   );
 
@@ -425,6 +464,74 @@ export async function registerWorkflowRoutes(
       order by r.sent_at desc limit 100
     `),
   );
+
+  /**
+   * FR-033: turn the flow-through on or off, and regenerate on demand.
+   *
+   * The toggle lives on the cycle because it is a planning-policy decision, not
+   * a per-entity one — either the group plans next year's depreciation into
+   * next year's opex or it does not.
+   */
+  app.post('/api/cycle/depreciation-flow-through', { config: requires('cycle.rules') }, async (request) => {
+    const { enabled } = parse(z.object({ enabled: z.boolean() }), request.body);
+    const principal = principalOf(request);
+
+    const result = enabled ? await regenerateFlowThrough(db, year) : null;
+
+    await db.transaction(async (tx) => {
+      await tx.query(sql`
+        update cycles set depreciation_flow_through = ${enabled}, updated_at = now()
+        where fiscal_year = ${year}
+      `);
+      if (!enabled) {
+        // Turning it off withdraws the derived lines. They are regenerable, so
+        // this is reversible; leaving stale charges in a plan would not be.
+        await tx.query(sql`
+          update line_items set deleted_at = now()
+          where derived_kind = 'depreciation' and deleted_at is null
+        `);
+      }
+      await writeAudit(tx, {
+        actor: principal,
+        action: 'cycle.depreciation_flow_through',
+        targetType: 'cycle',
+        targetId: null,
+        detail: enabled
+          ? `Depreciation flow-through enabled: ${result!.linesWritten} derived opex lines ` +
+            `totalling ${result!.totalCharge} written into FY${result!.targetYear} ` +
+            `across ${result!.entitiesAffected} entities (FR-033)`
+          : 'Depreciation flow-through disabled; derived opex lines withdrawn',
+        kind: 'change',
+        request,
+      });
+    });
+
+    return { enabled, ...(result ?? {}) };
+  });
+
+  /** FR-033 preview: what next year's opex would carry, without writing it. */
+  app.get('/api/reports/depreciation-flow-through', { config: authenticatedRoute }, async (request) => {
+    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    if (ids.length === 0) return { targetYear: year + 1, lines: [] };
+    return {
+      targetYear: year + 1,
+      lines: await db.query(sql`
+        select d.id, d.name, e.code as "entityCode", d.currency,
+               src.name as "sourceLine", src.asset_life_years as "assetLifeYears",
+               coalesce((
+                 select sum(pa.amount) from period_amounts pa
+                 where pa.line_id = d.id and pa.fiscal_year = ${year + 1}
+                   and pa.budget_version = 'working'
+               ), 0)::text as charge
+        from line_items d
+        join line_items src on src.id = d.derived_from_line_id
+        join entities e on e.id = d.entity_id
+        where d.derived_kind = 'depreciation' and d.deleted_at is null
+          and d.entity_id = any(${ids}::uuid[])
+        order by e.code, d.name
+      `),
+    };
+  });
 
   /** FR-031 the Finance Manager approves or rejects each capex asset life. */
   app.post('/api/lines/:lineId/asset-life', { config: requires('capex.approveAssetLife') }, async (request) => {

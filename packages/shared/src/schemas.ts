@@ -272,3 +272,79 @@ export const classificationSchema = z.object({
   fieldKey: z.string().max(128).regex(/^[a-z][a-z0-9_.]{0,127}$/),
   dataClass,
 });
+
+// ---------------------------------------------------------------------------
+// FR-005 template versioning
+// ---------------------------------------------------------------------------
+
+export const templateVersionCreateSchema = z.object({
+  /** Optional note describing what changed. Shown in the version list. */
+  note: shortText(500).optional(),
+});
+
+export const templateFieldSchema = z.object({
+  fieldKey: z.string().max(64).regex(/^[a-z][a-z0-9_]{0,63}$/, 'must be a lower-case key'),
+  label: shortText(120),
+  fieldType,
+  required: z.boolean(),
+  visible: z.boolean(),
+  position: z.number().int().min(0).max(999),
+});
+
+// ---------------------------------------------------------------------------
+// FR-051 configurable approval stages
+// ---------------------------------------------------------------------------
+
+/**
+ * The role a stage requires is validated against `STAGE_APPROVER_ROLES` in the
+ * handler rather than here: the permitted set is derived from the permission
+ * matrix, and this module must not import the matrix to stay a pure leaf.
+ */
+export const approvalStageSchema = z.object({
+  name: shortText(120),
+  requiredRole: z.string().max(32).regex(/^[a-z][a-z_]{0,31}$/),
+  /** A stage applies only to submissions at or above this EUR total. */
+  minAmountEur: moneyString,
+  enabled: z.boolean(),
+});
+
+/** Reorder is a whole-list operation: partial reorders can produce duplicates. */
+export const approvalStageOrderSchema = z.object({
+  /** Stage ids in their new order. Must be the complete set for the year. */
+  stageIds: z.array(uuid).min(1).max(20),
+});
+
+export const stageDecisionSchema = z.object({
+  stageId: uuid,
+  decision: z.enum(['approved', 'rejected', 'changes_requested']),
+  comment: longText(4000).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// FR-040 ledger ingestion
+// ---------------------------------------------------------------------------
+
+/** The feed's own identifier for a row or a batch. Opaque to us; bounded here. */
+export const ledgerRef = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/, 'must be an alphanumeric reference');
+
+export const ledgerRowSchema = z.object({
+  /** Addressed by the line's stable external key, not by our UUID. */
+  lineRef: ledgerRef,
+  period,
+  amount: moneyString,
+  /** The ledger's reference for the posting, kept for reconciliation. */
+  postingRef: ledgerRef.optional(),
+});
+
+export const ledgerBatchSchema = z.object({
+  externalRef: ledgerRef,
+  fiscalYear,
+  sourceSystem: shortText(64),
+  // Bounded because the whole batch is validated and applied in one
+  // transaction; an unbounded array is a memory and lock-duration problem.
+  rows: z.array(ledgerRowSchema).min(1).max(5000),
+});

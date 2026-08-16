@@ -52,7 +52,22 @@ export const CAPABILITIES = [
   'submission.decide',
   'submission.requestInfo',
   'submission.decideLine',
+  // FR-051: a decision at one configured stage. The capability says "may act as
+  // an approver at all"; the stage's own `required_role` says "at this stage".
+  // Two checks, because a stage is data an administrator can change and a
+  // capability is not.
+  'submission.decideStage',
   'template.define',
+  // FR-005: publishing freezes a template version. Separate from `template.define`
+  // because defining a field is reversible and publishing is not — in-flight
+  // budgets pin the version they started on.
+  'template.publish',
+  // FR-051: SPEC §4 gives the Administrator the approval workflow, which is why
+  // this is not held by the roles that approve. An approver who could redraw
+  // their own gate would defeat the point of having stages.
+  'approval.configure',
+  // FR-040: bulk ingestion of actuals from the ledger.
+  'ledger.ingest',
   'costCentre.create',
   'costCentre.approve',
   'entity.manage',
@@ -115,7 +130,11 @@ export const PERMISSION_MATRIX: Readonly<Record<Capability, Row>> = Object.freez
   'submission.decide': row(['cfo']),
   'submission.requestInfo': row(['cfo']),
   'submission.decideLine': row(['cfo']),
+  'submission.decideStage': row(['cfo', 'finance_manager', 'cio', 'cto']),
   'template.define': row(['admin']),
+  'template.publish': row(['admin']),
+  'approval.configure': row(['admin']),
+  'ledger.ingest': row(['admin']),
   'costCentre.create': row(['admin']),
   'costCentre.approve': row(['cfo']),
   'entity.manage': row(['admin']),
@@ -133,6 +152,16 @@ export const PERMISSION_MATRIX: Readonly<Record<Capability, Row>> = Object.freez
   'backup.run': row(['admin']),
   'backup.download': row(['admin']),
 });
+
+/**
+ * Roles an approval stage may name (FR-051). Derived from the matrix rather
+ * than listed a second time, so a stage can never require a role that would be
+ * refused the capability to act on it — the misconfiguration is impossible at
+ * write time instead of discovered when a submission wedges.
+ */
+export const STAGE_APPROVER_ROLES: readonly Role[] = Object.freeze(
+  ROLES.filter((r) => PERMISSION_MATRIX['submission.decideStage'][r]),
+);
 
 export function can(role: Role, capability: Capability): boolean {
   // Deny by default: an unknown role or capability is a denial, never a throw
@@ -182,13 +211,24 @@ export const STEP_UP_CAPABILITIES: readonly Capability[] = Object.freeze([
   'submission.decide',
   'cycle.phase',
   'cycle.exception',
+  'submission.decideStage',
   'governance.edit',
   'entity.manage',
+  // FR-005/FR-051: publishing a template version and redrawing the approval
+  // gates both change the rules under everyone at once, and neither can be
+  // undone by editing the thing back.
+  'template.publish',
+  'approval.configure',
   // A backup is a complete copy of the dataset and a download moves it out of
   // the system boundary. Both warrant fresh authentication (ZT-007) and both
   // are the shape ZT-008 asks us to alert on.
   'backup.run',
   'backup.download',
+  // `ledger.ingest` is deliberately absent. It is designed to be called by a
+  // nightly integration, which cannot satisfy an interactive re-authentication;
+  // requiring step-up would only guarantee the control is disabled in practice.
+  // It is compensated instead: admin-only, rate limited, idempotent by batch,
+  // and audited with row counts so ZT-008 can alert on volume.
 ]);
 
 export function requiresStepUp(capability: Capability): boolean {

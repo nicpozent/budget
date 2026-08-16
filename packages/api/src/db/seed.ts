@@ -169,12 +169,37 @@ export async function seedFrom(
         on conflict (code) do nothing
       `);
     }
+    // -- Template version 1 (FR-005). Fields belong to a version, so the
+    //    version has to exist before any field does.
+    const templateVersion = await tx.one<{ id: string }>(sql`
+      insert into template_versions (fiscal_year, version, state, note, published_by, published_at)
+      values (${fiscalYear}, 1, 'published', 'Initial template', ${adminId}, now())
+      on conflict (fiscal_year, version) do update set note = excluded.note
+      returning id
+    `);
     for (const [i, field] of TEMPLATE_FIELDS.entries()) {
       await tx.query(sql`
-        insert into template_fields (fiscal_year, field_key, label, field_type, required, visible, position)
-        values (${fiscalYear}, ${field.key}, ${field.label}, ${field.type},
+        insert into template_fields
+          (fiscal_year, template_version_id, field_key, label, field_type, required, visible, position)
+        values (${fiscalYear}, ${templateVersion!.id}, ${field.key}, ${field.label}, ${field.type},
                 ${field.required}, ${field.visible}, ${i})
-        on conflict (fiscal_year, field_key) do nothing
+        on conflict (template_version_id, field_key) do nothing
+      `);
+    }
+
+    // -- Approval stages (FR-051). Two stages so the threshold condition is
+    //    exercised by the fixture rather than only by tests: everything passes
+    //    Finance review, and only budgets at or above €1M also need the CFO.
+    for (const stage of [
+      { position: 1, name: 'Finance review', role: 'finance_manager', min: '0' },
+      { position: 2, name: 'CFO sign-off', role: 'cfo', min: '1000000' },
+    ]) {
+      await tx.query(sql`
+        insert into approval_stages (fiscal_year, position, name, required_role, min_amount_eur)
+        values (${fiscalYear}, ${stage.position}, ${stage.name}, ${stage.role}, ${stage.min})
+        on conflict (fiscal_year, position) do update
+          set name = excluded.name, required_role = excluded.required_role,
+              min_amount_eur = excluded.min_amount_eur
       `);
     }
     for (const c of CLASSIFICATIONS) {
@@ -196,9 +221,10 @@ export async function seedFrom(
     const entityIds = new Map<string, string>();
     for (const [index, entity] of dataset.entities.entries()) {
       const row = await tx.one<{ id: string }>(sql`
-        insert into entities (code, name, currency, residency, deadline, state)
+        insert into entities
+          (code, name, currency, residency, deadline, state, template_version_id)
         values (${entity.code}, ${entity.name}, ${entity.currency}, ${entity.residency},
-                ${`${fiscalYear - 1}-11-30`}, 'draft')
+                ${`${fiscalYear - 1}-11-30`}, 'draft', ${templateVersion!.id})
         on conflict (code) do update set name = excluded.name
         returning id
       `);
@@ -233,7 +259,8 @@ export async function seedFrom(
       const row = await tx.one<{ id: string }>(sql`
         insert into line_items (
           entity_id, category_id, name, vendor, cost_centre_id, gl_account,
-          cost_type, currency, justification, asset_life_years, asset_life_status
+          cost_type, currency, justification, asset_life_years, asset_life_status,
+          ledger_ref
         ) values (
           ${entityId}, ${categoryId}, ${line.name}, ${line.vendor},
           ${approvedCentres[Math.floor(rng() * approvedCentres.length)]!},
@@ -241,7 +268,10 @@ export async function seedFrom(
           ${isCapex ? 'capex' : 'opex'}, ${line.currency},
           ${rng() > 0.6 ? `Planned spend for ${line.categoryName.toLowerCase()}.` : null},
           ${isCapex ? 3 + Math.floor(rng() * 3) : null},
-          ${isCapex ? 'approved' : null}
+          ${isCapex ? 'approved' : null},
+          -- FR-040: a stable external key so a ledger feed can address the line
+          -- without knowing our UUIDs.
+          ${`${line.entityCode}-${String(lineCount).padStart(4, '0')}`}
         ) returning id
       `);
       lineCount += 1;

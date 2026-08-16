@@ -1,6 +1,8 @@
 /**
- * Administration and governance (FR-001..FR-004, FR-013, FR-014, FR-020,
- * FR-023, SPEC §9).
+ * Administration and governance (FR-013, FR-014, FR-020, FR-023, SPEC §9).
+ *
+ * Template definition lives in `routes/template.ts` and approval configuration
+ * in `routes/approvals.ts` — see docs/adr/0006-route-modules.md.
  *
  * Everything here is a privileged capability, so every route carries a
  * step-up-eligible declaration and writes a `governance` or `change` audit
@@ -26,111 +28,6 @@ export async function registerAdminRoutes(
   config: AppConfig,
 ): Promise<void> {
   const year = config.FISCAL_YEAR;
-
-  // -------------------------------------------------------------------------
-  // Template (FR-001..FR-004)
-  // -------------------------------------------------------------------------
-
-  app.get('/api/template/fields', { config: authenticatedRoute }, async () =>
-    db.query(sql`
-      select id, field_key as "fieldKey", label, field_type as "fieldType",
-             required, visible, position
-      from template_fields where fiscal_year = ${year} order by position
-    `),
-  );
-
-  app.patch('/api/template/fields/:fieldId', { config: requires('template.define') }, async (request) => {
-    const { fieldId } = parse(z.object({ fieldId: schemas.uuid }), request.params);
-    const body = parse(
-      z.object({
-        label: schemas.shortText(120).optional(),
-        required: z.boolean().optional(),
-        visible: z.boolean().optional(),
-        position: z.number().int().min(0).max(500).optional(),
-      }),
-      request.body,
-    );
-    const principal = principalOf(request);
-
-    await db.transaction(async (tx) => {
-      const updated = await tx.one<{ field_key: string }>(sql`
-        update template_fields set
-          label    = coalesce(${body.label ?? null}, label),
-          required = coalesce(${body.required ?? null}, required),
-          visible  = coalesce(${body.visible ?? null}, visible),
-          position = coalesce(${body.position ?? null}, position)
-        where id = ${fieldId} and fiscal_year = ${year}
-        returning field_key
-      `);
-      if (!updated) throw notFound('field does not exist');
-      await writeAudit(tx, {
-        actor: principal,
-        action: 'template.field.update',
-        targetType: 'template_field',
-        targetId: fieldId,
-        detail: `Updated field ${updated.field_key}`,
-        kind: 'governance',
-        request,
-      });
-    });
-
-    return { ok: true };
-  });
-
-  app.post('/api/template/threshold', { config: requires('template.define') }, async (request) => {
-    const { amount } = parse(z.object({ amount: schemas.moneyString }), request.body);
-    const principal = principalOf(request);
-
-    await db.transaction(async (tx) => {
-      await tx.query(sql`
-        update cycles set approval_threshold_eur = ${amount}, updated_at = now()
-        where fiscal_year = ${year}
-      `);
-      await writeAudit(tx, {
-        actor: principal,
-        action: 'template.threshold',
-        targetType: 'cycle',
-        targetId: null,
-        detail: `Approval threshold set to ${amount} EUR`,
-        kind: 'governance',
-        request,
-      });
-    });
-
-    return { ok: true };
-  });
-
-  app.post('/api/categories', { config: requires('template.define') }, async (request, reply) => {
-    const body = parse(
-      z.object({
-        name: schemas.shortText(120),
-        costType: schemas.costType,
-        position: z.number().int().min(0).max(500),
-      }),
-      request.body,
-    );
-    const principal = principalOf(request);
-
-    const created = await db.transaction(async (tx) => {
-      const row = await tx.one<{ id: string }>(sql`
-        insert into categories (name, cost_type, position)
-        values (${body.name}, ${body.costType}, ${body.position})
-        returning id
-      `);
-      await writeAudit(tx, {
-        actor: principal,
-        action: 'category.create',
-        targetType: 'category',
-        targetId: row?.id ?? null,
-        detail: `Created category "${body.name}"`,
-        kind: 'governance',
-        request,
-      });
-      return row;
-    });
-
-    return reply.status(201).send({ id: created?.id });
-  });
 
   // -------------------------------------------------------------------------
   // Cost centres (FR-013, SEC-012)

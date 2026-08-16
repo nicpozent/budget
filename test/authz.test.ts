@@ -44,6 +44,8 @@ interface Ids {
   submissionId: string;
   ruleId: string;
   fieldId: string;
+  stageSubmissionId: string;
+  templateVersionId: string;
   userId: string;
 }
 
@@ -87,10 +89,45 @@ const PROBES: Record<Capability, Probe> = {
     method: 'POST',
     url: (ids) => `/api/submissions/${ids.submissionId}/approve-all-lines`,
   },
+  // A stage names exactly one role, so no single stage can be "allowed" for
+  // all four capability holders — deciding one is a two-axis question, the same
+  // shape as capability-versus-entity-scope. This probe isolates the capability
+  // axis: an unknown stage id resolves to 404 for every role that holds the
+  // capability, and the guard still returns 403 for every role that does not.
+  // The stage semantics themselves (role condition, threshold, ordering,
+  // segregation of duties) are asserted in test/approvals.test.ts.
+  'submission.decideStage': {
+    method: 'POST',
+    url: (ids) => `/api/submissions/${ids.stageSubmissionId}/stage-decision`,
+    body: {
+      stageId: '00000000-0000-4000-8000-000000000000',
+      decision: 'approved',
+      comment: 'probe',
+    },
+  },
   'template.define': {
     method: 'PATCH',
     url: (ids) => `/api/template/fields/${ids.fieldId}`,
     body: { label: 'probe' },
+  },
+  'template.publish': {
+    method: 'POST',
+    url: (ids) => `/api/template/versions/${ids.templateVersionId}/publish`,
+  },
+  'approval.configure': {
+    method: 'POST',
+    url: '/api/approval-stages',
+    body: { name: 'Probe stage', requiredRole: 'cfo', minAmountEur: '0', enabled: true },
+  },
+  'ledger.ingest': {
+    method: 'POST',
+    url: '/api/ledger/actuals',
+    body: {
+      externalRef: 'probe-batch',
+      fiscalYear: 2026,
+      sourceSystem: 'probe',
+      rows: [{ lineRef: 'probe-ref', period: 1, amount: '1' }],
+    },
   },
   'costCentre.create': {
     method: 'POST',
@@ -197,6 +234,27 @@ beforeAll(async () => {
   `);
   const rule = await db.one<{ id: string }>(sql`select id from validation_rules limit 1`);
   const field = await db.one<{ id: string }>(sql`select id from template_fields limit 1`);
+  // FR-051: a submission whose submitter holds none of the stage-approver
+  // roles, so the segregation-of-duties refusal cannot mask the capability
+  // check for any role the matrix says is allowed.
+  const pmoUser = await db.one<{ id: string }>(sql`
+    select id from users where email = 'pmo@birgma.test'
+  `);
+  const stageSubmission = await db.one<{ id: string }>(sql`
+    insert into submissions (entity_id, fiscal_year, submitted_by)
+    values (${owned!.entity_id}, 2026, ${pmoUser!.id}) returning id
+  `);
+  // FR-005: a draft version, so the publish probe exercises a real transition
+  // for the allowed role rather than bouncing off "already published".
+  const templateVersion = await db.one<{ id: string }>(sql`
+    insert into template_versions (fiscal_year, version, state, note)
+    values (2026, 99, 'draft', 'authz probe') returning id
+  `);
+  await db.query(sql`
+    insert into template_fields
+      (fiscal_year, template_version_id, field_key, label, field_type, required, visible, position)
+    values (2026, ${templateVersion!.id}, 'probe_field', 'Probe', 'text', false, true, 0)
+  `);
 
   // A submission to decide on, created by the finance manager so that the
   // segregation-of-duties path is exercised by the CFO probe.
@@ -220,6 +278,8 @@ beforeAll(async () => {
     submissionId: submission!.id,
     ruleId: rule!.id,
     fieldId: field!.id,
+    stageSubmissionId: stageSubmission!.id,
+    templateVersionId: templateVersion!.id,
     userId: financeUser!.id,
   };
 });
