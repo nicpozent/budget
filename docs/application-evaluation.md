@@ -25,7 +25,7 @@ change is still stated as a gap.*
 | 2 | **Architecture & modularity** | ★★★★★ | npm workspaces; pure `shared` package (no I/O) so the matrix and money type are directly testable; **routes split by domain, services by layer** once four subsystems arrived at once (ADR-0006), keeping `guard.ts`/`pool.ts`/`audit.ts` singular and reviewable; FR-051's gating logic is a pure function tested without a request; HLD + LLD + building blocks + 6 ADRs | — |
 | 3 | **Frontend engineering** | ★★★★★ | React 18 + TS strict + Vite 6; external CSS tokens (no inline styles — the CSP forbids them); 0 lint errors; deterministic asset names; **route-level splitting** (98 KB app + 143 KB vendor + per-view chunks a role may never fetch) with the split **asserted in a real browser under the real CSP**, because a dynamic import does not inherit the shell nonce; shared store on `useSyncExternalStore` replacing per-view refetching | Splitting is per view, not per route segment — there is no router. Deliberate: the client owns one navigation state |
 | 4 | **Identity & access** | ★★★☆☆ | Entra OIDC authorisation code + **PKCE S256**, server-side state/nonce single-use, group→role with least privilege on multi-membership, JIT provisioning with safe account linking | **Never exercised against a live tenant.** The dev provider is what has been run. Conditional Access / PIM / FIDO2 are tenant configuration |
-| 5 | **Authorization model** | ★★★★★ | SPEC §5 matrix as frozen data; **an undeclared route throws at registration** so it cannot reach a running server; capability and entity scope as separate axes; 404-not-403 on out-of-scope reads; **216 assertions covering every role × capability pair** (24 capabilities × 9 roles), generated from the matrix so a new capability without a probe fails the suite | — |
+| 5 | **Authorization model** | ★★★★★ | SPEC §5 matrix as frozen data; **an undeclared route throws at registration** so it cannot reach a running server; capability and entity scope as separate axes; 404-not-403 on out-of-scope reads; **252 assertions covering every role × capability pair** (28 capabilities × 9 roles), generated from the matrix so a new capability without a probe fails the suite | — |
 | 6 | **Data & persistence** | ★★★★★ | PostgreSQL 16; three least-privilege roles; `numeric(18,4)` money with no float column anywhere; amounts addressable by `(line, year, period, version)` from day one; SoD as `CHECK` constraints; checksum-guarded migrations | — |
 | 7 | **Financial correctness** | ★★★★★ | `Money` over scaled `bigint`, string-only construction, rounding stated once; FX at read time so restatement is consistent; **`INV-4` property-tested over two partitions × five years**; optimistic concurrency with a real conflict path | — |
 | 8 | **Audit & non-repudiation** | ★★★★★ | Append-only by **grant, trigger and SHA-256 hash chain**; audit insert shares the handler transaction so an unrecorded change rolls back; `audit_verify_chain()` pinpoints tampering performed with the trigger disabled; completeness hook fails a 2xx state change that wrote no event | — |
@@ -50,9 +50,11 @@ change is still stated as a gap.*
 **Authorization (5) is the strongest dimension** and deliberately so. The
 `onRoute` hook converts `SEC-010` from a review item into a framework
 guarantee: a route without a security declaration throws at registration, so it
-cannot reach a running server. The 216 assertions are generated *from the
+cannot reach a running server. The 252 assertions are generated *from the
 matrix*, which means adding a capability without wiring an endpoint fails the
-suite — the test cannot silently fall behind the model.
+suite — the test cannot silently fall behind the model. That is not
+hypothetical: adding four capabilities for FR-005, FR-040 and FR-051 failed the
+suite immediately, before a line of the new features had been wired up.
 
 **Audit (8) is the second.** Three independent controls — grants, trigger, hash
 chain — because any one can be misconfigured. The chain earns its place: a test
@@ -112,13 +114,14 @@ total served from the EU deployment; and framework-level 4xx errors reported as
 | 4 | **No penetration test, no DAST** | Unknown unknowns in exactly the business-logic paths automation cannot reason about | Engage against staging using `pentest-scope.md` |
 | 5 | **No telemetry to a SIEM** | Mass export or a broken audit chain would be discovered by someone looking, not by an alert | Wire OTLP + the three named alert rules |
 | 6 | **Entra never tested live** | Sign-in may fail on first contact with the tenant | Stand up the app registration and run the flow end to end |
-| 7 | **No ledger integration** | Actuals are hand-typed; plan-vs-actual is only as good as data entry | `FR-040`. `actuals.source` is already the seam |
+| 7 | **No ledger feed connected** | The ingest endpoint is built and tested; nothing sends to it, so actuals are still hand-typed | Choose the source system and stand up the job. A service principal holding `ledger.ingest` alone is the missing identity |
 | 8 | **No IaC or deployment pipeline** | Environments are hand-built and drift | Bicep/Terraform + a release pipeline |
-| 9 | **Anonymised fixture is pseudonymous** | Could be described as anonymous in a RoPA and be wrong | Already documented; needs Legal to agree the classification |
+| 9 | **Anonymised fixture is pseudonymous** | Could be described as anonymous in a RoPA and be wrong | Already documented, and `ropa.md` §5 names it. Needs Legal to agree the classification |
+| 10 | **No assistive-technology testing** | `vpat.md` claims conformance a screen-reader user has never checked; a VPAT that overstates is worse than none | Commission a screen-reader audit. The rows marked *not independently verified* are where to start |
 
 ## 4. Overall
 
-**★★★★☆ — strong engineering, incomplete product, undeployed.**
+**★★★★☆ — strong engineering, largely complete product, undeployed.**
 
 The security, correctness and governance foundations are genuinely above what an
 internal tool of this size usually gets: authorisation that fails closed at
@@ -126,12 +129,23 @@ registration time, an audit trail that detects tampering it cannot prevent,
 money that cannot lose precision, and a test suite that found three real defects
 while being written. The documentation set is complete enough for an ARB.
 
-Against that: it has never been deployed, never met a live Entra tenant, cannot
-restore its own backups, has no telemetry, and its planning model is thin
-compared with a commercial planning tool. None of those is a design flaw; all of
-them are work not yet done, and each is named in this document rather than left
-to be discovered.
+The functional gaps that made the previous revision score three stars on
+coverage are closed: the ledger seam, configurable approval stages, template
+versioning, depreciation flow-through, and the three reports that had endpoints
+and no screen.
 
-**Recommended posture:** treat v1 as feature-complete for a governed budget
-cycle, and spend the next increment on deployment readiness (restore, telemetry,
-IaC, penetration test, live Entra) before adding functionality.
+Against that: it has never been deployed, never met a live Entra tenant, cannot
+restore its own backups, has no telemetry, has never been used with a screen
+reader, and its planning model is thin compared with a commercial planning tool.
+The privacy artefacts are drafted but not adopted, which is a decision the
+organisation has to make rather than work anyone can do for it. None of these is
+a design flaw; all are work not yet done, and each is named in this document
+rather than left to be discovered.
+
+**Recommended posture:** the product is now feature-complete for a governed
+budget cycle. Spend the next increment entirely on deployment readiness —
+restore with a tested RTO/RPO, telemetry to a SIEM, IaC, a penetration test, a
+live Entra tenant, and a screen-reader audit — before adding any further
+functionality. The four highest-value items on that list are all things that
+cannot be done by writing more application code, which is the clearest signal
+that the balance of the work has shifted.

@@ -263,7 +263,55 @@ You only see entities in **your deployment's region**. Swiss and APAC entities
 are served by their own deployments; this is a data-residency requirement, not a
 permission.
 
-### 4.4 Cycle control
+### 4.4 Trend
+
+![Five-year trend](images/26-cfo-trend.png)
+
+Five years of plan totals in EUR, with the year-on-year change beside each.
+**Prior years are modelled from a growth factor, not booked actuals** — the
+description on the screen says so, and you should read the earlier years as
+shape rather than as history.
+
+Two controls:
+
+- **Entity** narrows to one entity, or leaves it at every entity you can see.
+- **Break down by** switches between the group total, a split by category, and
+  the largest individual lines.
+
+![Trend by category](images/27-cfo-trend-by-category.png)
+
+Choosing a breakdown adds a table of series below the chart. **Plot** on any row
+charts that series in place of the total, so you can follow one category or one
+line across five years. Choose it again to go back to the total.
+
+### 4.5 Allocations
+
+![Allocations](images/28-cfo-allocations.png)
+
+Central pools — group licensing, network, security operations — charged out to
+entities on a driver: headcount, sites, devices or stores.
+
+The lower table shows each entity's **own** plan, what it is **charged**, and the
+**total** it therefore carries. The padlock beside a charged figure means the
+receiving entity cannot change it. That is deliberate: an entity that could edit
+its own allocation could opt out of a group cost.
+
+### 4.6 FX history
+
+![FX history](images/29-cfo-fx-history.png)
+
+The rate to EUR for each currency across five years.
+
+**Drift** is the difference between the first and the last rate on record.
+**Volatility** is the spread between the highest and lowest rate as a share of
+the mean — a plain range rather than a standard deviation, because five annual
+points do not support a statistical claim, and you can check a range by eye
+against the row it summarises.
+
+This screen is read-only for everyone. Only an Administrator sets rates, and
+only for the fiscal year.
+
+### 4.7 Cycle control
 
 You and the Finance Managers jointly own the cycle:
 
@@ -300,13 +348,69 @@ are held in each line's own currency and converted when read, so one change
 restates every derived figure consistently. Rates accept up to eight decimal
 places, which matters for currencies like VND and LAK.
 
-### 5.2 Consolidation
+### 5.2 Template versions
+
+A template version is a frozen set of line fields. You edit fields while a
+version is a **draft**; publishing freezes it.
+
+- **Only one draft at a time.** Two open drafts would make "the next version"
+  ambiguous.
+- **A published version cannot be edited.** If you need a change, open a new
+  draft — it copies the current fields, so changing one label does not mean
+  retyping the template.
+- **Publishing does not disturb budgets already in progress.** An entity keeps
+  the version it started on for the whole cycle. Entities that have not started
+  adopt the new one.
+
+When you publish, Spendifre tells you how many entities adopted the version and
+how many kept theirs, and records both numbers in the audit trail. That second
+number is the one to read: it is how many budgets are still being filled in
+against the older field set.
+
+### 5.3 Approval stages
+
+The approval workflow is yours, not the approvers' — an approver who could
+redraw their own gate would make the gate meaningless.
+
+A stage has three things:
+
+- **A name**, shown to whoever is waiting on it.
+- **A role** that decides it. Only roles that can act as approvers may be named;
+  Spendifre refuses any other, because a stage nobody can decide would wedge
+  every submission above its threshold.
+- **A threshold in EUR.** The stage applies only to budgets at or above it, so a
+  small budget can legitimately skip a stage a large one must pass.
+
+Stages run in order. A submission is approved only when every stage that applies
+to it has approved. One rejection ends it, and a request for changes returns it
+to the owner even if a later stage already approved — because the owner is about
+to change the figures those approvals were given for.
+
+Reordering takes the whole list at once. A partial reorder is refused rather
+than silently leaving stages at stale positions.
+
+### 5.4 Ledger ingestion
+
+Once a finance system feeds actuals in, Spendifre stops relying on hand-entered
+spend for the periods that feed covers.
+
+- A batch carries the feed's **own reference**. Sending the same batch twice
+  applies it once — safe for a nightly job to retry.
+- A batch **applies completely or not at all**, so a dropped connection cannot
+  leave half a month posted.
+- Rows that cannot be matched are **kept as rejects**, not discarded. "The
+  ledger sent forty rows we could not match" is something to act on.
+- Once the ledger owns a period, **hand editing it is refused**.
+
+Both the batch and its counts are recorded in the audit trail.
+
+### 5.5 Consolidation
 
 ![Admin consolidation](images/30-admin-consolidation.png)
 
 The same group view as the CFO, across every entity in your region.
 
-### 5.3 Data governance
+### 5.6 Data governance
 
 ![Data governance](images/31-admin-governance.png)
 
@@ -328,7 +432,7 @@ and deletes their comments, but **keeps the audit entries**, which still prove
 who approved what without identifying a person. Deleting them would break both
 the audit chain and the statutory accounting record.
 
-### 5.4 Operations
+### 5.7 Operations
 
 ![Operations](images/32-admin-operations.png)
 
@@ -437,12 +541,16 @@ Hiding a button is presentation; the refusal is real.
 | Submit a budget | — | — | ✓ | ✓ | ✓ |
 | Approve / reject a submission | — | ✓ | — | — | — |
 | Decide individual lines | — | ✓ | — | — | — |
+| Decide an approval stage | — | ✓ | ✓ | ✓ (CIO/CTO) | — |
+| Configure the approval stages | ✓ | — | — | — | — |
 | Approve a cost centre | — | ✓ | — | — | — |
 | Create a cost centre | ✓ | — | — | — | — |
 | Approve a capex asset life | — | — | ✓ | — | — |
 | Move the cycle phase / lock date | — | ✓ | ✓ | — | — |
 | Grant a late-edit exception | — | ✓ | ✓ | — | — |
 | Define template fields | ✓ | — | — | — | — |
+| Publish a template version | ✓ | — | — | — | — |
+| Ingest a ledger batch | ✓ | — | — | — | — |
 | Create / remove an entity | ✓ | — | — | — | — |
 | Edit FX rates | ✓ | — | — | read | read |
 | Record actual spend | ✓ | — | ✓ | ✓ | ✓ |
@@ -457,6 +565,12 @@ Two consequences worth stating plainly:
 - **The CFO cannot edit any figure.** They approve, reject and ask questions.
 - **Only the Finance Manager approves capex asset lives** — a deliberate split so
   no single person controls both the capital plan and its accounting treatment.
+- **The Administrator configures approval stages but decides none of them**, and
+  the roles that decide stages cannot configure them. An approver who could
+  redraw their own gate would defeat the point of having stages.
+- **Nobody can decide a stage on a budget they submitted.** That is enforced by a
+  database trigger as well as by the handler, so it holds even if a future code
+  path forgets.
 
 ---
 
@@ -473,6 +587,9 @@ Two consequences worth stating plainly:
 | *Only elapsed periods accept recorded spend* | The period has not finished | Wait, or record against the current period |
 | *Amount is driver-computed* | The line is driver-linked | Change the driver value or the rate, or unlink the driver |
 | *Blocking validation rules* | A rule set to block is failing | The message names the rules; fix and resubmit |
+| A stage refusal naming another role | An earlier stage is still waiting, or the stage is not yours to decide | The reason names the stage and the role. Open the submission's stages to see which is current |
+| *This template version is published and immutable* | Fields are frozen once published | Open a new draft version; it copies the current fields |
+| *No active line with that ledger reference* | A ledger row addressed a line that does not exist here, was deleted, or belongs to another region | Check the batch's rejects; the row is kept, not dropped |
 
 ---
 

@@ -48,6 +48,7 @@ implements it, the test that proves it, and the document that explains it.
 | --- | --- |
 | [observability.md](observability.md) | Logs, metrics, traces, the SLOs they serve, and the alerts that fire |
 | [accessibility.md](accessibility.md) | WCAG 2.2 AA conformance, the axe gate, and the patterns the CSP forced |
+| [vpat.md](vpat.md) | VPAT 2.5 / EN 301 549 conformance report, criterion by criterion, marking what is verified and what is not |
 | [application-evaluation.md](application-evaluation.md) | Scored assessment across 23 dimensions, with the evidence for each score |
 
 ## Product
