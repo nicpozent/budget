@@ -67,7 +67,7 @@ export function ConsolidationView(): JSX.Element {
       .catch((e: ApiError) => setError(e.message));
   }, []);
 
-  if (error) return <p className="banner banner-error">{error}</p>;
+  if (error) return <p className="banner banner-error" role="alert">{error}</p>;
   if (!data) return <p className="empty">{t('views.loading')}</p>;
 
   const maxCategory = Math.max(...data.categories.map((c) => Number(c.plan)), 0);
@@ -269,7 +269,7 @@ export function VarianceView({ entities }: { entities: Entity[] }): JSX.Element 
         </div>
       </div>
 
-      <div className="banner banner-info">
+      <div className="banner banner-info" role="status">
         <span aria-hidden="true">▲</span>
         <span>
           This is a cost tool, so growth is the unwanted direction: increases are shown in the
@@ -337,7 +337,7 @@ export function AuditView(): JSX.Element {
     <>
       {/* FR-071: managers see only their own events. Saying so is honest and
           stops a manager reading an empty list as a bug. */}
-      <div className="banner banner-info">
+      <div className="banner banner-info" role="status">
         <span aria-hidden="true">ⓘ</span>
         <span>
           {scope === 'all'
@@ -428,7 +428,7 @@ export function SubmissionsView({ canDecide }: { canDecide: boolean }): JSX.Elem
 
   return (
     <>
-      {message ? <p className="banner banner-error">{message}</p> : null}
+      {message ? <p className="banner banner-error" role="alert">{message}</p> : null}
 
       {submissions.length === 0 ? (
         <p className="empty">{t('views.noSubmissionsForThisCycleYet')}</p>
@@ -505,7 +505,7 @@ export function CostCentreView({ canApprove }: { canApprove: boolean }): JSX.Ele
 
   return (
     <>
-      {message ? <p className="banner banner-error">{message}</p> : null}
+      {message ? <p className="banner banner-error" role="alert">{message}</p> : null}
       <section className="panel">
         <div className="panel-header"><h2>{t('views.costCentreRegistry')}</h2></div>
         <div className="table-scroll" tabIndex={0} role="group">
@@ -571,7 +571,12 @@ export function GovernanceView(): JSX.Element {
   return (
     <>
       {integrity ? (
-        <div className={`banner ${integrity.intact ? 'banner-info' : 'banner-error'}`}>
+        <div
+        className={`banner ${integrity.intact ? 'banner-info' : 'banner-error'}`}
+        // WCAG 4.1.3. A broken audit chain is the one banner in the product
+        // that must interrupt.
+        role={integrity.intact ? 'status' : 'alert'}
+      >
           <span aria-hidden="true">{integrity.intact ? '✓' : '✕'}</span>
           <span>
             {integrity.intact

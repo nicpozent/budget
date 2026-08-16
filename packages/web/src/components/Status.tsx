@@ -86,7 +86,14 @@ export function ValidationBanner({ violations }: { violations: RuleViolation[] }
   if (violations.length === 0) return null;
   const blocking = violations.filter((v) => v.severity === 'blocking');
   return (
-    <div className={`banner ${blocking.length > 0 ? 'banner-error' : 'banner-warn'}`}>
+    <div
+      className={`banner ${blocking.length > 0 ? 'banner-error' : 'banner-warn'}`}
+      // WCAG 4.1.3: this appears and changes as the grid is edited, without
+      // focus moving. `alert` when something blocks submission, `status` when
+      // it is only a warning — a warning that interrupted every keystroke
+      // would be worse than one that waits for a pause.
+      role={blocking.length > 0 ? 'alert' : 'status'}
+    >
       <span aria-hidden="true">{blocking.length > 0 ? '✕' : '!'}</span>
       <ul>
         {violations.map((v) => (

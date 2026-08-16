@@ -37,6 +37,9 @@ implements it, the test that proves it, and the document that explains it.
 | [compliance-nis2-and-privacy.md](compliance-nis2-and-privacy.md) | NIS2 obligations and GDPR articles, clause by clause |
 | [compliance-sweden.md](compliance-sweden.md) | Swedish and Nordic overlay: IMY, bokföringslagen, offentlighetsprincipen exposure |
 | [dpia-personnel-data.md](dpia-personnel-data.md) | Data protection impact assessment for the personnel cost lines |
+| [ropa.md](ropa.md) | Article 30 record of processing activities, derived from the schema |
+| [lawful-basis.md](lawful-basis.md) | Lawful basis per activity, the legitimate-interests balancing test, and the purpose-limitation commitment |
+| [privacy-notice.md](privacy-notice.md) | Employee-facing notice (Articles 13/14), drafted for the organisation to issue |
 | [retention.md](retention.md) | Retention classes, the purge job, and how the audit chain survives a purge |
 
 ## Operations and quality

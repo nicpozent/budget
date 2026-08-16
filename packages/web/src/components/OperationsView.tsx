@@ -88,7 +88,7 @@ export function OperationsView(): JSX.Element {
   return (
     <>
       {needsReauth ? (
-        <div className="banner banner-warn">
+        <div className="banner banner-warn" role="status">
           <span aria-hidden="true">!</span>
           <span>
             {t('ops.thisActionNeedsAFreshSigninBackupsAndExp')}
@@ -98,10 +98,10 @@ export function OperationsView(): JSX.Element {
         </div>
       ) : null}
 
-      {message ? <p className="banner banner-info">{message}</p> : null}
+      {message ? <p className="banner banner-info" role="status">{message}</p> : null}
 
       {!configured ? (
-        <div className="banner banner-warn">
+        <div className="banner banner-warn" role="status">
           <span aria-hidden="true">!</span>
           <span>
             Backups are not configured on this deployment. Set{' '}

@@ -161,6 +161,7 @@ the same matrix drives the client's navigation without duplicating the rules.
 | [0003](../adr/0003-permission-matrix.md) | §5 normative; least privilege wins the §4/§5 ambiguity | Read scope and write scope are separate axes |
 | [0004](../adr/0004-minimal-dependencies.md) | Replace a dependency when it is small, on a security boundary, and its tree is larger than the code it saves | Removed `exceljs` and `@fastify/static`; 6 direct production dependencies |
 | [0005](../adr/0005-operations-and-seed-modes.md) | Anonymiser offline; backup encrypted and chain-attesting | Keeps "did production data reach non-production" a checkable question |
+| [0006](../adr/0006-module-structure.md) | Routes by domain, services by layer | The domain grew past what one `admin.ts` could hold; the security-relevant code stays in three reviewable files |
 
 ## 5. Cross-cutting concerns
 

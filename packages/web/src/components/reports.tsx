@@ -81,7 +81,7 @@ export function TrendView({ entities, fiscalYear }: {
       .slice(0, mode === 'line' ? 15 : 50);
   }, [data, fiscalYear, mode]);
 
-  if (error) return <p className="banner banner-error">{error}</p>;
+  if (error) return <p className="banner banner-error" role="alert">{error}</p>;
   if (!data) return <p className="empty">{t('app.loading')}</p>;
 
   const totals = data.years.map((y) => Number(data.total[y] ?? 0));
@@ -250,7 +250,7 @@ function volatility(history: readonly { rate: string }[]): number | null {
 export function FxHistoryView(): JSX.Element {
   const { data, error } = useReport<FxHistory[]>('/api/reports/fx-history');
 
-  if (error) return <p className="banner banner-error">{error}</p>;
+  if (error) return <p className="banner banner-error" role="alert">{error}</p>;
   if (!data) return <p className="empty">{t('app.loading')}</p>;
   if (data.length === 0) return <p className="empty">{t('fx.noData')}</p>;
 
@@ -311,7 +311,7 @@ export function FxHistoryView(): JSX.Element {
 export function AllocationsView(): JSX.Element {
   const { data, error } = useReport<Allocations>('/api/reports/allocations');
 
-  if (error) return <p className="banner banner-error">{error}</p>;
+  if (error) return <p className="banner banner-error" role="alert">{error}</p>;
   if (!data) return <p className="empty">{t('app.loading')}</p>;
 
   const maxTotal = Math.max(...data.entities.map((e) => Number(e.total)), 0);

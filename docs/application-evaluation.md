@@ -10,35 +10,39 @@ the evidence is thin. Scale:
 - **★★☆☆☆ Partial** — scaffolded / in progress.
 - **★☆☆☆☆ Absent** — not started.
 
-*Last reviewed: v1 core, `claude/file-review-8a42qx`. 362 tests, 0 lint errors,
+*Last reviewed: v1.1, `claude/file-review-8a42qx`. 444 tests, 0 lint errors,
 0 dependency vulnerabilities, 6 direct production dependencies.*
+
+*Rows 1, 2, 3, 10 and 12 were re-scored after the gaps named in the previous
+revision were addressed. Each re-scored row states what changed; what did not
+change is still stated as a gap.*
 
 ## 1. Scorecard
 
 | # | Dimension | Rating | Evidence | Gaps / next |
 |---|---|---|---|---|
-| 1 | **Functional coverage** (vs `SPEC.md`) | ★★★☆☆ | Entry grid, line drawer, bulk ops, drivers, actuals/pace, capex schedules, submissions + per-line decisions, cost-centre registry, cycle/lock/exceptions, consolidation, variance, allocations, FX history, audit, governance, backup/export — all built and data-wired | **`FR-040` ledger integration absent** (largest gap); `FR-051` multi-stage approval, `FR-005` template versioning, `FR-033` depreciation flow-through; trend/FX-history/allocations have tested endpoints but no dedicated screen |
-| 2 | **Architecture & modularity** | ★★★★☆ | npm workspaces; pure `shared` package (no I/O) so the matrix and money type are directly testable; layered API; HLD + LLD + building blocks + 5 ADRs | Layer-split rather than feature-split — right at this size, revisit if the domain grows |
-| 3 | **Frontend engineering** | ★★★★☆ | React 18 + TS strict + Vite 6; external CSS tokens (no inline styles — the CSP forbids them); 0 lint errors; deterministic asset names | No route code-splitting (single 249 KB bundle — fine at this size); no client-side state library |
+| 1 | **Functional coverage** (vs `SPEC.md`) | ★★★★☆ | Everything previously listed, plus the four gaps closed: **`FR-040`** idempotent ledger batch ingest with stored rejects and residency enforcement; **`FR-051`** ordered approval stages with role and threshold conditions that actually gate; **`FR-005`** immutable published template versions with in-flight budgets pinned; **`FR-033`** next year's depreciation as derived read-only opex lines. Screens added for trend, FX history and allocations — all 11 views axe-clean | No live feed is connected to the `FR-040` endpoint and there is no service principal to run it; `FR-051` and `FR-005` are API-complete with no admin screen; `FR-080` scenarios still deferred; restore still absent |
+| 2 | **Architecture & modularity** | ★★★★★ | npm workspaces; pure `shared` package (no I/O) so the matrix and money type are directly testable; **routes split by domain, services by layer** once four subsystems arrived at once (ADR-0006), keeping `guard.ts`/`pool.ts`/`audit.ts` singular and reviewable; FR-051's gating logic is a pure function tested without a request; HLD + LLD + building blocks + 6 ADRs | — |
+| 3 | **Frontend engineering** | ★★★★★ | React 18 + TS strict + Vite 6; external CSS tokens (no inline styles — the CSP forbids them); 0 lint errors; deterministic asset names; **route-level splitting** (98 KB app + 143 KB vendor + per-view chunks a role may never fetch) with the split **asserted in a real browser under the real CSP**, because a dynamic import does not inherit the shell nonce; shared store on `useSyncExternalStore` replacing per-view refetching | Splitting is per view, not per route segment — there is no router. Deliberate: the client owns one navigation state |
 | 4 | **Identity & access** | ★★★☆☆ | Entra OIDC authorisation code + **PKCE S256**, server-side state/nonce single-use, group→role with least privilege on multi-membership, JIT provisioning with safe account linking | **Never exercised against a live tenant.** The dev provider is what has been run. Conditional Access / PIM / FIDO2 are tenant configuration |
 | 5 | **Authorization model** | ★★★★★ | SPEC §5 matrix as frozen data; **an undeclared route throws at registration** so it cannot reach a running server; capability and entity scope as separate axes; 404-not-403 on out-of-scope reads; **216 assertions covering every role × capability pair** (24 capabilities × 9 roles), generated from the matrix so a new capability without a probe fails the suite | — |
 | 6 | **Data & persistence** | ★★★★★ | PostgreSQL 16; three least-privilege roles; `numeric(18,4)` money with no float column anywhere; amounts addressable by `(line, year, period, version)` from day one; SoD as `CHECK` constraints; checksum-guarded migrations | — |
 | 7 | **Financial correctness** | ★★★★★ | `Money` over scaled `bigint`, string-only construction, rounding stated once; FX at read time so restatement is consistent; **`INV-4` property-tested over two partitions × five years**; optimistic concurrency with a real conflict path | — |
 | 8 | **Audit & non-repudiation** | ★★★★★ | Append-only by **grant, trigger and SHA-256 hash chain**; audit insert shares the handler transaction so an unrecorded change rolls back; `audit_verify_chain()` pinpoints tampering performed with the trigger disabled; completeness hook fails a 2xx state change that wrote no event | — |
 | 9 | **Security & hardening** | ★★★★☆ | Nonce CSP with no `unsafe-inline`; full header set; CSRF token + origin check + `SameSite`; rate limiting incl. per-route; bound-parameter SQL with an allow-list for identifiers and **lint rules that block the alternatives**; formula-injection guard verified by inflating a real workbook; step-up on irreversible actions; config fails closed in production; TLS to the database with `verify-full` | **No penetration test, no DAST** (`SEC-041`); no artefact signing; SIEM not wired |
-| 10 | **Privacy & data protection** | ★★★★☆ | Classification per field; retention enforced by a job that audits its counts; DSAR export and **erasure that pseudonymises while keeping the audit chain intact**; IP/UA only as salted hashes; residency enforced in the single scope resolver | Privacy notice, RoPA, DPIA sign-off and lawful basis are **open and organisational** (`CMP-130/131/134`) |
+| 10 | **Privacy & data protection** | ★★★★☆ | Classification per field; retention enforced by a job that audits its counts; DSAR export and **erasure that pseudonymises while keeping the audit chain intact**; IP/UA only as salted hashes; residency enforced in the single scope resolver. **RoPA, employee privacy notice, lawful-basis assessment with a full legitimate-interests balancing test, and a purpose-limitation commitment are now drafted** (`ropa.md`, `privacy-notice.md`, `lawful-basis.md`) | Still ★★★★ because **drafted is not adopted**: a controller decides the lawful basis and issues the notice, and every `[org]` placeholder is a real unknown. The balancing test is explicitly conditional on the purpose-limitation wording being adopted. `CMP-140` PIPL unresolved, and the GDPR reasoning does not transfer to it |
 | 11 | **Non-production data** | ★★★★☆ | Synthetic seed by default; offline anonymiser outside `packages/`; CI refuses any import of the workbook; **the anonymiser reports its own k-anonymity failure** rather than overclaiming | The real extract is still in the repository (`osint-exposure.md` §1); the anonymised fixture is pseudonymous, not anonymous |
-| 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | axe against the **running app in a real browser** across 8 views; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions | No external assistive-technology audit; no VPAT; strings not externalised |
+| 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | axe across **11 views** in a real browser; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions. **VPAT 2.5 / EN 301 549 report** criterion by criterion, marking which claims are verified and which are code-reading. **NFR-010 catalogue**: every client string typed, with a test that fails on JSX text bypassing it — it found 120. **WCAG 4.1.3 fixed** while writing the VPAT: banners were not live regions | Still ★★★★ for one reason: **no assistive-technology user has tested this.** Automated checks catch roughly a third of WCAG issues. 2.2.1 (session timeout not extendable) is a real non-conformance in tension with ZT-004; one locale only |
 | 13 | **Observability** | ★★☆☆☆ | Structured JSON logs with credential redaction; per-request correlation ids; every authorisation denial logged with its reason; CSP violation sink; audit-completeness signal; health endpoint | **No OTLP traces, no metrics export, no SIEM shipping, no alert rules.** The three `ZT-008` alerts are specified, not configured. Weakest dimension |
-| 14 | **Testing** | ★★★★★ | 362 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **three real defects found by the suite during build** and each now has a regression test | No load test at monthly × version scale; no mutation testing |
+| 14 | **Testing** | ★★★★★ | 444 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **five real defects found by the suite during build** and each now has a regression test | No load test at monthly × version scale; no mutation testing |
 | 15 | **CI/CD** | ★★★★☆ | 8 gates: typecheck, lint, `npm audit`, build, tests, SBOM, CodeQL security-extended, gitleaks over full history, plus a confidential-data grep | **No deployment pipeline, no IaC**; no DAST stage; builds not reproducible or signed |
 | 16 | **Delivery & runtime** | ★★☆☆☆ | Single container serves shell + API; migrations separate by role; graceful shutdown; config fails closed | **No IaC, no container image, no environments provisioned.** Runtime topology is documented, not deployed |
 | 17 | **Backup & recovery** | ★★★☆☆ | Encrypted (AES-256-GCM, AAD binds id+region), integrity double-checked, **chain-attesting**, audited with counts, step-up and rate limited, admin UI | **Restore is not implemented** — deliberately, but it means `NFR-006`/`CMP-107` are unmet. No tested RTO/RPO |
 | 18 | **Supply chain** | ★★★★☆ | 6 direct production dependencies; lockfile; `npm audit` gate at high; SBOM per build; **two dependencies removed rather than accepted** after one produced a path-traversal advisory (ADR-0004) | No artefact signing, no reproducible builds, no provenance attestation |
 | 19 | **Governance & compliance** | ★★★★☆ | Threat model (STRIDE + LINDDUN + ATT&CK + attack trees), NIST CSF 2.0 profile, SP 800-207 maturity assessment, NIS2 position, GDPR/revFADP, Sweden-specific, DPIA input, pentest scope, OSINT assessment | Legal decisions outstanding: `CMP-140` PIPL (**blocks hosting**), `CMP-120` NIS2, lawful basis, MBL |
 | 20 | **Modelling depth** | ★★☆☆☆ | Single driver link with rate per unit; even spread with remainder; headcount toggle with dormancy; allocation pools on one driver key | **No scenarios/versions in use, no rolling forecast, no driver trees, no formula engine.** Schema is ready (`FR-080`); nothing writes a version other than `working` |
-| 21 | **i18n** | ★★☆☆☆ | Locale-aware currency, number and date formatting via `Intl` | Strings not externalised (`NFR-010`) |
-| 22 | **Documentation** | ★★★★★ | HLD, LLD, building blocks, 5 ADRs, threat model, security hardening, observability, accessibility, retention, secrets, Postgres TLS, Sweden compliance, DPIA input, pentest scope, OSINT, user stories, per-role user guide with screenshots, SoW with 28 flow diagrams | — |
+| 21 | **i18n** | ★★★☆☆ | Locale-aware currency, number and date formatting via `Intl`; typed string catalogue with a test that fails on any JSX text bypassing it | One catalogue. Adding a locale is a translation job, but nothing has been translated, and `lang` on the document is still hard-coded to `en` |
+| 22 | **Documentation** | ★★★★★ | HLD, LLD, building blocks, 6 ADRs, threat model, security hardening, observability, accessibility, VPAT, retention, secrets, Postgres TLS, Sweden compliance, DPIA, RoPA, lawful basis, privacy notice, pentest scope, OSINT, user stories, per-role user guide with screenshots, SoW with 28 flow diagrams | — |
 | 23 | **Maintainability / DX** | ★★★★☆ | Consistent patterns; comments explain *why* and cite requirement IDs; one command to migrate, seed, build and run; screenshots and flows regenerate from source | Node type-stripping means no parameter properties or enums — a small, documented constraint |
 
 ## 2. Dimension notes
@@ -68,14 +72,30 @@ PKCE and single-use server-side state, and `mapGroupsToRole` is unit-tested —
 but "written correctly" and "verified end to end" are different claims and
 should not be conflated in an evaluation.
 
+**Functional coverage (1) moved from 3 to 4 stars, not 5.** The four FR gaps are
+closed and the three missing screens exist, but "the ledger endpoint is built and
+tested" is a different claim from "actuals arrive from the ledger", and only the
+second one is what a finance team wants. The remaining star is a live feed, a
+service principal to run it, and a restore path.
+
+**Privacy (10) stayed at 4 stars despite four new documents**, and that is the
+point. Drafting a RoPA does not make it the controller's record; drafting a
+privacy notice does not issue it. The documents remove the excuse that nobody
+knew what to write — they do not remove the decision.
+
 **Modelling depth (20) is thin on purpose for v1**, and is the honest answer to
 "is this best of breed". Spendifre is a governed system of record; best-of-breed
 planning tools are calculation engines with a system of record attached. The
 version dimension exists in the schema, so scenarios are cheap to add — but
 today nothing writes anything except `working`.
 
-**Testing (14).** Worth recording that the suite found three genuine defects
-during construction: FX rates capped at 4 decimal places against a
+**Testing (14).** Worth recording that the suite found five genuine defects
+during construction. The two most recent: the **audit-completeness hook refused
+the ledger replay path** — a POST returning 200 with no audit event — which was
+correct, and is now recorded rather than exempted; and the **route-splitting
+assertion caught that `views.tsx` was both statically and dynamically imported**,
+so the lazy imports were inert and the bundle had not actually split. The
+original three: FX rates capped at 4 decimal places against a
 `numeric(18,8)` column (making VND, LAK and KRW unadministrable, *and* throwing
 inside a Zod refine so a 422 became a 500); the residency filter applied only to
 the entity list, so consolidation summed Swiss and Chinese entities into a EUR

@@ -13,10 +13,11 @@ db/fixtures        generated anonymised seed (gitignored — see below)
 tools/             offline tooling; the anonymiser lives here, not in packages/
 design/            the original prototypes, logos, and the real workbook extract
 docs/              architecture, security, privacy, operations — see docs/README.md
-docs/adr           five decisions with their reasoning
+docs/adr           six decisions with their reasoning
 docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
-test/              362 tests: authorisation matrix, security, invariants, a11y, operations
+test/              444 tests: authorisation matrix, security, invariants, a11y,
+                   operations, feature semantics, client catalogue
 ```
 
 ### Why the layout is this shape
@@ -35,12 +36,13 @@ Three of these boundaries are load-bearing rather than tidy:
   imported or deployed. Keeping them out of the root makes the confidential
   file's location explicit rather than incidental.
 
-Inside `packages/api`, `src/` is split by technical layer
-(`routes`/`services`/`http`/`db`/`auth`) rather than by feature. At this size
-that keeps the security-relevant code in three files someone can review in one
-sitting — `http/guard.ts`, `db/pool.ts`, `services/audit.ts`. If the domain grows
-past what one person can hold, feature slices under `src/features/` would be the
-next move; it is not worth the churn yet.
+Inside `packages/api`, **routes are split by domain and everything else by
+layer** — see [ADR 0006](docs/adr/0006-module-structure.md). The layer split held
+until four subsystems arrived at once (FR-005, FR-033, FR-040, FR-051) and
+`admin.ts` would have become a thousand-line file whose name meant "the rest".
+Routes moved to domain modules; `services/`, `http/`, `db/` and `auth/` did not,
+because their value is that there is exactly one `guard.ts`, one `pool.ts` and
+one `audit.ts` to review.
 
 ## Running it
 
@@ -160,20 +162,21 @@ now covered.
 
 Stated plainly rather than left to be discovered.
 
-- **`FR-040` ledger integration.** Actuals are hand-recorded. The `actuals.source`
-  column already distinguishes `manual` from `ledger` and refuses hand edits to
-  ledger-owned periods, so the cutover is a feed, not a migration.
-- **`FR-005`** template versioning — in-flight budgets keeping their version.
-- **`FR-033`** next year's depreciation flowing into that year's opex plan. The
-  schedule is computed; the flow-through is not wired.
-- **`FR-051`** configurable approval stages. States and transitions exist;
-  reorderable stages with role and threshold conditions do not.
+- **A live ledger feed.** `FR-040` is built — `POST /api/ledger/actuals` takes a
+  batch, is idempotent on the feed's own reference, stores rejects rather than
+  dropping them, and refuses hand edits to periods it owns. **Nothing is
+  connected to it.** The contract exists; which finance system speaks it, and on
+  what schedule, is still open (`SPEC.md` §12.3).
+- **A service principal for that feed.** `ledger.ingest` is admin-only today
+  because there is no non-human identity. A scheduled job cannot satisfy the
+  step-up requirement, which is why the capability is deliberately not a step-up
+  one; the compensating controls are in `shared/authz.ts`.
 - **Restore from a backup.** The archive format is documented and line-oriented
   so a restore can stream it, but nothing reads it back. `CMP-107`.
-- **`FR-061` trend / `FR-063` FX history / `FR-036` allocations** have API
-  endpoints and are tested, but no dedicated screen — the client covers entry,
-  actuals, variance, consolidation, submissions, cost centres, audit and
-  governance. The remaining screens are view work against existing endpoints.
+- **Screens for the FR-051 stage configuration and FR-005 template versions.**
+  Both are complete APIs with tests; an administrator drives them over HTTP
+  today. Stage progress is readable per submission; there is no drag-to-reorder
+  UI, and the reorder endpoint takes a whole list precisely so there need not be.
 - **`FR-080`** versions and scenarios remain deferred as the spec instructs, but
   amounts are addressable by `(line, fiscal_year, period, budget_version)` from
   day one, so adding the dimension is a data migration.
@@ -186,5 +189,11 @@ Stated plainly rather than left to be discovered.
   (group-to-role mapping and `amr` values in particular).
 - **Deployment:** no Bicep/Terraform, no SIEM wiring, no DAST run, no
   penetration test (`SEC-041`). The CI workflow defines the gates.
-- **`NFR-010`** strings are not externalised; formatting is locale-aware, the
-  copy is not.
+- **A second locale.** `NFR-010` is met structurally — every client string goes
+  through a typed catalogue and a test fails the build on JSX text that bypassed
+  it — but English is the only catalogue. Adding one is a translation job, not an
+  engineering one.
+- **Assistive-technology testing.** axe passes on all 11 views in a real browser
+  and the palette is asserted arithmetically, but no screen-reader user has used
+  this. `docs/vpat.md` marks exactly which claims are code-reading rather than
+  verified.

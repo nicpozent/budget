@@ -132,7 +132,7 @@ export function LineDrawer({
         </button>
       </div>
 
-      {error ? <p className="banner banner-error">{error}</p> : null}
+      {error ? <p className="banner banner-error" role="alert">{error}</p> : null}
 
       <dl>
         <div className="field">

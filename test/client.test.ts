@@ -89,3 +89,40 @@ describe('NFR-010 string catalogue', () => {
     expect(offenders, `untranslated JSX text:\n${offenders.join('\n')}`).toEqual([]);
   });
 });
+
+describe('WCAG 4.1.3 status messages', () => {
+  /**
+   * A banner appears without focus moving, so a screen reader announces it only
+   * if it is a live region. axe cannot catch this — a `<p>` with no role is
+   * valid markup — so it is asserted here against the source.
+   *
+   * `alert` for errors (assertive: a failed save must interrupt) and `status`
+   * for informational banners (polite: a completed backup can wait).
+   */
+  it('marks every banner as a live region', async () => {
+    const missing: string[] = [];
+
+    for await (const entry of glob('**/*.tsx', { cwd: WEB_SRC })) {
+      const lines = (await readFile(`${WEB_SRC}/${entry}`, 'utf8')).split('\n');
+      for (const [index, line] of lines.entries()) {
+        if (!/className=[{"`][^>]*\bbanner\b/.test(line)) continue;
+        // A window rather than the exact element: the role may sit on a
+        // following line when the element is wrapped, and locating the opening
+        // tag's closing bracket is unreliable when a ternary contains `>`.
+        // Imprecise on purpose — this is a lint against a regression, and the
+        // real markup is checked by axe in a browser.
+        const window = lines.slice(Math.max(0, index - 2), index + 8).join(' ');
+        // Two conditions rather than one pattern: the role may be a ternary
+        // (`role={blocking ? 'alert' : 'status'}`), so requiring the value to
+        // follow `role=` directly would miss it.
+        const declaresRole = /\brole=/.test(window);
+        const namesLiveRegion = /['"](?:alert|status)['"]/.test(window);
+        if (!declaresRole || !namesLiveRegion) {
+          missing.push(`${entry}:${index + 1}  ${line.trim()}`);
+        }
+      }
+    }
+
+    expect(missing, `banners without a live-region role:\n${missing.join('\n')}`).toEqual([]);
+  });
+});

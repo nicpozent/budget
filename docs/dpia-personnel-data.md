@@ -73,10 +73,23 @@ exists.
 ## 5. Residual risk & open actions **[org to complete before go-live]**
 
 1. **Privacy notice** to employees covering the audit trail — the single
-   outstanding transparency obligation.
+   outstanding transparency obligation. *Drafted:
+   [`privacy-notice.md`](./privacy-notice.md). Needs Legal review, the `[org]`
+   placeholders filled, and issuing.*
 2. **Lawful basis** recorded, with a legitimate-interest balancing test.
+   *Drafted: [`lawful-basis.md`](./lawful-basis.md) §1–2. The recommendation is
+   legitimate interests for the audit trail and legal obligation for the
+   bookkeeping element. Needs a controller decision.*
 3. **Purpose limitation** committed in writing: the audit trail is for financial
-   control and incident investigation, not performance management.
+   control and incident investigation, not performance management. *Wording
+   proposed in [`lawful-basis.md`](./lawful-basis.md) §3. **The balancing test in
+   §2 depends on this being adopted** — without it the aggregate record is a
+   performance-monitoring capability nobody has agreed to.*
+8. **Article 14 position on named individuals** in training and consultancy
+   lines, who are usually not system users and have had no notice.
+   [`lawful-basis.md`](./lawful-basis.md) §4 sets out three options; the
+   engineering view is that not naming individuals costs nothing and removes the
+   problem.
 4. **MBL §11** position confirmed (see [`compliance-sweden.md`](./compliance-sweden.md)).
 5. **`CMP-140` PIPL decision** — the highest residual risk in the table.
 6. **Decide the fate of `design/budget-data.js`**, which contains named

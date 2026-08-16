@@ -147,7 +147,7 @@ export function App(): JSX.Element {
   }, [theme]);
 
   if (bootError === 'signed-out') return <SignedOut />;
-  if (bootError) return <p className="banner banner-error">{bootError}</p>;
+  if (bootError) return <p className="banner banner-error" role="alert">{bootError}</p>;
   if (!me) return <p className="empty">{t('app.loading')}</p>;
 
   const groups = [...new Set(NAV.filter((n) => n.visible(me)).map((n) => n.group))];
@@ -421,7 +421,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
           this row lives inside it. */}
       <div className="workspace">
       <div className="view" tabIndex={0} aria-label="Budget entry content">
-        {message ? <p className="banner banner-error">{message}</p> : null}
+        {message ? <p className="banner banner-error" role="alert">{message}</p> : null}
         <ValidationBanner violations={violations} />
 
         <BulkBar
