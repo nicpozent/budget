@@ -8,6 +8,12 @@ coverage/
 .env.*
 !.env.example
 
+# Derived from Confidential data. Generated on demand, never committed:
+# the anonymiser's own report says most entities remain structurally unique,
+# so this is Internal at best (ADR 0005).
+db/fixtures/anonymised.json
+var/backups/
+
 sbom.cdx.json
 .DS_Store
 .shot.mjs

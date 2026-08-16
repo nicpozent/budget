@@ -34,15 +34,27 @@ prohibits production data in non-production environments.
 
 **What the implementation does about it:**
 
-- The seed (`packages/api/src/db/seed.ts`) is **entirely synthetic**. It
-  deliberately does not read `budget-data.js`. It reproduces the *shape* — 21
-  entities, the same eight categories, comparable line count and currency
-  spread, five years of history — so that performance work (`NFR-001`) and the
-  reconciliation property tests (`NFR-004`) run against realistic volume without
-  putting real commercial or personal data into a development database.
-- Vendor names in the fixture are drawn from Microsoft's standard fictional
-  companies (Contoso, Fabrikam, Northwind…), which are unambiguously not real
-  suppliers.
+- The file now lives in `design/`, alongside the prototypes it belongs with,
+  rather than at the repository root next to build configuration. That is
+  cosmetic on its own; what it buys is a clear statement that this is reference
+  material and a migration input, not source.
+- `tools/anonymise.ts` produces a development fixture from it **offline**. The
+  API and the seeder never read the raw extract, and CI fails the build if
+  anything under `packages/` or `test/` references it.
+- The anonymiser discards entity codes and names, every line name and all free
+  text; jitters amounts and rounds them; and shuffles order. Its own
+  k-anonymity report is the important output: on this workbook **16 of 21
+  entities remain unique** on (currency mix, category count, size band), so the
+  result is **pseudonymous, not anonymous** — still personal data under GDPR
+  Recital 26. It is gitignored and classified `Internal`. Do not describe it as
+  anonymous in the RoPA without Legal agreeing.
+- The **default** seed is entirely synthetic and has no input to leak: 21
+  entities, the same eight categories, a comparable line count and currency
+  spread, five years of history, with vendor names drawn from Microsoft's
+  standard fictional companies (Contoso, Fabrikam, Northwind…). It exists so
+  performance work (`NFR-001`) and the reconciliation property tests
+  (`NFR-004`) run against realistic volume without any real data at all.
+  Production refuses any other mode at startup.
 
 **What still needs a human decision (outside this codebase):**
 
@@ -51,7 +63,8 @@ prohibits production data in non-production environments.
    relationships and the named training lines are out.
 2. Decide whether the file should live in the application repository at all. It
    is an input to a migration, not a build artefact. A one-time load from
-   controlled storage is the safer pattern.
+   controlled storage is the safer pattern — and now that the anonymiser exists,
+   nothing in day-to-day development needs the raw file present.
 3. The named training lines are personal data. They need a lawful basis and an
    entry in the record of processing (`CMP-130`), or the names should be
    replaced with role references before the data is loaded anywhere.
@@ -85,7 +98,8 @@ Assuming an attacker reads the code (or it becomes public):
 |---|---|
 | The permission matrix | Public knowledge of the rules is fine — the enforcement is server-side and tested. Kerckhoffs applies. |
 | Entra group names (`SG-Spendifre-*`) | Low value alone; useful for a social-engineering pretext. Acceptable; they are operational names, not secrets. |
-| Entity codes and organisational structure | Present in the synthetic seed only. Real codes are in `budget-data.js` — see §1. |
+| Entity codes and organisational structure | Present in the synthetic seed only. Real codes are in `design/budget-data.js` — see §1. |
+| Backup archives | Encrypted at rest with AES-256-GCM; the key is never stored beside them. A stolen archive is inert. The manifest (row counts, size, chain state) is metadata about the data, not the data. |
 | Database schema | Discloses no secret. Knowing the audit table is hash-chained is a deterrent, not a weakness. |
 | Secrets | None. No secret has a default value, `loadConfig` refuses to start without them, and there is no credential, token or connection string in source. Local development uses an obviously-labelled throwaway password supplied out of band. |
 | `.env.example` | Names variables, holds no values |
@@ -113,8 +127,10 @@ none of it is fixed by code:
 
 ## 5. Recommendations, in priority order
 
-1. Confirm the repository's visibility and remove `budget-data.js` from it if it
-   is not strictly private. Treat prior public exposure as a disclosure incident.
+1. Confirm the repository's visibility and remove `design/budget-data.js` from it
+   if it is not strictly private. Treat prior public exposure as a disclosure
+   incident. Note that the anonymiser reduces the need to *use* the file but
+   does nothing about the file itself still being present.
 2. Replace the named training lines with role references before that data is
    loaded into any environment, or record the lawful basis in the RoPA.
 3. Keep the synthetic seed as the only fixture. It is already the default;

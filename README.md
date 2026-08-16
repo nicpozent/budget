@@ -5,7 +5,7 @@
 Spendifre is the group's IT budget platform. Group IT Finance defines the budget template,
 budget owners fill in their unit's lines, the CFO signs it off line by line, and the group
 consolidates 21 entities in EUR. It replaces a 25-sheet Excel workbook (`2026 IT budget
-consolidated FINAL.xlsx`), whose real FY2026 figures are carried in `budget-data.js`.
+consolidated FINAL.xlsx`), whose real FY2026 figures are carried in `design/budget-data.js`.
 
 Three actor families, each with a different job:
 
@@ -50,7 +50,7 @@ Two deliberate exceptions:
 ## Design tokens
 
 Dark is the default; light is a supported variant. Both are defined as CSS custom properties on
-the root element of `Budget Tool.dc.html`.
+the root element of `design/Budget Tool.dc.html`.
 
 | Token | Dark | Light | Use |
 |---|---|---|---|
@@ -153,7 +153,7 @@ Note `FR-080`: versions and scenarios are deferred, but amounts should be addres
 
 ## Assets
 
-- `assets/birgma-logo-trim.png`, `assets/biltema-logo-trim.png` — group logos, used on the login
+- `design/assets/birgma-logo-trim.png`, `design/assets/biltema-logo-trim.png` — group logos, used on the login
   co-brand lockup. Replace with whatever the codebase already has.
 - The Spitfire mark is an inline SVG side-profile silhouette drawn for this project, authored for
   legibility at 22–36px. It is in the `<helmet>`-adjacent markup of both HTML files.
@@ -162,7 +162,7 @@ Note `FR-080`: versions and scenarios are deferred, but amounts should be addres
 
 ## Data
 
-`budget-data.js` holds the real workbook extract: 21 entities, ~480 line items with quarterly
+`design/budget-data.js` holds the real workbook extract: 21 entities, ~480 line items with quarterly
 plans and local currencies, and the FY26 FX table. **Treat it as `Confidential` commercial data**
 (`PRIV-010`) — it is not synthetic seed data, and it must not go into a public repo or a shared
 test fixture. Vendor names, cost centres, GL accounts, Capex/Opex flags, owners and statuses in
@@ -176,12 +176,12 @@ ledger data (`FR-040`) and keep the summation property under test.
 | File | What it is |
 |---|---|
 | `SPEC.md` | **The specification.** Start here; rename to `CLAUDE.md` in the target repo. |
-| `Budget Tool.dc.html` | Whole product, all roles, all screens |
-| `Budget Login.dc.html` | Entra ID sign-in flow (visual only) |
-| `budget-data.js` | Real FY2026 workbook extract — confidential |
+| `design/Budget Tool.dc.html` | Whole product, all roles, all screens |
+| `design/Budget Login.dc.html` | Entra ID sign-in flow (visual only) |
+| `design/budget-data.js` | Real FY2026 workbook extract — confidential |
 | `docs/screenshots/` | 25 reference screenshots + index |
-| `assets/` | Group logos |
-| `support.js` | Prototype runtime. Not part of the design; do not port. |
+| `design/assets/` | Group logos |
+| `design/support.js` | Prototype runtime. Not part of the design; do not port. |
 
 ## Open decisions blocking architecture
 

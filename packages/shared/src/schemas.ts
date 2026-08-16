@@ -264,7 +264,7 @@ export const reminderSchema = z.object({
 });
 
 export const retentionSchema = z.object({
-  dataset: z.enum(['audit', 'budget', 'free_text', 'inactive_users']),
+  dataset: z.enum(['audit', 'budget', 'free_text', 'inactive_users', 'backups']),
   months: z.number().int().min(1).max(600),
 });
 

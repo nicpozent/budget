@@ -11,6 +11,9 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { rm } from 'node:fs/promises';
 import pg from 'pg';
 import type { FastifyInstance } from 'fastify';
 import { loadConfig, type AppConfig } from '../packages/api/src/config.ts';
@@ -86,6 +89,10 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     FISCAL_YEAR: String(FISCAL_YEAR),
     RESIDENCY_REGION: 'eu',
     RATE_LIMIT: options.rateLimit ?? 'on',
+    // Backups are exercised by the suite, so the harness supplies a throwaway
+    // key and an isolated directory per run.
+    BACKUP_ENCRYPTION_KEY: 'a'.repeat(64),
+    BACKUP_DIR: path.join(tmpdir(), `spendifre-backups-${dbName}`),
   });
 
   const db = createDb(config);
@@ -123,6 +130,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
   const close = async () => {
     await app.close();
     await db.close();
+    await rm(config.BACKUP_DIR, { recursive: true, force: true });
     const cleanup = new pg.Client({ connectionString: ADMIN_URL });
     await cleanup.connect();
     await cleanup.query(

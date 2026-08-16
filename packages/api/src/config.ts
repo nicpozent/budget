@@ -57,6 +57,24 @@ const envSchema = z.object({
   /** Salt for IP/user-agent hashes in the session table (CMP-132). */
   TELEMETRY_SALT: z.string().min(16, 'TELEMETRY_SALT must be at least 16 characters'),
 
+  /**
+   * Which dataset `npm run db:seed` loads. A deployment choice, not a code
+   * change. `anonymised` reads the artefact from tools/anonymise.ts; neither
+   * mode ever reads the raw workbook extract (PRIV-010).
+   */
+  SEED_MODE: z.enum(['synthetic', 'anonymised']).default('synthetic'),
+  SEED_ANONYMISED_FILE: z.string().default('db/fixtures/anonymised.json'),
+
+  /**
+   * Backups. `BACKUP_DIR` is a local path here; in Azure this is a Blob
+   * container with customer-managed keys and an immutability policy. The
+   * encryption key is 32 bytes of hex and comes from Key Vault — a deployment
+   * without it can list backups but cannot create or read one, which is a
+   * better failure than writing an unencrypted archive.
+   */
+  BACKUP_DIR: z.string().default('./var/backups'),
+  BACKUP_ENCRYPTION_KEY: z.string().optional(),
+
   /** Where CSP violation reports are posted (SEC-032). */
   CSP_REPORT_URI: z.string().default('/api/security/csp-report'),
 
@@ -89,6 +107,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     }
     if (!cfg.PUBLIC_ORIGIN.startsWith('https://')) {
       throw new Error('PUBLIC_ORIGIN must be https in production');
+    }
+    if (cfg.SEED_MODE !== 'synthetic') {
+      // Seeding a production database from any fixture is a mistake; the
+      // anonymised one is still derived from real data (CMP-104).
+      throw new Error('SEED_MODE must be synthetic in production');
+    }
+    if (cfg.BACKUP_ENCRYPTION_KEY && !/^[0-9a-f]{64}$/i.test(cfg.BACKUP_ENCRYPTION_KEY)) {
+      throw new Error('BACKUP_ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
     }
   }
 

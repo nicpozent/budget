@@ -67,6 +67,12 @@ export const CAPABILITIES = [
   'audit.viewAll',
   'audit.viewOwn',
   'governance.edit',
+  // Operational capabilities. SPEC §5 does not enumerate these; they are an
+  // extension recorded in docs/adr/0005-operations.md, granted to Admin alone
+  // and treated as step-up actions because a backup is a copy of everything —
+  // every figure, every comment, and the whole audit trail.
+  'backup.run',
+  'backup.download',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -124,6 +130,8 @@ export const PERMISSION_MATRIX: Readonly<Record<Capability, Row>> = Object.freez
   'audit.viewAll': row(['admin', 'cfo']),
   'audit.viewOwn': row([...ROLES]),
   'governance.edit': row(['admin', 'cfo']),
+  'backup.run': row(['admin']),
+  'backup.download': row(['admin']),
 });
 
 export function can(role: Role, capability: Capability): boolean {
@@ -176,6 +184,11 @@ export const STEP_UP_CAPABILITIES: readonly Capability[] = Object.freeze([
   'cycle.exception',
   'governance.edit',
   'entity.manage',
+  // A backup is a complete copy of the dataset and a download moves it out of
+  // the system boundary. Both warrant fresh authentication (ZT-007) and both
+  // are the shape ZT-008 asks us to alert on.
+  'backup.run',
+  'backup.download',
 ]);
 
 export function requiresStepUp(capability: Capability): boolean {

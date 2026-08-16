@@ -18,6 +18,7 @@ import { authenticatedRoute, principalOf, requires } from '../http/guard.ts';
 import { badRequest, conflict, forbidden, notFound } from '../http/errors.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
+import { createBackup, listBackups, readBackup } from '../services/backup.ts';
 
 export async function registerAdminRoutes(
   app: FastifyInstance,
@@ -605,6 +606,76 @@ export async function registerAdminRoutes(
 
     return result;
   });
+
+  // -------------------------------------------------------------------------
+  // Operations: backup (backup.run / backup.download)
+  // -------------------------------------------------------------------------
+
+  /**
+   * FR-107 (extension, ADR 0005). Admin-triggered backup.
+   *
+   * Rate limited hard: a backup is expensive and repeated backups are the shape
+   * of a slow exfiltration. Step-up is applied by the guard because both
+   * capabilities are in STEP_UP_CAPABILITIES.
+   */
+  app.post(
+    '/api/admin/backups',
+    {
+      config: {
+        ...requires('backup.run'),
+        rateLimit: { max: 3, timeWindow: '10 minutes' },
+      },
+    },
+    async (request, reply) => {
+      const principal = principalOf(request);
+      const manifest = await createBackup(db, config, principal, request);
+      return reply.status(201).send(manifest);
+    },
+  );
+
+  app.get('/api/admin/backups', { config: requires('backup.run') }, async () => ({
+    backups: await listBackups(db),
+    // The client shows this rather than offering a button that cannot work.
+    configured: Boolean(config.BACKUP_ENCRYPTION_KEY),
+  }));
+
+  /**
+   * Download. Decrypted in-process for an authorised admin and streamed as an
+   * attachment; the archive on disk stays encrypted. Integrity is verified
+   * before a single byte is returned.
+   */
+  app.get(
+    '/api/admin/backups/:backupId/download',
+    {
+      config: {
+        ...requires('backup.download'),
+        rateLimit: { max: 5, timeWindow: '10 minutes' },
+      },
+    },
+    async (request, reply) => {
+      const { backupId } = parse(z.object({ backupId: schemas.uuid }), request.params);
+      const principal = principalOf(request);
+
+      const { manifest, contents } = await readBackup(db, config, backupId);
+
+      await writeAudit(db, {
+        actor: principal,
+        action: 'backup.download',
+        targetType: 'backup',
+        targetId: backupId,
+        detail: `Downloaded backup ${backupId} (${manifest.byteSize} bytes encrypted at rest)`,
+        kind: 'governance',
+        request,
+      });
+
+      return reply
+        .header('Content-Type', 'application/x-ndjson')
+        // SEC-033: fixed, non-reflected filename, served as an attachment.
+        .header('Content-Disposition', `attachment; filename="spendifre-backup-${backupId}.jsonl"`)
+        .header('X-Content-Type-Options', 'nosniff')
+        .send(contents);
+    },
+  );
 
   /** CMP-103 — chain verification, surfaced so monitoring can alert on it. */
   app.get('/api/governance/audit-integrity', { config: requires('audit.viewAll') }, async () => {

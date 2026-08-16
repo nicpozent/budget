@@ -6,14 +6,40 @@ what is **not** done.
 
 ```
 packages/shared    money, the SPEC §5 permission matrix, domain types, boundary schemas
-packages/api       Fastify API, auth, authorisation, audit, reporting, export
+packages/api       Fastify API, auth, authorisation, audit, reporting, export, backup
 packages/web       React client, design tokens, accessible grid
-db/migrations      schema, append-only audit, least-privilege roles
-docs/adr           four decisions with their reasoning
+db/migrations      schema, append-only audit, least-privilege roles, backup manifests
+db/fixtures        generated anonymised seed (gitignored — see below)
+tools/             offline tooling; the anonymiser lives here, not in packages/
+design/            the original prototypes, logos, and the real workbook extract
+docs/adr           five decisions with their reasoning
 docs/security      threat model (STRIDE + ATT&CK), NIST/Zero Trust, OSINT assessment
 docs/compliance    NIS2, GDPR/revFADP, APAC/PIPL position
-test/              313 tests: authorisation matrix, security, invariants, accessibility
+test/              359 tests: authorisation matrix, security, invariants, a11y, operations
 ```
+
+### Why the layout is this shape
+
+Three of these boundaries are load-bearing rather than tidy:
+
+- **`tools/` is outside `packages/`** so the anonymiser can read the confidential
+  workbook while the application provably cannot. CI greps `packages/` and
+  `test/` for any reference to it and fails the build; keeping the tool outside
+  that tree means the gate needs no exception.
+- **`db/` is outside `packages/api`** because migrations run as a different
+  database role than the application (SEC-021). The directory boundary mirrors
+  the privilege boundary.
+- **`design/` holds reference material, not source.** The prototypes are the
+  visual contract and `budget-data.js` is a migration input; neither is built,
+  imported or deployed. Keeping them out of the root makes the confidential
+  file's location explicit rather than incidental.
+
+Inside `packages/api`, `src/` is split by technical layer
+(`routes`/`services`/`http`/`db`/`auth`) rather than by feature. At this size
+that keeps the security-relevant code in three files someone can review in one
+sitting — `http/guard.ts`, `db/pool.ts`, `services/audit.ts`. If the domain grows
+past what one person can hold, feature slices under `src/features/` would be the
+next move; it is not worth the churn yet.
 
 ## Running it
 
@@ -56,13 +82,60 @@ npm run audit:ci
 | `FR-070`–`FR-073` audit | Append-only by grant **and** trigger **and** SHA-256 hash chain |
 | `A11Y-001`/`A11Y-002` | axe against the running app in a real browser, plus contrast maths over the palette |
 
+## Seed modes (ADR 0005)
+
+`SEED_MODE` chooses the dataset. It is a deployment option, and both modes
+converge on the same structure before anything touches the database, so they
+cannot drift in what they exercise.
+
+```bash
+SEED_MODE=synthetic npm run db:seed     # default: invented, safe by construction
+
+# Anonymised: real structure, no real content.
+node --experimental-strip-types tools/anonymise.ts \
+  --in design/budget-data.js --out db/fixtures/anonymised.json
+SEED_MODE=anonymised npm run db:seed
+```
+
+The anonymiser discards entity codes, entity names, every line name and all free
+text; jitters amounts ±7% and rounds them; and shuffles order so position
+carries no information. What survives is the shape — 21 entities, 486 lines,
+the real currency mix and phasing — which is what makes performance and
+reconciliation work meaningful.
+
+**Read its k-anonymity report.** On the real workbook it says 16 of 21 entities
+remain unique on (currency mix, category count, size band). The output is
+therefore **pseudonymous, not anonymous**: still personal data under GDPR
+Recital 26 for anyone able to single out a subject. It is a legitimate
+`Internal` development fixture, it is gitignored, and it should not be called
+anonymous in a RoPA without Legal agreeing. `loadConfig` refuses any mode but
+`synthetic` in production.
+
+## Admin operations (ADR 0005)
+
+The **Operations** view, visible to Admin only:
+
+- **Run backup** — every table except live sessions, gzipped JSON Lines,
+  encrypted with AES-256-GCM. The manifest records row counts, a SHA-256 of the
+  ciphertext, and whether `audit_verify_chain()` verified at capture time, so a
+  restore can be trusted or questioned on evidence. Without
+  `BACKUP_ENCRYPTION_KEY` the API refuses rather than writing plaintext.
+- **Export consolidation** — the existing `FR-064` XLSX export, with the
+  formula-injection guard on every text cell.
+
+Both require `backup.run` / `backup.download`, both are step-up capabilities
+(ZT-007) so a stale session is asked to re-authenticate, both are rate limited,
+and both are audited with counts for the ZT-008 mass-export alert.
+
+Restore is deliberately **not** implemented — an untested restore path invites
+false confidence. `CMP-107` needs a tested RTO/RPO.
+
 ## Three things worth knowing
 
-**The seed is synthetic, deliberately.** `budget-data.js` is the real FY2026
-workbook: live vendor names, contract values, and named individuals in the
-training lines. `PRIV-010` forbids it as a fixture, so the seed reproduces its
-*shape* — 21 entities, 8 categories, ~590 lines, five years of history — with
-invented names. A CI gate fails the build if application code imports it. See
+**The application never reads the real workbook.** `design/budget-data.js` is
+the FY2026 extract: live vendor names, contract values, and named individuals in
+the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
+the build if anything under `packages/` or `test/` references it. See
 `docs/security/osint-exposure.md`, which is the most important document here.
 
 **Residency is enforced in one place.** Every entity carries a region; the
@@ -94,6 +167,8 @@ Stated plainly rather than left to be discovered.
   schedule is computed; the flow-through is not wired.
 - **`FR-051`** configurable approval stages. States and transitions exist;
   reorderable stages with role and threshold conditions do not.
+- **Restore from a backup.** The archive format is documented and line-oriented
+  so a restore can stream it, but nothing reads it back. `CMP-107`.
 - **`FR-061` trend / `FR-063` FX history / `FR-036` allocations** have API
   endpoints and are tested, but no dedicated screen — the client covers entry,
   actuals, variance, consolidation, submissions, cost centres, audit and

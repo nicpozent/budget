@@ -68,7 +68,10 @@ async function auditPage(navLabel: string | null): Promise<AxeViolation[]> {
   await page.goto(origin, { waitUntil: 'networkidle' });
 
   if (navLabel) {
-    await page.getByRole('button', { name: navLabel }).click();
+    // `exact` matters: without it, Playwright matches the accessible name as a
+    // substring, and "Operations" also hits the grid line "Security operations
+    // partner — …".
+    await page.getByRole('button', { name: navLabel, exact: true }).click();
     await page.waitForTimeout(1500);
   }
 
@@ -99,6 +102,7 @@ const VIEWS: [string, string | null][] = [
   ['audit trail', 'Audit trail'],
   ['data governance', 'Data governance'],
   ['cost centres', 'Cost centres'],
+  ['operations', 'Operations'],
 ];
 
 describe('A11Y-002 axe', () => {

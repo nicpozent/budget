@@ -499,6 +499,35 @@ button {
   display: flex;
   gap: var(--gap-sm);
   flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Some actions are genuinely navigations — a download, an export — so they are
+   anchors rather than buttons: the browser handles Content-Disposition and the
+   session cookie rides along as it would for any request. They still need to
+   look like the buttons beside them rather than default underlined links. */
+a.button {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
+  text-decoration: none;
+}
+
+a.button:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+a.button-primary,
+a.button-primary:hover {
+  color: var(--on-accent);
+}
+
+/* Links inside prose keep an underline — removing it would leave colour as the
+   only cue that something is a link (A11Y-001). */
+.banner a,
+.panel-body p a {
+  color: var(--accent-text);
 }
 
 /* ---------------------------------------------------------------- status */

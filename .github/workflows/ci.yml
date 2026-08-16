@@ -109,8 +109,8 @@ jobs:
       - name: Refuse an import of the real workbook extract
         run: |
           if grep -rn "budget-data" packages/ test/ --include='*.ts' --include='*.tsx'; then
-            echo "::error::Application code must not read budget-data.js (PRIV-010, CMP-104)."
-            echo "The seed is synthetic by design — see packages/api/src/db/seed.ts."
+            echo "::error::Application code must not read design/budget-data.js (PRIV-010, CMP-104)."
+            echo "Only tools/anonymise.ts may read it, and it is an offline tool."
             exit 1
           fi
           echo "No reference to the confidential workbook extract."

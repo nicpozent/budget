@@ -18,7 +18,9 @@ import reactHooks from 'eslint-plugin-react-hooks';
  */
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', 'support.js', '*.dc.html'],
+    // `design/` is reference material: generated runtime and prototype markup,
+    // neither built nor deployed.
+    ignores: ['**/dist/**', '**/node_modules/**', 'design/**', 'db/fixtures/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

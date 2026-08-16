@@ -1,97 +1,26 @@
 /**
- * Development and test seed.
+ * Seeds a database from a `Dataset`.
  *
- * PRIV-010: this data is SYNTHETIC. It deliberately does not read
- * `budget-data.js`, which is the real FY2026 workbook extract and is classified
- * Confidential — it carries live vendor names, contract values and, in the
- * training lines, named individuals. Seeding a development database from it
- * would put production commercial and personal data into non-production, which
- * is the specific thing PRIV-010 and CMP-104 prohibit.
+ * Which dataset is a deployment choice (`SEED_MODE`), not a code change — see
+ * `dataset.ts`. Both modes converge on the same structure before this file runs,
+ * so there is one loader and the two modes cannot diverge in what they exercise.
  *
- * What is reproduced is the *shape*: 21 entities, the same eight categories,
- * a comparable line count and currency spread, so that performance work
- * (NFR-001) and the reconciliation property tests (NFR-004) are exercised
- * against realistic volume.
+ * PRIV-010 / CMP-104: neither mode reads `budget-data.js`. The raw FY2026
+ * extract is Confidential — it carries live vendor names, contract values and
+ * the given names of identifiable employees — and production data must not
+ * reach non-production. The anonymised artefact from `tools/anonymise.ts` is
+ * the only derivative permitted here, and this file refuses anything that is
+ * not a recognised anonymiser output.
  */
 
 import path from 'node:path';
 import { createDb, sql, type Db } from './pool.ts';
-
-const CATEGORIES = [
-  { name: 'Travel expenses', costType: 'opex' },
-  { name: 'Consultancies', costType: 'opex' },
-  { name: 'Computer communication / internet', costType: 'opex' },
-  { name: 'Short term equipment', costType: 'opex' },
-  { name: 'Training', costType: 'opex' },
-  { name: 'Licenses', costType: 'opex' },
-  { name: 'Other', costType: 'opex' },
-  { name: 'Investments', costType: 'capex' },
-] as const;
-
-/** Entity codes mirror the workbook's naming pattern without reusing its names. */
-const ENTITIES: { code: string; name: string; currency: string; residency: string }[] = [
-  { code: 'NORD-INF', name: 'Nordic Infrastructure', currency: 'EUR', residency: 'eu' },
-  { code: 'NORD-SEC', name: 'Nordic Security', currency: 'EUR', residency: 'eu' },
-  { code: 'NORD-DEV', name: 'Nordic Development', currency: 'EUR', residency: 'eu' },
-  { code: 'SE-RETAIL', name: 'Sweden Retail IT', currency: 'SEK', residency: 'eu' },
-  { code: 'SE-DEV', name: 'Sweden Development', currency: 'SEK', residency: 'eu' },
-  { code: 'SE-STORES', name: 'Sweden Store Systems', currency: 'SEK', residency: 'eu' },
-  { code: 'NO-RETAIL', name: 'Norway Retail IT', currency: 'NOK', residency: 'eu' },
-  { code: 'DK-RETAIL', name: 'Denmark Retail IT', currency: 'DKK', residency: 'eu' },
-  { code: 'FI-RETAIL', name: 'Finland Retail IT', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-LOG', name: 'European Logistics IT', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-ECOM', name: 'European E-commerce', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-DATA', name: 'European Data Platform', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-WORK', name: 'European Workplace', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-NET', name: 'European Network', currency: 'EUR', residency: 'eu' },
-  { code: 'CH-GROUP', name: 'Switzerland Group IT', currency: 'CHF', residency: 'ch' },
-  { code: 'CH-SEC', name: 'Switzerland Security', currency: 'CHF', residency: 'ch' },
-  { code: 'APAC-HUB', name: 'APAC Hub IT', currency: 'SGD', residency: 'apac' },
-  { code: 'APAC-SRC', name: 'APAC Sourcing IT', currency: 'USD', residency: 'apac' },
-  { code: 'IN-DEV', name: 'India Development Centre', currency: 'INR', residency: 'apac' },
-  { code: 'VN-OPS', name: 'Vietnam Operations IT', currency: 'VND', residency: 'apac' },
-  // CMP-140: mainland China cannot share the EU tenant. The row exists so the
-  // residency guard is exercised; an EU deployment must never return it.
-  { code: 'CN-SRC', name: 'China Sourcing IT', currency: 'CNY', residency: 'cn' },
-];
-
-/** Indicative FY rates. Real rates are administered in-app (FR-014). */
-const FX: Record<string, string> = {
-  EUR: '1', SEK: '0.087', NOK: '0.0858', DKK: '0.134', CHF: '1.06',
-  GBP: '1.149', USD: '0.92', PLN: '0.233', TRY: '0.026', CZK: '0.0396',
-  INR: '0.0110', CNY: '0.1198', HKD: '0.1096', TWD: '0.0286', VND: '0.0000363',
-  IDR: '0.0000584', THB: '0.0261', MYR: '0.2027', PHP: '0.0161', SGD: '0.685',
-  JPY: '0.0058', KRW: '0.000607', BDT: '0.00706', LKR: '0.00305', LAK: '0.0000396',
-  AUD: '0.60', ILS: '0.2574',
-};
-
-const VENDOR_STEMS = [
-  'Northwind', 'Contoso', 'Fabrikam', 'Litware', 'Proseware', 'Adventure',
-  'Tailspin', 'Wingtip', 'Woodgrove', 'Lucerne', 'Trey', 'Alpine',
-];
-
-const LINE_STEMS: Record<string, string[]> = {
-  'Travel expenses': ['Regional site visits', 'Vendor summit travel', 'Team offsite travel'],
-  Consultancies: ['Integration partner', 'Security operations partner', 'Platform partner', 'Advisory retainer'],
-  'Computer communication / internet': ['Dark fibre link', 'Office ISP link', 'SD-WAN service', 'Managed connectivity'],
-  'Short term equipment': ['Workstation replacement', 'Screen replacement', 'Peripherals and cabling', 'Mobile handsets'],
-  Training: ['Certification programme', 'Platform training', 'Security awareness'],
-  Licenses: ['Collaboration suite', 'Endpoint protection', 'Database licensing', 'Monitoring platform', 'Virtualisation'],
-  Other: ['Contingency', 'Shared services recharge'],
-  Investments: ['Network refresh', 'Datacentre hardware', 'Store systems rollout'],
-};
-
-/**
- * Deterministic pseudo-random generator. Seeded so the fixture is identical on
- * every run: a flaky seed makes a failing reconciliation test unreproducible.
- */
-function makeRng(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 0x100000000;
-  };
-}
+import {
+  loadDataset,
+  makeRng,
+  type Dataset,
+  type SeedMode,
+} from './dataset.ts';
 
 const USERS = [
   { email: 'admin@birgma.test', name: 'Group IT Finance', role: 'admin' },
@@ -113,7 +42,7 @@ const VALIDATION_RULES = [
   { code: 'capex_asset_life_approved', description: 'Capex lines need an approved asset life', severity: 'warning' },
 ];
 
-const CLASSIFICATIONS: { fieldKey: string; dataClass: string }[] = [
+const CLASSIFICATIONS = [
   { fieldKey: 'line_item.name', dataClass: 'internal' },
   { fieldKey: 'line_item.vendor', dataClass: 'confidential' },
   { fieldKey: 'line_item.justification', dataClass: 'confidential' },
@@ -134,17 +63,38 @@ const RETENTION = [
   { dataset: 'inactive_users', months: 24 },
 ];
 
+const TEMPLATE_FIELDS = [
+  { key: 'name', label: 'Line', type: 'text', required: true, visible: true },
+  { key: 'vendor', label: 'Vendor', type: 'text', required: false, visible: true },
+  { key: 'cost_centre', label: 'Cost centre', type: 'select', required: true, visible: true },
+  { key: 'gl_account', label: 'GL account', type: 'text', required: false, visible: false },
+  { key: 'justification', label: 'Justification', type: 'note', required: false, visible: false },
+];
+
+const MANAGER_EMAILS = [
+  'finance@birgma.test', 'cio@birgma.test', 'cto@birgma.test',
+  'infra@birgma.test', 'security@birgma.test', 'architecture@birgma.test',
+  'pmo@birgma.test',
+];
+
 export interface SeedResult {
   fiscalYear: number;
-  entityIds: string[];
+  mode: SeedMode;
+  provenance: string;
+  entityCount: number;
   lineCount: number;
 }
 
-export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
+export async function seedFrom(
+  db: Db,
+  fiscalYear: number,
+  dataset: Dataset,
+  mode: SeedMode,
+): Promise<SeedResult> {
   const rng = makeRng(20260815);
 
   return db.transaction(async (tx) => {
-    // Users
+    // -- Users ---------------------------------------------------------------
     const userIds = new Map<string, string>();
     for (const user of USERS) {
       const row = await tx.one<{ id: string }>(sql`
@@ -158,17 +108,17 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
     const adminId = userIds.get('admin@birgma.test')!;
     const cfoId = userIds.get('cfo@birgma.test')!;
 
-    // Cycle
+    // -- Cycle ---------------------------------------------------------------
     await tx.query(sql`
       insert into cycles (fiscal_year, phase, granularity, approval_threshold_eur)
       values (${fiscalYear}, 'collection', 'quarterly', 50000)
       on conflict (fiscal_year) do nothing
     `);
 
-    // FX for the current and four prior years, so the trend has data.
-    for (const [currency, rate] of Object.entries(FX)) {
+    // -- FX, current year and four prior ------------------------------------
+    for (const [currency, rate] of Object.entries(dataset.fx)) {
       for (let y = fiscalYear - 4; y <= fiscalYear; y += 1) {
-        // Drift the historical rates slightly so FR-063 volatility is non-trivial.
+        // Drift historical rates slightly so FR-063 volatility is non-trivial.
         const drift = 1 + (y - fiscalYear) * 0.015;
         const adjusted = (Number(rate) * drift).toFixed(8);
         await tx.query(sql`
@@ -179,29 +129,27 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
       }
     }
 
-    // Categories
-    const categoryIds: string[] = [];
-    for (const [i, category] of CATEGORIES.entries()) {
+    // -- Categories ----------------------------------------------------------
+    const categoryIds = new Map<string, string>();
+    for (const [i, category] of dataset.categories.entries()) {
       const row = await tx.one<{ id: string }>(sql`
         insert into categories (name, cost_type, position)
         values (${category.name}, ${category.costType}, ${i})
         on conflict (name) do update set position = excluded.position
         returning id
       `);
-      categoryIds.push(row!.id);
+      categoryIds.set(category.name, row!.id);
     }
 
-    // Cost centres. SEC-012 means the approver is a different actor from the
-    // creator, so the seed models that rather than short-circuiting it.
+    // -- Cost centres. SEC-012 means the approver is a different actor from
+    //    the creator, so the fixture models that rather than short-circuiting it.
     const costCentreIds: string[] = [];
     for (let i = 0; i < 12; i += 1) {
       const status = i < 9 ? 'approved' : i < 11 ? 'pending' : 'rejected';
       const row = await tx.one<{ id: string }>(sql`
         insert into cost_centres (code, description, status, created_by, approved_by, decided_at)
         values (
-          ${`CC-${String(1000 + i)}`},
-          ${`Cost centre ${1000 + i}`},
-          ${status},
+          ${`CC-${String(1000 + i)}`}, ${`Cost centre ${1000 + i}`}, ${status},
           ${adminId},
           ${status === 'pending' ? null : cfoId},
           ${status === 'pending' ? null : new Date()}
@@ -213,7 +161,7 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
     }
     const approvedCentres = costCentreIds.slice(0, 9);
 
-    // Validation rules
+    // -- Reference data ------------------------------------------------------
     for (const rule of VALIDATION_RULES) {
       await tx.query(sql`
         insert into validation_rules (code, description, severity)
@@ -221,16 +169,7 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
         on conflict (code) do nothing
       `);
     }
-
-    // Template fields
-    const FIELDS = [
-      { key: 'name', label: 'Line', type: 'text', required: true, visible: true },
-      { key: 'vendor', label: 'Vendor', type: 'text', required: false, visible: true },
-      { key: 'cost_centre', label: 'Cost centre', type: 'select', required: true, visible: true },
-      { key: 'gl_account', label: 'GL account', type: 'text', required: false, visible: false },
-      { key: 'justification', label: 'Justification', type: 'note', required: false, visible: false },
-    ];
-    for (const [i, field] of FIELDS.entries()) {
+    for (const [i, field] of TEMPLATE_FIELDS.entries()) {
       await tx.query(sql`
         insert into template_fields (fiscal_year, field_key, label, field_type, required, visible, position)
         values (${fiscalYear}, ${field.key}, ${field.label}, ${field.type},
@@ -238,8 +177,6 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
         on conflict (fiscal_year, field_key) do nothing
       `);
     }
-
-    // Governance defaults
     for (const c of CLASSIFICATIONS) {
       await tx.query(sql`
         insert into data_classifications (field_key, data_class, updated_by)
@@ -255,17 +192,9 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
       `);
     }
 
-    // Entities, owners, drivers, lines
-    const managerEmails = [
-      'finance@birgma.test', 'cio@birgma.test', 'cto@birgma.test',
-      'infra@birgma.test', 'security@birgma.test', 'architecture@birgma.test',
-      'pmo@birgma.test',
-    ];
-
-    const entityIds: string[] = [];
-    let lineCount = 0;
-
-    for (const [index, entity] of ENTITIES.entries()) {
+    // -- Entities, owners, drivers ------------------------------------------
+    const entityIds = new Map<string, string>();
+    for (const [index, entity] of dataset.entities.entries()) {
       const row = await tx.one<{ id: string }>(sql`
         insert into entities (code, name, currency, residency, deadline, state)
         values (${entity.code}, ${entity.name}, ${entity.currency}, ${entity.residency},
@@ -273,77 +202,83 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
         on conflict (code) do update set name = excluded.name
         returning id
       `);
-      const entityId = row!.id;
-      entityIds.push(entityId);
+      entityIds.set(entity.code, row!.id);
 
-      const ownerEmail = managerEmails[index % managerEmails.length]!;
+      const ownerEmail = MANAGER_EMAILS[index % MANAGER_EMAILS.length]!;
       await tx.query(sql`
         insert into entity_owners (entity_id, user_id)
-        values (${entityId}, ${userIds.get(ownerEmail)!})
+        values (${row!.id}, ${userIds.get(ownerEmail)!})
         on conflict do nothing
       `);
 
       for (const driverKey of ['headcount', 'sites', 'devices', 'stores'] as const) {
-        const value = 10 + Math.floor(rng() * 400);
         await tx.query(sql`
           insert into drivers (entity_id, driver_key, unit, value, fiscal_year)
-          values (${entityId}, ${driverKey}, ${driverKey}, ${value}, ${fiscalYear})
+          values (${row!.id}, ${driverKey}, ${driverKey}, ${10 + Math.floor(rng() * 400)}, ${fiscalYear})
           on conflict (entity_id, driver_key, fiscal_year) do nothing
         `);
       }
+    }
 
-      for (const [ci, category] of CATEGORIES.entries()) {
-        const stems = LINE_STEMS[category.name] ?? ['Line'];
-        for (const stem of stems) {
-          const vendor = `${VENDOR_STEMS[Math.floor(rng() * VENDOR_STEMS.length)]} Systems`;
-          const isCapex = category.costType === 'capex';
-          const lineRow = await tx.one<{ id: string }>(sql`
-            insert into line_items (
-              entity_id, category_id, name, vendor, cost_centre_id, gl_account,
-              cost_type, currency, justification, asset_life_years, asset_life_status
-            ) values (
-              ${entityId}, ${categoryIds[ci]!}, ${`${stem} — ${entity.code}`}, ${vendor},
-              ${approvedCentres[Math.floor(rng() * approvedCentres.length)]!},
-              ${`GL${4000 + ci}`},
-              ${category.costType}, ${entity.currency},
-              ${rng() > 0.6 ? `Planned ${stem.toLowerCase()} for ${entity.name}.` : null},
-              ${isCapex ? 3 + Math.floor(rng() * 3) : null},
-              ${isCapex ? 'approved' : null}
-            ) returning id
+    // -- Lines, five years of plans, and recorded spend ----------------------
+    let lineCount = 0;
+    for (const line of dataset.lines) {
+      const entityId = entityIds.get(line.entityCode);
+      const categoryId = categoryIds.get(line.categoryName);
+      if (!entityId || !categoryId) continue;
+
+      const category = dataset.categories.find((c) => c.name === line.categoryName);
+      const isCapex = category?.costType === 'capex';
+
+      const row = await tx.one<{ id: string }>(sql`
+        insert into line_items (
+          entity_id, category_id, name, vendor, cost_centre_id, gl_account,
+          cost_type, currency, justification, asset_life_years, asset_life_status
+        ) values (
+          ${entityId}, ${categoryId}, ${line.name}, ${line.vendor},
+          ${approvedCentres[Math.floor(rng() * approvedCentres.length)]!},
+          ${`GL${4000 + (lineCount % 8)}`},
+          ${isCapex ? 'capex' : 'opex'}, ${line.currency},
+          ${rng() > 0.6 ? `Planned spend for ${line.categoryName.toLowerCase()}.` : null},
+          ${isCapex ? 3 + Math.floor(rng() * 3) : null},
+          ${isCapex ? 'approved' : null}
+        ) returning id
+      `);
+      lineCount += 1;
+
+      // The dataset carries the current year. Prior years are modelled by
+      // compounding a per-line growth factor — which is what SPEC §1 describes
+      // ("prior-year figures are modelled, not real"). Replace with ledger data
+      // under FR-040; the summation property must keep holding.
+      const growth = 0.94 + rng() * 0.16;
+      for (let y = fiscalYear - 4; y <= fiscalYear; y += 1) {
+        const yearFactor = growth ** (y - fiscalYear);
+        for (const [i, quarter] of line.quarters.entries()) {
+          const amount = Math.round(Number(quarter) * yearFactor);
+          await tx.query(sql`
+            insert into period_amounts (line_id, fiscal_year, period, budget_version, amount)
+            values (${row!.id}, ${y}, ${i + 1}, 'working', ${String(amount)})
+            on conflict (line_id, fiscal_year, period, budget_version) do nothing
           `);
-          lineCount += 1;
-
-          // Five years of quarterly plans, so the trend and variance reports
-          // have real data to fold rather than a synthesised parent series.
-          const base = 5_000 + Math.floor(rng() * 120_000);
-          const growth = 0.94 + rng() * 0.16;
-          for (let y = fiscalYear - 4; y <= fiscalYear; y += 1) {
-            const yearFactor = growth ** (y - fiscalYear);
-            for (let period = 1; period <= 4; period += 1) {
-              const amount = Math.round(base * yearFactor * (0.85 + rng() * 0.3));
-              await tx.query(sql`
-                insert into period_amounts (line_id, fiscal_year, period, budget_version, amount)
-                values (${lineRow!.id}, ${y}, ${period}, 'working', ${String(amount)})
-                on conflict (line_id, fiscal_year, period, budget_version) do nothing
-              `);
-            }
-          }
-
-          // Recorded spend for elapsed quarters only (FR-041).
-          for (let period = 1; period <= 2; period += 1) {
-            const spend = Math.round(base * (0.7 + rng() * 0.6));
-            await tx.query(sql`
-              insert into actuals (line_id, fiscal_year, period, amount, recorded_by)
-              values (${lineRow!.id}, ${fiscalYear}, ${period}, ${String(spend)},
-                      ${userIds.get(ownerEmail)!})
-              on conflict (line_id, fiscal_year, period) do nothing
-            `);
-          }
         }
+      }
+
+      // Recorded spend for elapsed quarters only (FR-041).
+      const ownerIndex = dataset.entities.findIndex((e) => e.code === line.entityCode);
+      const ownerEmail = MANAGER_EMAILS[ownerIndex % MANAGER_EMAILS.length]!;
+      for (let period = 1; period <= 2; period += 1) {
+        const planned = Number(line.quarters[period - 1] ?? 0);
+        await tx.query(sql`
+          insert into actuals (line_id, fiscal_year, period, amount, recorded_by)
+          values (${row!.id}, ${fiscalYear}, ${period},
+                  ${String(Math.round(planned * (0.7 + rng() * 0.6)))},
+                  ${userIds.get(ownerEmail)!})
+          on conflict (line_id, fiscal_year, period) do nothing
+        `);
       }
     }
 
-    // Allocation pools (FR-023)
+    // -- Allocation pools (FR-023) ------------------------------------------
     for (const pool of [
       { name: 'Group security operations', amount: '1200000', driver: 'devices' },
       { name: 'Group network backbone', amount: '900000', driver: 'sites' },
@@ -356,8 +291,37 @@ export async function seed(db: Db, fiscalYear: number): Promise<SeedResult> {
       `);
     }
 
-    return { fiscalYear, entityIds, lineCount };
+    // An environment should be able to say where its data came from without
+    // anyone having to remember.
+    await tx.query(sql`
+      insert into audit_events (
+        actor_user_id, actor_role, action, target_type, detail, kind
+      ) values (
+        ${adminId}, 'admin', 'system.seed', 'database',
+        ${`Seeded FY${fiscalYear} from ${dataset.provenance}: ${dataset.entities.length} entities, ${lineCount} lines`},
+        'governance'
+      )
+    `);
+
+    return {
+      fiscalYear,
+      mode,
+      provenance: dataset.provenance,
+      entityCount: dataset.entities.length,
+      lineCount,
+    };
   });
+}
+
+/** Convenience for tests and the CLI. */
+export async function seed(
+  db: Db,
+  fiscalYear: number,
+  mode: SeedMode = 'synthetic',
+  anonymisedFile = 'db/fixtures/anonymised.json',
+): Promise<SeedResult> {
+  const dataset = await loadDataset(mode, anonymisedFile);
+  return seedFrom(db, fiscalYear, dataset, mode);
 }
 
 const isEntrypoint =
@@ -369,18 +333,31 @@ if (isEntrypoint) {
     console.error('DATABASE_URL must be set');
     process.exit(1);
   }
+
+  const mode = (process.env.SEED_MODE ?? 'synthetic') as SeedMode;
+  if (mode !== 'synthetic' && mode !== 'anonymised') {
+    console.error(`SEED_MODE must be "synthetic" or "anonymised", got "${mode}"`);
+    process.exit(1);
+  }
+
   const db = createDb({
     DATABASE_URL: url,
     DB_POOL_MAX: 4,
-    DB_STATEMENT_TIMEOUT_MS: 30_000,
+    DB_STATEMENT_TIMEOUT_MS: 60_000,
   });
-  const year = Number(process.env.FISCAL_YEAR ?? 2026);
-  seed(db, year)
-    .then((result) => {
-      console.log(
-        `seeded FY${result.fiscalYear}: ${result.entityIds.length} entities, ${result.lineCount} lines (synthetic — PRIV-010)`,
+
+  seed(
+    db,
+    Number(process.env.FISCAL_YEAR ?? 2026),
+    mode,
+    process.env.SEED_ANONYMISED_FILE ?? 'db/fixtures/anonymised.json',
+  )
+    .then(async (result) => {
+      console.warn(
+        `seeded FY${result.fiscalYear} [${result.mode}]: ` +
+        `${result.entityCount} entities, ${result.lineCount} lines — ${result.provenance}`,
       );
-      return db.close();
+      await db.close();
     })
     .catch(async (err: unknown) => {
       console.error(err instanceof Error ? err.message : err);

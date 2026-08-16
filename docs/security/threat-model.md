@@ -116,6 +116,22 @@ treated as a first-class finding rather than an output-formatting nicety.
 | 5.1 | Elevation (on the recipient) | CSV/XLSX formula injection: a vendor name of `=cmd\|'/c calc'!A1` executes when the CFO opens the pack | Leading `=`, `+`, `-`, `@`, tab and CR are prefixed with `'`; the value is preserved, not stripped (`SEC-023`) | 7 escaping cases **plus** inflating the real workbook and asserting the sheet XML |
 | 5.2 | Information disclosure | Mass export as exfiltration | Export requires `budget.view.any`, is rate limited to 5 per 5 minutes, and is audited with the row and entity count for SIEM alerting (`ZT-008`) | `SEC-013 rate limiting` |
 
+### B6 — Backup archive → storage and operator (added with ADR 0005)
+
+A backup is the single most concentrated asset the system produces: every
+figure, every comment, every personal record and the whole audit trail in one
+file, outside the database's access controls.
+
+| # | STRIDE | Threat | Mitigation | Verified by |
+|---|---|---|---|---|
+| 6.1 | Information disclosure | Archive stolen from storage or a misconfigured volume | AES-256-GCM with a key from the environment (Key Vault in production), never stored beside the archive. A deployment without a key refuses to create a backup rather than writing plaintext | `writes only ciphertext to disk` |
+| 6.2 | Tampering | Archive modified before restore | SHA-256 of the ciphertext verified before decryption, GCM auth tag during it — two independent failures rather than partially-trusted plaintext | `detects a tampered archive` |
+| 6.3 | Tampering | Blob swapped between manifests, or restored into another region | The AAD binds ciphertext to `(backup id, region)`, so a mismatch fails to decrypt; region is also checked on read (CMP-140) | `refuses a backup belonging to another region` |
+| 6.4 | Repudiation | A restore silently reinstates a doctored audit trail | The manifest records `audit_verify_chain()` and the head sequence at capture, so a backup attests the chain state it captured | `attests the audit chain state at capture time` |
+| 6.5 | Information disclosure | Repeated backups used as slow exfiltration | 3 per 10 minutes, step-up required, audited with row counts for the ZT-008 alert | `SEC-001` matrix + `requires fresh authentication` |
+| 6.6 | Elevation | Live session material archived and replayed later | `sessions` and `auth_transactions` are excluded from the table allow-list | `creates a backup covering every table` |
+| 6.7 | Information disclosure | A newly added table silently exported without review | Tables come from a fixed allow-list, not `information_schema`; a new table is absent until someone adds it | — (by construction) |
+
 ### Cross-cutting
 
 | # | STRIDE | Threat | Mitigation |
@@ -175,6 +191,8 @@ Stating these plainly is more useful than a table of green ticks.
 
 | Risk | Likelihood | Impact | Owner | Treatment |
 |---|---|---|---|---|
+| Anonymised fixture is pseudonymous, not anonymous — 16 of 21 entities remain structurally unique | Confirmed | Medium | Group IT Finance + Legal | Classified `Internal`, gitignored, refused in production. Must not be described as anonymous in the RoPA without Legal review (ADR 0005) |
+| Restore path untested; a backup that cannot be restored is not a backup | Certain | High | Platform | `CMP-107` — deliberately not implemented rather than implemented and untested |
 | PIPL topology unresolved; mainland-China entity data has no lawful home | High | High — blocks go-live for CN | Legal + Platform | The residency guard already refuses to serve `cn` rows from other regions, so the *code* fails closed. The decision in `SPEC.md` §12.1 is still required. |
 | Real workbook data present in the repository (see `osint-exposure.md`) | Confirmed | High | Group IT Finance | Seed is synthetic; the real extract must be removed from any repository that is not private and access-controlled |
 | NIS2 applicability unknown | Medium | Medium | Legal | `CMP-120` assessment |

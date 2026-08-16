@@ -27,6 +27,7 @@ import {
   ValidationBanner,
   VarianceView,
 } from './components/views.tsx';
+import { OperationsView } from './components/OperationsView.tsx';
 import { formatMoney } from './format.ts';
 import { BudgetStateChip } from './components/Status.tsx';
 
@@ -38,7 +39,8 @@ type ViewKey =
   | 'submissions'
   | 'costCentres'
   | 'audit'
-  | 'governance';
+  | 'governance'
+  | 'operations';
 
 interface NavEntry {
   key: ViewKey;
@@ -81,6 +83,13 @@ const NAV: NavEntry[] = [
     glyph: '⚿',
     group: 'Govern',
     visible: (me) => can(me.user.role, 'governance.edit') || can(me.user.role, 'audit.viewAll'),
+  },
+  {
+    key: 'operations',
+    label: 'Operations',
+    glyph: '⟳',
+    group: 'Govern',
+    visible: (me) => can(me.user.role, 'backup.run'),
   },
 ];
 
@@ -197,6 +206,7 @@ export function App(): JSX.Element {
               ) : null}
               {view === 'audit' ? <AuditView /> : null}
               {view === 'governance' ? <GovernanceView /> : null}
+              {view === 'operations' ? <OperationsView /> : null}
             </div>
           </>
         ) : null}

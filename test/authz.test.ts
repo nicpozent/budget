@@ -146,6 +146,13 @@ const PROBES: Record<Capability, Probe> = {
     url: '/api/governance/retention',
     body: { dataset: 'free_text', months: 36 },
   },
+  'backup.run': { method: 'POST', url: '/api/admin/backups' },
+  // A non-existent id is fine here: a denied role is refused before the
+  // handler runs, and an allowed role gets 404, which is "not 403".
+  'backup.download': {
+    method: 'GET',
+    url: '/api/admin/backups/00000000-0000-4000-8000-000000000000/download',
+  },
 };
 
 let harness: Harness;
