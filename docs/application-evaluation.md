@@ -10,8 +10,8 @@ the evidence is thin. Scale:
 - **★★☆☆☆ Partial** — scaffolded / in progress.
 - **★☆☆☆☆ Absent** — not started.
 
-_Last reviewed: v1 core, `claude/file-review-8a42qx`. 360 tests, 0 lint errors,
-0 dependency vulnerabilities, 6 direct production dependencies._
+*Last reviewed: v1 core, `claude/file-review-8a42qx`. 362 tests, 0 lint errors,
+0 dependency vulnerabilities, 6 direct production dependencies.*
 
 ## 1. Scorecard
 
@@ -21,7 +21,7 @@ _Last reviewed: v1 core, `claude/file-review-8a42qx`. 360 tests, 0 lint errors,
 | 2 | **Architecture & modularity** | ★★★★☆ | npm workspaces; pure `shared` package (no I/O) so the matrix and money type are directly testable; layered API; HLD + LLD + building blocks + 5 ADRs | Layer-split rather than feature-split — right at this size, revisit if the domain grows |
 | 3 | **Frontend engineering** | ★★★★☆ | React 18 + TS strict + Vite 6; external CSS tokens (no inline styles — the CSP forbids them); 0 lint errors; deterministic asset names | No route code-splitting (single 249 KB bundle — fine at this size); no client-side state library |
 | 4 | **Identity & access** | ★★★☆☆ | Entra OIDC authorisation code + **PKCE S256**, server-side state/nonce single-use, group→role with least privilege on multi-membership, JIT provisioning with safe account linking | **Never exercised against a live tenant.** The dev provider is what has been run. Conditional Access / PIM / FIDO2 are tenant configuration |
-| 5 | **Authorization model** | ★★★★★ | SPEC §5 matrix as frozen data; **an undeclared route throws at registration** so it cannot reach a running server; capability and entity scope as separate axes; 404-not-403 on out-of-scope reads; **203 assertions covering every role × capability pair**, generated from the matrix so a new capability without a probe fails the suite | — |
+| 5 | **Authorization model** | ★★★★★ | SPEC §5 matrix as frozen data; **an undeclared route throws at registration** so it cannot reach a running server; capability and entity scope as separate axes; 404-not-403 on out-of-scope reads; **216 assertions covering every role × capability pair** (24 capabilities × 9 roles), generated from the matrix so a new capability without a probe fails the suite | — |
 | 6 | **Data & persistence** | ★★★★★ | PostgreSQL 16; three least-privilege roles; `numeric(18,4)` money with no float column anywhere; amounts addressable by `(line, year, period, version)` from day one; SoD as `CHECK` constraints; checksum-guarded migrations | — |
 | 7 | **Financial correctness** | ★★★★★ | `Money` over scaled `bigint`, string-only construction, rounding stated once; FX at read time so restatement is consistent; **`INV-4` property-tested over two partitions × five years**; optimistic concurrency with a real conflict path | — |
 | 8 | **Audit & non-repudiation** | ★★★★★ | Append-only by **grant, trigger and SHA-256 hash chain**; audit insert shares the handler transaction so an unrecorded change rolls back; `audit_verify_chain()` pinpoints tampering performed with the trigger disabled; completeness hook fails a 2xx state change that wrote no event | — |
@@ -30,7 +30,7 @@ _Last reviewed: v1 core, `claude/file-review-8a42qx`. 360 tests, 0 lint errors,
 | 11 | **Non-production data** | ★★★★☆ | Synthetic seed by default; offline anonymiser outside `packages/`; CI refuses any import of the workbook; **the anonymiser reports its own k-anonymity failure** rather than overclaiming | The real extract is still in the repository (`osint-exposure.md` §1); the anonymised fixture is pseudonymous, not anonymous |
 | 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | axe against the **running app in a real browser** across 8 views; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions | No external assistive-technology audit; no VPAT; strings not externalised |
 | 13 | **Observability** | ★★☆☆☆ | Structured JSON logs with credential redaction; per-request correlation ids; every authorisation denial logged with its reason; CSP violation sink; audit-completeness signal; health endpoint | **No OTLP traces, no metrics export, no SIEM shipping, no alert rules.** The three `ZT-008` alerts are specified, not configured. Weakest dimension |
-| 14 | **Testing** | ★★★★★ | 360 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **three real defects found by the suite during build** and each now has a regression test | No load test at monthly × version scale; no mutation testing |
+| 14 | **Testing** | ★★★★★ | 362 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **three real defects found by the suite during build** and each now has a regression test | No load test at monthly × version scale; no mutation testing |
 | 15 | **CI/CD** | ★★★★☆ | 8 gates: typecheck, lint, `npm audit`, build, tests, SBOM, CodeQL security-extended, gitleaks over full history, plus a confidential-data grep | **No deployment pipeline, no IaC**; no DAST stage; builds not reproducible or signed |
 | 16 | **Delivery & runtime** | ★★☆☆☆ | Single container serves shell + API; migrations separate by role; graceful shutdown; config fails closed | **No IaC, no container image, no environments provisioned.** Runtime topology is documented, not deployed |
 | 17 | **Backup & recovery** | ★★★☆☆ | Encrypted (AES-256-GCM, AAD binds id+region), integrity double-checked, **chain-attesting**, audited with counts, step-up and rate limited, admin UI | **Restore is not implemented** — deliberately, but it means `NFR-006`/`CMP-107` are unmet. No tested RTO/RPO |
@@ -46,7 +46,7 @@ _Last reviewed: v1 core, `claude/file-review-8a42qx`. 360 tests, 0 lint errors,
 **Authorization (5) is the strongest dimension** and deliberately so. The
 `onRoute` hook converts `SEC-010` from a review item into a framework
 guarantee: a route without a security declaration throws at registration, so it
-cannot reach a running server. The 203 assertions are generated *from the
+cannot reach a running server. The 216 assertions are generated *from the
 matrix*, which means adding a capability without wiring an endpoint fails the
 suite — the test cannot silently fall behind the model.
 

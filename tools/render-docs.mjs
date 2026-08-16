@@ -6,6 +6,11 @@ const run = promisify(execFile);
 const DOCS = [
   ['SoW/STATEMENT-OF-WORK.md', 'SoW/STATEMENT-OF-WORK.html', 'Spendifre · Statement of Work'],
   ['docs/user-guide/README.md', 'docs/user-guide/index.html', 'Spendifre · User Guide'],
+  [
+    'docs/application-evaluation.md',
+    'docs/application-evaluation.html',
+    'Spendifre · Application Evaluation',
+  ],
 ];
 
 for (const [input, output, eyebrow] of DOCS) {
