@@ -21,6 +21,7 @@ import { AppError, internal } from './http/errors.ts';
 import { registerSecurityHeaders } from './http/security.ts';
 import { registerAuthGuard, registerRouteDeclarationCheck } from './http/guard.ts';
 import { registerAuditCompletenessCheck } from './services/audit.ts';
+import { registerObservability } from './observability/index.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
 import { registerMetaRoutes } from './routes/meta.ts';
 import { registerLineRoutes } from './routes/lines.ts';
@@ -131,6 +132,9 @@ export async function buildApp({ db, config }: AppDeps): Promise<FastifyInstance
   app.setNotFoundHandler((_request, reply) =>
     reply.status(404).send(new AppError('not_found').toBody()),
   );
+
+  // Before the routes, so the request hooks are in place for all of them.
+  registerObservability(app, config);
 
   await registerAuthRoutes(app, db, config);
   await registerMetaRoutes(app, db, config);

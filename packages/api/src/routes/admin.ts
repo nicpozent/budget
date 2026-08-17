@@ -21,6 +21,7 @@ import { badRequest, conflict, forbidden, notFound } from '../http/errors.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
 import { createBackup, listBackups, readBackup } from '../services/backup.ts';
+import { privilegeChanges } from '../observability/metrics.ts';
 import { parseArchive, verifyArchive } from '../services/restore.ts';
 
 export async function registerAdminRoutes(
@@ -133,6 +134,8 @@ export async function registerAdminRoutes(
         `);
       }
 
+      // ZT-008 alert 3: someone changing who can see what.
+      privilegeChanges({ action: 'entity.create' });
       await writeAudit(tx, {
         actor: principal,
         action: 'entity.create',
@@ -340,6 +343,8 @@ export async function registerAdminRoutes(
         do update set data_class = excluded.data_class, updated_by = excluded.updated_by,
                       updated_at = now()
       `);
+      // ZT-008 alert 3: someone changing who can see what.
+      privilegeChanges({ action: 'governance.classification' });
       await writeAudit(tx, {
         actor: principal,
         action: 'governance.classification',
@@ -371,6 +376,8 @@ export async function registerAdminRoutes(
         on conflict (dataset)
         do update set months = excluded.months, updated_by = excluded.updated_by, updated_at = now()
       `);
+      // ZT-008 alert 3: someone changing who can see what.
+      privilegeChanges({ action: 'governance.retention' });
       await writeAudit(tx, {
         actor: principal,
         action: 'governance.retention',
@@ -455,6 +462,8 @@ export async function registerAdminRoutes(
       await tx.query(sql`delete from line_comments where author_id = ${userId}`);
       await tx.query(sql`update sessions set revoked_at = now() where user_id = ${userId}`);
 
+      // ZT-008 alert 3: someone changing who can see what.
+      privilegeChanges({ action: 'governance.subject.pseudonymise' });
       await writeAudit(tx, {
         actor: principal,
         action: 'governance.subject.pseudonymise',

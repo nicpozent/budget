@@ -19,6 +19,7 @@ import { sql } from '../db/pool.ts';
 import { authenticatedRoute, principalOf, requires } from '../http/guard.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
+import { exportedRows } from '../observability/metrics.ts';
 import {
   computeLineTotals,
   depreciationSchedule,
@@ -461,6 +462,10 @@ export async function registerReportRoutes(
       };
 
       const workbook = buildXlsx([sheet]);
+
+      // ZT-008 alert 2. Export is deliberately low-frequency, so a spike in
+      // rows leaving the system is the signal rather than the noise.
+      exportedRows({ kind: 'xlsx' }, lines.length);
 
       await writeAudit(db, {
         actor: principal,

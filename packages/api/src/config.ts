@@ -78,6 +78,17 @@ const envSchema = z.object({
    * WCAG 2.2.1 requires the user be warned before this expires and given a way
    * to extend it; `SESSION_IDLE_WARN_SECONDS` is how long before.
    */
+  /**
+   * Observability (ZT-008). All three are optional and all three fail closed:
+   * no token means no /metrics route at all, and no endpoint means spans are
+   * built and discarded rather than queued for a collector that isn't there.
+   */
+  METRICS_TOKEN: z.string().min(24).optional(),
+  OTLP_ENDPOINT: z.string().url().optional(),
+  OTLP_SERVICE_NAME: z.string().min(1).max(64).default('spendifre-api'),
+  /** 0 disables tracing; 1 traces everything. Between, a deterministic share. */
+  TRACE_SAMPLE_RATIO: z.coerce.number().min(0).max(1).default(0.1),
+
   SESSION_IDLE_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
   SESSION_IDLE_WARN_SECONDS: z.coerce.number().int().min(20).max(600).default(120),
   /** ZT-007: how fresh primary authentication must be for an irreversible action. */

@@ -14,6 +14,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AuditKind, Principal } from '@spendifre/shared';
 import type { Db } from '../db/pool.ts';
 import { identifier, join, sql, type SqlFragment } from '../db/pool.ts';
+import { auditFailures } from '../observability/metrics.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -84,6 +85,9 @@ export function registerAuditCompletenessCheck(app: FastifyInstance, strict: boo
     if (request.auditWrites > 0) return payload;
 
     const message = `state-changing request ${key} completed without an audit event (FR-070)`;
+    // ZT-008 alert 1. Counted before the throw, so the metric records the fact
+    // in development too rather than only in the environment that tolerates it.
+    auditFailures({ route: key });
     if (strict) throw new Error(message);
     request.log.error({ event: 'audit.missing', route: key }, message);
     return payload;

@@ -26,6 +26,7 @@ import {
 import type { AppConfig } from '../config.ts';
 import type { Db } from '../db/pool.ts';
 import { forbidden, notFound, stepUpRequired, unauthenticated } from './errors.ts';
+import { authorisationDenials } from '../observability/metrics.ts';
 import { isSameOrigin } from './security.ts';
 import { isAuthFresh, loadSession, sessionCookieName, touchSession, verifyCsrf } from '../auth/session.ts';
 
@@ -110,16 +111,19 @@ export function registerAuthGuard(app: FastifyInstance, db: Db, config: AppConfi
 
         if (STATE_CHANGING.has(request.method)) {
           if (!isSameOrigin(request, config.PUBLIC_ORIGIN)) {
+            authorisationDenials({ reason: 'cross_origin' });
             throw forbidden('cross-origin state-changing request');
           }
           const presented = request.headers['x-csrf-token'];
           if (!verifyCsrf(session, typeof presented === 'string' ? presented : undefined)) {
+            authorisationDenials({ reason: 'csrf' });
             throw forbidden('missing or invalid CSRF token');
           }
         }
 
         if (security.mode === 'capability' && requiresStepUp(security.capability)) {
           if (!isAuthFresh(session, config.STEP_UP_MAX_AGE_MINUTES)) {
+            authorisationDenials({ reason: 'step_up' });
             throw stepUpRequired('primary authentication is too old for this action');
           }
         }
@@ -133,6 +137,10 @@ export function registerAuthGuard(app: FastifyInstance, db: Db, config: AppConfi
     if (!request.principal) throw unauthenticated('no valid session');
 
     if (security.mode === 'capability' && !can(request.principal.role, security.capability)) {
+      // ZT-008: clustered denials are the shape of someone probing endpoints.
+      // The *capability* is labelled, never the actor — a metrics store is not
+      // covered by SEC-011.
+      authorisationDenials({ reason: 'capability', capability: security.capability });
       throw forbidden(`role ${request.principal.role} lacks ${security.capability}`);
     }
   });

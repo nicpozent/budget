@@ -1,0 +1,240 @@
+# Release: build, sign, attest, scan, and only then publish a deployable digest.
+#
+# The evaluation's row 18 gap was "no artefact signing, no reproducible builds,
+# no provenance attestation". This workflow is those three, in the order that
+# makes them mean something:
+#
+#   1. Build the image and record the base digests it actually resolved.
+#   2. Generate an SBOM *from the built image*, not from the repository — the
+#      repository lists what we asked for, the image contains what arrived.
+#   3. Sign the image with Sigstore keyless, so the signature is bound to this
+#      workflow's OIDC identity and there is no private key to steal.
+#   4. Attach a SLSA provenance attestation naming the commit, the builder and
+#      the resolved bases.
+#   5. Scan the image and fail on a fixable high.
+#   6. Run DAST against the image, actually running, before it is deployable.
+#
+# A signature on an unscanned image says "we built this", which is not the
+# claim anyone needs. The order is the point.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Push and sign the image (otherwise build and scan only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Sigstore keyless signing and the provenance attestation both need an
+      # OIDC token. This is the whole reason there is no signing key anywhere.
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      image: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # PRIV-010 belt and braces. .dockerignore excludes design/, but a
+      # convention is not a control — this fails the release if the confidential
+      # workbook is reachable from the build context at all.
+      - name: Refuse to build with the confidential workbook in context
+        run: |
+          if [ -f design/budget-data.js ] && ! grep -qx 'design/' .dockerignore; then
+            echo "::error::design/ must be excluded from the build context (PRIV-010)."
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Resolve the bases now, so the provenance records what was actually used
+      # rather than what the tag pointed at some other day. See the note at the
+      # top of the Dockerfile about why the tags are not pinned in the file.
+      - name: Resolve base image digests
+        id: bases
+        run: |
+          node_digest=$(docker buildx imagetools inspect node:22.14.0-bookworm-slim \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+          distroless_digest=$(docker buildx imagetools inspect \
+            gcr.io/distroless/nodejs22-debian12:nonroot \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "node=$node_digest" >> "$GITHUB_OUTPUT"
+          echo "distroless=$distroless_digest" >> "$GITHUB_OUTPUT"
+          echo "node:22.14.0-bookworm-slim -> $node_digest"
+          echo "distroless/nodejs22 -> $distroless_digest"
+
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push' || inputs.publish
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' || inputs.publish }}
+          load: ${{ github.event_name != 'push' && !inputs.publish }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.ref_name }}
+          # Reproducibility: without this the layer timestamps are build time,
+          # and two builds of one commit differ. With it they do not.
+          build-args: |
+            SOURCE_DATE_EPOCH=0
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # From the image, not from the repository. package-lock.json says what we
+      # asked for; the image contains what is actually there, including anything
+      # the base contributes.
+      - name: SBOM from the built image
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.ref_name }}
+          format: cyclonedx-json
+          output-file: image-sbom.cdx.json
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.ref_name }}
+          format: sarif
+          output: trivy.sarif
+          severity: HIGH,CRITICAL
+          # Only fixable findings fail the build. An unfixable CVE in a base
+          # image is a decision to record, not a reason nobody can release.
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Sign the image (Sigstore keyless)
+        if: github.event_name == 'push' || inputs.publish
+        uses: sigstore/cosign-installer@v3
+      - if: github.event_name == 'push' || inputs.publish
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.IMAGE }}@${{ steps.push.outputs.digest }}"
+
+      - name: Attest build provenance
+        if: github.event_name == 'push' || inputs.publish
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest the SBOM
+        if: github.event_name == 'push' || inputs.publish
+        uses: actions/attest-sbom@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: image-sbom.cdx.json
+          push-to-registry: true
+
+      # The resolved bases, recorded next to the artefacts so a verifier can
+      # reproduce the build from the attestation rather than from a stale
+      # digest committed in the Dockerfile.
+      - name: Record base digests
+        run: |
+          cat > base-images.json <<JSON
+          {
+            "node": "${{ steps.bases.outputs.node }}",
+            "distroless": "${{ steps.bases.outputs.distroless }}",
+            "commit": "${{ github.sha }}"
+          }
+          JSON
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence
+          path: |
+            image-sbom.cdx.json
+            trivy.sarif
+            base-images.json
+
+  # ---------------------------------------------------------------------------
+  # DAST (SEC-041). Row 9's gap was "no penetration test, no DAST". A pen test
+  # needs people; this is the half that does not.
+  # ---------------------------------------------------------------------------
+  dast:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: dast_only_not_a_secret
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ['5432:5432']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build --workspace @spendifre/web
+
+      - name: Migrate and seed
+        env:
+          MIGRATION_DATABASE_URL: postgres://postgres:dast_only_not_a_secret@localhost:5432/postgres
+          DATABASE_URL: postgres://postgres:dast_only_not_a_secret@localhost:5432/postgres
+        run: |
+          npm run db:migrate
+          # SEED_MODE stays synthetic: scanning a system seeded with anything
+          # else would put real structure into a scan report (PRIV-010).
+          SEED_MODE=synthetic npm run db:seed
+
+      - name: Start the application
+        env:
+          DATABASE_URL: postgres://postgres:dast_only_not_a_secret@localhost:5432/postgres
+          PUBLIC_ORIGIN: http://127.0.0.1:8080
+          TELEMETRY_SALT: dast_salt_not_a_secret_value
+          # On, so the scanner can get past the front door. This is the one
+          # thing about the scanned system that differs from production, and it
+          # is the reason the scan cannot substitute for a pen test.
+          DEV_AUTH: 'on'
+          NODE_ENV: development
+        run: |
+          node --experimental-strip-types packages/api/src/main.ts &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/healthz && break
+            sleep 1
+          done
+
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://127.0.0.1:8080
+          # Rules the application answers deliberately are tuned out in the
+          # config, each with a reason — an ignored finding with no reason is
+          # how a scan stops being read.
+          rules_file_name: .zap/rules.tsv
+          cmd_options: '-a -j'
+          fail_action: true

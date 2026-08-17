@@ -1,0 +1,159 @@
+# Alert rules for Spendifre (ZT-008).
+#
+# These were specified in docs/observability.md and existed only as prose. They
+# are here as configuration so "the alert exists" is a file someone can load,
+# not a sentence someone wrote.
+#
+# Load into Prometheus with `rule_files: [prometheus-rules.yaml]`, or into
+# Azure Monitor managed Prometheus as a rule group. The KQL equivalents for
+# Log Analytics are in azure-monitor-kql.md.
+
+groups:
+  - name: spendifre-zt008
+    interval: 1m
+    rules:
+      # --- ZT-008 alert 1: the audit trail -------------------------------
+      #
+      # The highest-severity signal in the system. A state change that was not
+      # recorded, or a chain that no longer verifies, means the record cannot
+      # be relied on — and the record is what makes every approval binding.
+
+      - alert: SpendifreAuditWriteMissing
+        expr: increase(spendifre_audit_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          requirement: FR-070
+        annotations:
+          summary: "A state-changing request completed without an audit event"
+          description: >-
+            Route {{ $labels.route }} returned success but wrote no audit event.
+            The change happened and is not in the record. Treat as an integrity
+            incident, not a bug report.
+          runbook: docs/observability.md#3-the-events-worth-alerting-on
+
+      - alert: SpendifreAuditChainBroken
+        expr: spendifre_audit_chain_intact == 0
+        for: 0m
+        labels:
+          severity: critical
+          requirement: FR-073
+        annotations:
+          summary: "audit_verify_chain() reports tampering"
+          description: >-
+            The audit hash chain no longer verifies. Rows were altered out of
+            band — the trigger and the grants both refuse this, so reaching this
+            state means database-level access. Preserve the database before
+            investigating.
+
+      # A chain that has not been checked at all is not the same as a chain
+      # that verified, and silence should not read as health.
+      - alert: SpendifreAuditChainUnchecked
+        expr: absent(spendifre_audit_chain_intact)
+        for: 6h
+        labels:
+          severity: warning
+          requirement: FR-073
+        annotations:
+          summary: "The audit chain has not been verified for six hours"
+
+      # --- ZT-008 alert 2: mass export ----------------------------------
+      #
+      # The shape of exfiltration. Deliberately low-frequency, so the threshold
+      # is set where a normal working day never reaches it.
+
+      - alert: SpendifreMassExport
+        expr: increase(spendifre_exported_rows_total[1h]) > 50000
+        for: 0m
+        labels:
+          severity: warning
+          requirement: ZT-008
+        annotations:
+          summary: "More than 50,000 rows exported in an hour ({{ $labels.kind }})"
+          description: >-
+            Cross-check against audit_events for the actor. A backup legitimately
+            exports everything; an XLSX export of this size is not a normal
+            reporting action.
+
+      - alert: SpendifreExportOutsideHours
+        expr: >-
+          increase(spendifre_exported_rows_total[15m]) > 0
+          and on() (hour() < 5 or hour() > 20)
+        for: 0m
+        labels:
+          severity: warning
+          requirement: ZT-008
+        annotations:
+          summary: "Data exported outside working hours"
+          description: >-
+            Not suspicious on its own — finance closes late. Suspicious in
+            combination with a role that does not normally export.
+
+      # --- ZT-008 alert 3: privilege change ------------------------------
+
+      - alert: SpendifrePrivilegeChange
+        expr: increase(spendifre_privilege_changes_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          requirement: ZT-008
+        annotations:
+          summary: "Someone changed who can see what ({{ $labels.action }})"
+          description: >-
+            Informational by design: these are legitimate administrative
+            actions. The alert exists so they are reviewed, not so they are
+            prevented.
+
+      # --- Probing and step-up ------------------------------------------
+
+      - alert: SpendifreAuthorisationDenialSpike
+        expr: increase(spendifre_authorisation_denials_total[5m]) > 20
+        for: 0m
+        labels:
+          severity: warning
+          requirement: SEC-010
+        annotations:
+          summary: "Authorisation denials spiking ({{ $labels.reason }})"
+          description: >-
+            Someone is being refused repeatedly. A capability-reason spike is
+            usually enumeration; a csrf or cross_origin spike is usually a
+            misconfigured client, and is worth ruling out first.
+
+      - alert: SpendifreStepUpRefusalSpike
+        expr: increase(spendifre_authorisation_denials_total{reason="step_up"}[15m]) > 10
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Step-up refusals in volume"
+          description: >-
+            Either the idle window is too short for how people actually work,
+            or someone is replaying an old session. Both are worth knowing.
+
+  - name: spendifre-slo
+    interval: 1m
+    rules:
+      # NFR-001 targets p95 under 300 ms. Alert on sustained breach, not on a
+      # spike — a single slow minute is not an SLO violation.
+      - alert: SpendifreLatencyBudgetBurn
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (rate(spendifre_http_request_duration_seconds_bucket[10m]))
+          ) > 0.3
+        for: 15m
+        labels:
+          severity: warning
+          requirement: NFR-001
+        annotations:
+          summary: "p95 above 300 ms on {{ $labels.route }} for 15 minutes"
+
+      - alert: SpendifreErrorRate
+        expr: >-
+          sum(rate(spendifre_http_requests_total{status="5xx"}[5m]))
+          / sum(rate(spendifre_http_requests_total[5m])) > 0.01
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 1% of requests failing"

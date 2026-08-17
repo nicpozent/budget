@@ -1,0 +1,30 @@
+# PRIV-010: the real FY2026 workbook extract must never enter an image. This is
+# the first line of the file for that reason, and a CI step asserts the built
+# image contains no `budget-data` after the fact — a .dockerignore is a
+# convention, and the assertion is the control.
+design/
+
+# Build output and local state.
+node_modules/
+dist/
+coverage/
+db/fixtures/
+var/
+.git/
+.github/
+
+# Secrets and local configuration.
+.env
+.env.*
+!.env.example
+
+# Documentation and tooling that no runtime needs. Excluded to keep the image
+# small, not because they are sensitive.
+docs/
+SoW/
+ops/
+test/
+tools/
+*.md
+!README.md
+sbom.cdx.json

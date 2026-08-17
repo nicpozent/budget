@@ -1,0 +1,34 @@
+# ZAP baseline rule tuning.
+#
+# Format: rule-id	action	(optional) url-regex	comment
+# Actions: WARN (report, do not fail), IGNORE (do not report), FAIL.
+#
+# Every IGNORE below names the control that makes the finding wrong for this
+# application. A tuned-out rule with no reason is how a scan report stops being
+# read — the next person cannot tell a deliberate exception from an old excuse.
+
+# The application is a single-page app behind a nonce CSP. ZAP reports the
+# absence of a CSP on the 404 and asset responses, which do not execute script.
+10038	WARN	.*	CSP is set on the shell; asset and error responses carry no script.
+
+# Cookies are __Host- prefixed, HttpOnly, Secure and SameSite=Lax. ZAP flags
+# the absence of Secure when scanning over plain HTTP in CI, which is an
+# artefact of the scan environment, not of the application: loadConfig refuses
+# to start in production without an https PUBLIC_ORIGIN.
+10011	IGNORE	.*	Scanned over http in CI; Secure is set whenever cookieSecure is on.
+
+# Timestamp disclosure: fiscal years and period numbers look like epochs to a
+# regex. They are budget data.
+10096	IGNORE	.*	Fiscal years and periods, not timestamps.
+
+# Informational rules worth seeing but not worth failing a release over.
+10027	WARN	.*	Information disclosure — suspicious comments.
+10109	WARN	.*	Modern web application detection.
+
+# These must fail. They are the classes SEC-030..SEC-035 exist to prevent, and
+# a finding here means a control regressed rather than a scanner being noisy.
+40012	FAIL	.*	Reflected XSS.
+40014	FAIL	.*	Persistent XSS.
+40018	FAIL	.*	SQL injection.
+90019	FAIL	.*	Server-side code injection.
+90020	FAIL	.*	Remote OS command injection.

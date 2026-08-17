@@ -43,6 +43,7 @@ import { identifier, sql } from '../db/pool.ts';
 import type { AppConfig } from '../config.ts';
 import { badRequest, internal, notFound } from '../http/errors.ts';
 import { writeAudit } from './audit.ts';
+import { auditChainIntact, exportedRows } from '../observability/metrics.ts';
 
 /**
  * Every table that belongs in a backup, in dependency order so a restore can
@@ -227,6 +228,10 @@ export async function createBackup(
     `);
 
     const totalRows = Object.values(rowCounts).reduce((n, c) => n + c, 0);
+    // ZT-008 alert 2. A backup is the largest single export the system makes,
+    // so its row count is the number an alert should threshold on.
+    exportedRows({ kind: 'backup' }, totalRows);
+    auditChainIntact(chain?.bad === null ? 1 : 0);
     await writeAudit(db, {
       actor: principal,
       action: 'backup.create',
