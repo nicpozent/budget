@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.ts';
 import { formatDateTime } from '../format.ts';
 import { Status } from './Status.tsx';
-import { t } from '../i18n.ts';
+import { t } from '../i18n/index.ts';
 
 interface BackupManifest {
   id: string;

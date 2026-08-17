@@ -12,7 +12,7 @@ import { api, ApiError } from '../api.ts';
 import type { CostCentre } from '../types.ts';
 import { PERIOD_LABELS, formatDateTime, formatMoney } from '../format.ts';
 import { CostCentreChip, Status } from './Status.tsx';
-import { t } from '../i18n.ts';
+import { t } from '../i18n/index.ts';
 
 interface LineDetail {
   line: {

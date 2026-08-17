@@ -15,7 +15,7 @@ import { api } from '../api.ts';
 import type { ApiError } from '../api.ts';
 import type { Allocations, Entity, FxHistory, Trend } from '../types.ts';
 import { formatMoney, formatNumber } from '../format.ts';
-import { t } from '../i18n.ts';
+import { t } from '../i18n/index.ts';
 
 /** A bar whose length is a share of `max`, drawn as SVG (see the file note). */
 function Bar({ value, max }: { value: number; max: number }): JSX.Element {

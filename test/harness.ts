@@ -60,6 +60,9 @@ export interface HarnessOptions {
   /** Off for the authorisation suite, which makes hundreds of deliberate
    *  requests from one address. The limiter has its own test. */
   rateLimit?: 'on' | 'off';
+  /** Extra environment for `loadConfig`, so a test can shorten a timeout
+   *  rather than wait one out. Merged last, so it can override a default. */
+  env?: Record<string, string>;
 }
 
 export async function createHarness(options: HarnessOptions = {}): Promise<Harness> {
@@ -93,6 +96,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     // key and an isolated directory per run.
     BACKUP_ENCRYPTION_KEY: 'a'.repeat(64),
     BACKUP_DIR: path.join(tmpdir(), `spendifre-backups-${dbName}`),
+    ...options.env,
   });
 
   const db = createDb(config);

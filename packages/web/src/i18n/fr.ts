@@ -1,0 +1,271 @@
+/**
+ * French.
+ *
+ * Finance vocabulary follows French accounting usage: "centre de coûts",
+ * "réalisé" for actuals, "échelonnement" for phasing, "réel" avoided where
+ * "réalisé" is the term of art. Buttons are infinitives, which is the French
+ * UI convention, not imperatives.
+ *
+ * **Needs review by a native speaker before release.**
+ */
+
+import type { Catalogue } from './index.ts';
+
+export const FR = {
+  'app.name': 'Spendifre',
+  'app.skipToContent': 'Aller au contenu principal',
+  'app.sections': 'Sections',
+  'app.loading': 'Chargement…',
+  'app.signOut': 'Se déconnecter',
+  'app.themeLight': 'Thème clair',
+  'app.themeDark': 'Thème sombre',
+  'app.fiscalYear': 'EF{year}',
+  'app.eurAtLockedRate': 'EF{year}, EUR au taux figé de l’exercice',
+  'app.contentRegion': 'Contenu : {view}',
+  'app.actionFailed': 'L’action a échoué.',
+
+  'signIn.title': 'Spendifre',
+  'signIn.blurb':
+    'Connectez-vous avec votre compte Birgma. L’accès est accordé par appartenance à un groupe Entra ID — il n’y a ni compte local ni mot de passe à réinitialiser.',
+  'signIn.button': 'Se connecter avec Microsoft Entra ID',
+
+  'nav.group.plan': 'Planifier',
+  'nav.group.analyse': 'Analyser',
+  'nav.group.approve': 'Approuver',
+  'nav.group.govern': 'Gouverner',
+
+  'nav.budget': 'Saisie budgétaire',
+  'nav.consumption': 'Réalisé',
+  'nav.variance': 'Écart',
+  'nav.trend': 'Tendance',
+  'nav.consolidation': 'Consolidation',
+  'nav.allocations': 'Répartitions',
+  'nav.fxHistory': 'Historique des taux',
+  'nav.submissions': 'Soumissions',
+  'nav.costCentres': 'Centres de coûts',
+  'nav.audit': 'Piste d’audit',
+  'nav.governance': 'Gouvernance des données',
+  'nav.operations': 'Exploitation',
+
+  'budget.title': 'Saisie budgétaire',
+  'budget.noEntity': 'Aucune entité dans votre périmètre',
+  'budget.planned': '{amount} planifiés',
+  'budget.entity': 'Entité',
+  'budget.displayCurrency': 'Devise d’affichage',
+  'budget.local': 'Locale',
+  'budget.eur': 'EUR',
+  'budget.submit': 'Soumettre pour revue',
+
+  'trend.title': 'Tendance sur cinq ans',
+  'trend.description':
+    'Totaux planifiés en EUR au taux figé de chaque exercice. Les exercices antérieurs à EF{year} sont modélisés, non comptabilisés.',
+  'trend.mode': 'Décomposer par',
+  'trend.mode.total': 'Total groupe',
+  'trend.mode.category': 'Par catégorie',
+  'trend.mode.line': 'Principales lignes',
+  'trend.allEntities': 'Toutes les entités du périmètre',
+  'trend.series': 'Séries',
+  'trend.noData': 'Aucune donnée de tendance pour ce périmètre.',
+  'trend.caption': 'Total planifié du groupe par exercice, et l’écart avec l’exercice précédent.',
+  'trend.captionPlotted':
+    'Total planifié par exercice pour {label}, et l’écart avec l’exercice précédent.',
+  'trend.seriesCaption':
+    'Chaque ligne est une série sur cinq exercices. Choisissez Tracer pour l’afficher ci-dessus.',
+  'trend.plotted': 'Tracé : {label}',
+  'trend.plot': 'Tracer',
+  'trend.year': 'Exercice',
+  'trend.total': 'Total (EUR)',
+  'trend.change': 'Variation',
+
+  'fx.title': 'Historique des taux de change',
+  'fx.description':
+    'Taux vers l’EUR par devise sur cinq exercices, avec la dérive entre le premier et le dernier exercice enregistré.',
+  'fx.currency': 'Devise',
+  'fx.drift': 'Dérive',
+  'fx.volatility': 'Volatilité',
+  'fx.rate': 'Taux',
+  'fx.noData': 'Aucun historique de taux enregistré.',
+  'fx.volatilityHint':
+    'La volatilité est l’écart entre le taux le plus élevé et le plus bas enregistrés, rapporté à la moyenne.',
+
+  'alloc.title': 'Répartitions et refacturation',
+  'alloc.description':
+    'Les enveloppes centrales sont refacturées aux entités selon un inducteur. Le montant refacturé est en lecture seule pour l’entité (INV-6).',
+  'alloc.pools': 'Enveloppes centrales',
+  'alloc.pool': 'Enveloppe',
+  'alloc.amount': 'Montant',
+  'alloc.driver': 'Inducteur',
+  'alloc.byEntity': 'Propre, refacturé et total par entité',
+  'alloc.entity': 'Entité',
+  'alloc.own': 'Propre (EUR)',
+  'alloc.charged': 'Refacturé (EUR)',
+  'alloc.total': 'Total (EUR)',
+  'alloc.readOnly': 'Lecture seule pour l’entité destinataire',
+  'alloc.noPools': 'Aucune enveloppe centrale n’est configurée pour cet exercice.',
+  'alloc.poolsCaption': 'Chaque enveloppe est refacturée intégralement selon l’inducteur indiqué.',
+  'alloc.entityCaption':
+    'Propre correspond au plan de l’entité ; refacturé à sa quote-part des enveloppes centrales. Le cadenas signale un montant que l’entité ne peut pas modifier.',
+
+  'grid.line': 'Ligne',
+  'grid.vendor': 'Fournisseur',
+  'grid.costCentre': 'Centre de coûts',
+  'grid.currency': 'Devise',
+  'grid.total': 'Total',
+  'grid.status': 'Statut',
+  'grid.entityTotalEur': 'Total de l’entité (EUR)',
+  'grid.dormant': 'En sommeil',
+  'grid.overPace': 'Au-dessus du rythme',
+  'grid.aboveThreshold': 'Au-dessus du seuil',
+  'grid.complete': 'Complète',
+  'grid.uplift': 'Revalorisation %',
+  'grid.applyUplift': 'Appliquer la revalorisation',
+  'grid.moveToCostCentre': 'Déplacer vers un centre de coûts',
+  'grid.choose': 'Choisir…',
+  'grid.reassign': 'Réaffecter',
+  'grid.copyPriorYear': 'Copier l’exercice précédent',
+  'grid.delete': 'Supprimer',
+  'grid.clearSelection': 'Effacer la sélection',
+
+  'drawer.vendor': 'Fournisseur',
+  'drawer.costCentre': 'Centre de coûts',
+  'drawer.notSet': 'Non renseigné',
+  'drawer.glAccount': 'Compte général',
+  'drawer.justification': 'Justification',
+  'drawer.phasing': 'Échelonnement',
+  'drawer.period': 'Période',
+  'drawer.plan': 'Plan',
+  'drawer.recorded': 'Enregistré',
+  'drawer.total': 'Total',
+  'drawer.capex': 'Investissement',
+  'drawer.approved': 'Approuvé',
+  'drawer.rejected': 'Refusé',
+  'drawer.awaitingFinanceManager': 'En attente du directeur financier',
+  'drawer.comments': 'Commentaires',
+  'drawer.addAComment': 'Ajouter un commentaire',
+  'drawer.postComment': 'Publier le commentaire',
+
+  'ops.thisActionNeedsAFreshSigninBackupsAndExp':
+    'Cette action nécessite une nouvelle connexion. Les sauvegardes et exports déplacent l’intégralité',
+  'ops.signInAgain': 'Se reconnecter',
+  'ops.operations': 'Exploitation',
+  'ops.bothActionsAreRecordedInTheAuditTrailWit':
+    'Les deux actions sont enregistrées dans la piste d’audit avec le nombre de lignes.',
+  'ops.backupHistory': 'Historique des sauvegardes',
+  'ops.taken': 'Effectuée',
+  'ops.region': 'Région',
+  'ops.status': 'Statut',
+  'ops.rows': 'Lignes',
+  'ops.size': 'Taille',
+  'ops.auditChain': 'Chaîne d’audit',
+  'ops.download': 'Télécharger',
+  'ops.complete': 'Terminée',
+  'ops.failed': 'Échouée',
+  'ops.intact': 'Intacte',
+  'ops.broken': 'Rompue',
+  'ops.notRecorded': 'Non enregistrée',
+  'ops.noBackupsTakenYet': 'Aucune sauvegarde effectuée à ce jour.',
+
+  'status.notSet': 'Non renseigné',
+
+  'views.loading': 'Chargement…',
+  'views.groupTotalEur': 'Total groupe (EUR)',
+  'views.recordedSpend': 'Dépense enregistrée',
+  'views.consumed': 'Consommé',
+  'views.entitiesInScope': 'Entités du périmètre',
+  'views.categorySplit': 'Répartition par catégorie',
+  'views.submissionStatusByEntity': 'Statut des soumissions par entité',
+  'views.everyFigureIsTheSumOfThatEntitysLines':
+    'Chaque montant est la somme des lignes de l’entité.',
+  'views.entity': 'Entité',
+  'views.name': 'Nom',
+  'views.state': 'État',
+  'views.planEur': 'Plan (EUR)',
+  'views.spend': 'Dépense',
+  'views.allEntitiesInScope': 'Toutes les entités du périmètre',
+  'views.fullyearPlan': 'Plan annuel',
+  'views.spendToDate': 'Dépensé à ce jour',
+  'views.variance': 'Écart',
+  'views.consumptionByLine': 'Consommation par ligne',
+  'views.line': 'Ligne',
+  'views.category': 'Catégorie',
+  'views.plan': 'Plan',
+  'views.pace': 'Rythme',
+  'views.overPace': 'Au-dessus du rythme',
+  'views.onPace': 'Dans le rythme',
+  'views.largestMovements': 'Principales variations',
+  'views.priorYear': 'Exercice précédent',
+  'views.thisYear': 'Exercice en cours',
+  'views.movement': 'Variation',
+  'views.kind': 'Type',
+  'views.allKinds': 'Tous les types',
+  'views.change': 'Modification',
+  'views.approval': 'Approbation',
+  'views.workflow': 'Flux de travail',
+  'views.governance': 'Gouvernance',
+  'views.search': 'Rechercher',
+  'views.appendonlyEntriesCannotBeEditedOrDeleted':
+    'Ajout seul. Les entrées ne peuvent être ni modifiées ni supprimées par quiconque (FR-073).',
+  'views.when': 'Quand',
+  'views.actor': 'Auteur',
+  'views.role': 'Rôle',
+  'views.action': 'Action',
+  'views.detail': 'Détail',
+  'views.noMatchingEvents': 'Aucun événement correspondant.',
+  'views.noSubmissionsForThisCycleYet': 'Aucune soumission pour ce cycle à ce jour.',
+  'views.approve': 'Approuver',
+  'views.requestMoreInformation': 'Demander des précisions',
+  'views.reject': 'Refuser',
+  'views.costCentreRegistry': 'Registre des centres de coûts',
+  'views.managersMayOnlyBookLinesToApprovedCentre':
+    'Les responsables ne peuvent imputer des lignes qu’à des centres approuvés. Les références existantes à un',
+  'views.code': 'Code',
+  'views.description': 'Description',
+  'views.status': 'Statut',
+  'views.decision': 'Décision',
+  'views.approved': 'Approuvé',
+  'views.pending': 'En attente',
+  'views.rejected': 'Refusé',
+  'views.fieldClassification': 'Classification des champs',
+  'views.everyFieldCarriesExactlyOneClassificatio':
+    'Chaque champ porte exactement une classification (SPEC §9.1).',
+  'views.field': 'Champ',
+  'views.class': 'Classe',
+  'views.personalData': 'Données personnelles',
+  'views.confidential': 'Confidentiel',
+  'views.retention': 'Conservation',
+  'views.enforcedByAScheduledJobThatWritesAnAudit':
+    'Appliquée par une tâche planifiée qui écrit un événement d’audit à chaque exécution, y compris',
+  'views.dataset': 'Jeu de données',
+  'views.months': 'Mois',
+
+  'session.title': 'Votre session va expirer',
+  'session.idleBody':
+    'Vous êtes inactif ; Spendifre vous déconnectera dans {remaining}. Choisissez Continuer pour rester connecté.',
+  'session.absoluteBody':
+    'Cette session atteint sa durée maximale dans {remaining} et ne peut pas être prolongée. Enregistrez votre travail et reconnectez-vous.',
+  'session.continue': 'Continuer à travailler',
+
+  'language.label': 'Langue',
+  'language.saved': 'Langue mise à jour.',
+
+
+
+  // Budget state chips
+  'state.draft': 'Brouillon',
+  'state.submitted': 'Soumis',
+  'state.changesRequested': 'Modifications demandées',
+  'state.approved': 'Approuvé',
+  'state.locked': 'Verrouillé',
+
+  // Grid caption and validation banner
+  'grid.caption':
+    'Lignes budgétaires EF{year}, groupées par catégorie. Montants affichés en {unit}.',
+  'grid.unitEur': 'euros au taux figé de l’exercice',
+  'grid.unitLocal': 'devise locale de chaque ligne',
+  'validation.blocking': 'Bloquant',
+  'validation.warning': 'Avertissement',
+  'validation.affectedLines': '({count} lignes)',
+
+  'table.noResults': 'Rien à afficher.',
+  'common.error': 'Une erreur est survenue.',
+} satisfies Catalogue;

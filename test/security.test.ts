@@ -606,3 +606,110 @@ describe('Error responses do not leak internals', () => {
     expect(response.statusCode).toBe(400);
   });
 });
+
+/**
+ * ZT-004 idle timeout, and the WCAG 2.2.1 extension that makes it usable.
+ *
+ * The idle window was recorded and never enforced before this: `last_seen_at`
+ * was written on every request and read by nothing, so an abandoned session
+ * stayed usable for the whole absolute TTL. These tests are what stop that
+ * regressing quietly, because nothing user-visible changes when it does.
+ */
+describe('ZT-004 idle session timeout', () => {
+  let idleHarness: Harness;
+
+  beforeAll(async () => {
+    // A one-minute idle window so the test can age a session past it by
+    // moving `last_seen_at`, rather than by waiting.
+    idleHarness = await createHarness({ rateLimit: 'off', env: { SESSION_IDLE_MINUTES: '1' } });
+  });
+
+  afterAll(async () => {
+    await idleHarness?.close();
+  });
+
+  it('refuses a session idle for longer than the window', async () => {
+    const headers = await idleHarness.as('finance@birgma.test');
+
+    const before = await idleHarness.app.inject({
+      method: 'GET', url: '/api/me', headers: { cookie: headers.cookie },
+    });
+    expect(before.statusCode).toBe(200);
+
+    // Age the session rather than sleeping through the window.
+    await idleHarness.db.query(sql`
+      update sessions set last_seen_at = now() - interval '5 minutes'
+    `);
+
+    const after = await idleHarness.app.inject({
+      method: 'GET', url: '/api/me', headers: { cookie: headers.cookie },
+    });
+    expect(after.statusCode).toBe(401);
+  });
+
+  it('reports both deadlines so the client can warn before either', async () => {
+    const headers = await idleHarness.as('cfo@birgma.test');
+    const response = await idleHarness.app.inject({
+      method: 'GET', url: '/api/me', headers: { cookie: headers.cookie },
+    });
+
+    const { session } = response.json();
+    expect(new Date(session.idleDeadline).getTime()).toBeGreaterThan(Date.now());
+    // The idle deadline must never outlive the absolute one, or the warning
+    // would offer to extend something that cannot be extended.
+    expect(new Date(session.idleDeadline).getTime()).toBeLessThanOrEqual(
+      new Date(session.absoluteDeadline).getTime(),
+    );
+    expect(session.warnSecondsBefore).toBeGreaterThanOrEqual(20);
+  });
+
+  it('extends the idle window on request without moving the absolute deadline', async () => {
+    const headers = await idleHarness.as('admin@birgma.test');
+    const first = (await idleHarness.app.inject({
+      method: 'GET', url: '/api/me', headers: { cookie: headers.cookie },
+    })).json().session;
+
+    await idleHarness.db.query(sql`
+      update sessions set last_seen_at = now() - interval '30 seconds'
+    `);
+
+    const extended = await idleHarness.app.inject({
+      method: 'POST',
+      url: '/api/session/extend',
+      headers: {
+        cookie: headers.cookie,
+        'x-csrf-token': headers['x-csrf-token'],
+        origin: headers.origin,
+      },
+    });
+    expect(extended.statusCode).toBe(200);
+
+    const body = extended.json();
+    expect(new Date(body.idleDeadline).getTime()).toBeGreaterThan(
+      new Date(first.idleDeadline).getTime() - 31_000,
+    );
+    // WCAG 2.2.1 asks for the *limit* to be extendable, not the session to be
+    // immortal. The absolute TTL is untouched.
+    expect(body.absoluteDeadline).toBe(first.absoluteDeadline);
+  });
+
+  it('cannot be used to revive a session that has already expired', async () => {
+    const headers = await idleHarness.as('pmo@birgma.test');
+    await idleHarness.db.query(sql`
+      update sessions set last_seen_at = now() - interval '10 minutes'
+    `);
+
+    const response = await idleHarness.app.inject({
+      method: 'POST',
+      url: '/api/session/extend',
+      headers: {
+        cookie: headers.cookie,
+        'x-csrf-token': headers['x-csrf-token'],
+        origin: headers.origin,
+      },
+    });
+    // The guard rejects before the handler runs, so there is no window in
+    // which "extend" resurrects something already dead.
+    expect(response.statusCode).toBe(401);
+  });
+});

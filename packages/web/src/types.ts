@@ -3,11 +3,15 @@ import type { Capability, Role } from '@spendifre/shared';
 export type { Capability, Role };
 
 export interface Me {
+  /** ZT-004 / WCAG 2.2.1 deadlines, so the client can warn before expiry. */
+  session: { idleDeadline: string; absoluteDeadline: string; warnSecondsBefore: number };
   user: {
     id: string;
     displayName: string;
     email: string;
     role: Role;
+    /** UI language (NFR-010), stored per user. */
+    locale: string;
     ownedEntityIds: string[];
   };
   fiscalYear: number;

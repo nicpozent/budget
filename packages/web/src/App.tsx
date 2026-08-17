@@ -18,7 +18,11 @@ import type { BudgetLine, BudgetView, CostCentre, Me, RuleViolation } from './ty
 import { BudgetGrid, BulkBar, type Unit } from './components/BudgetGrid.tsx';
 import { LineDrawer } from './components/LineDrawer.tsx';
 import { formatMoney } from './format.ts';
-import { t, type MessageKey } from './i18n.ts';
+import {
+  LOCALES, LOCALE_NAMES, isLocale, setLocale, t,
+  type Locale, type MessageKey,
+} from './i18n/index.ts';
+import { SessionGuard } from './components/SessionGuard.tsx';
 import { invalidateEntities, useChosenEntity, useEntities } from './store.ts';
 import { BudgetStateChip, ValidationBanner } from './components/Status.tsx';
 
@@ -134,11 +138,19 @@ export function App(): JSX.Element {
   const [bootError, setBootError] = useState<string | null>(null);
   const [view, setView] = useState<ViewKey>('budget');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  /** Bumped when the language changes, purely to force a re-render: `t()` reads
+   *  module state, so React has no other way to know the strings moved. */
+  const [localeTick, setLocaleTick] = useState(0);
 
   useEffect(() => {
     api
       .get<Me>('/api/me')
-      .then(setMe)
+      .then((loaded) => {
+        // The stored preference wins over the browser's. Applied before the
+        // first paint of the signed-in shell, so nothing flashes in English.
+        if (isLocale(loaded.user.locale)) setLocale(loaded.user.locale);
+        setMe(loaded);
+      })
       .catch((e: ApiError) => setBootError(e.status === 401 ? 'signed-out' : e.message));
   }, []);
 
@@ -152,8 +164,17 @@ export function App(): JSX.Element {
 
   const groups = [...new Set(NAV.filter((n) => n.visible(me)).map((n) => n.group))];
 
+  const chooseLanguage = async (locale: Locale) => {
+    setLocale(locale);
+    setLocaleTick((n) => n + 1);
+    // Persisted so the choice survives a new browser, a new device, and the
+    // next person to use this workstation.
+    await api.patch('/api/me/locale', { locale }).catch(() => undefined);
+  };
+
   return (
-    <div className="app">
+    <div className="app" key={localeTick}>
+      <SessionGuard session={me.session} />
       <a className="skip-link" href="#main-content">
         {t('app.skipToContent')}
       </a>
@@ -191,6 +212,26 @@ export function App(): JSX.Element {
         ))}
 
         <div className="sidebar-footer">
+          <div className="field">
+            <label htmlFor="language-select">{t('language.label')}</label>
+            <select
+              id="language-select"
+              className="select"
+              value={currentLanguage(me)}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (isLocale(next)) void chooseLanguage(next);
+              }}
+            >
+              {LOCALES.map((locale) => (
+                // Each language names itself: "Swedish" is no use to someone
+                // who only reads Swedish.
+                <option key={locale} value={locale} lang={locale}>
+                  {LOCALE_NAMES[locale]}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <div className="user-name">{me.user.displayName}</div>
             <div className="user-role">
@@ -470,6 +511,11 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
       </div>
     </>
   );
+}
+
+/** The locale actually in force, which is the stored one once it has loaded. */
+function currentLanguage(me: Me): Locale {
+  return isLocale(me.user.locale) ? me.user.locale : 'en';
 }
 
 function SignedOut(): JSX.Element {

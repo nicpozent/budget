@@ -1,0 +1,270 @@
+/**
+ * Finnish.
+ *
+ * The one catalogue here that is not Germanic, and the one where literal
+ * translation goes wrong fastest. Finnish compounds rather than stacking
+ * adjectives ("kustannuspaikka", not "kustannus paikka"), and headings are
+ * nominative singular rather than the English gerund.
+ *
+ * **Needs review by a native speaker before release.** More so than the others:
+ * Finnish case endings mean a wrong word choice reads as ungrammatical, not
+ * merely unidiomatic.
+ */
+
+import type { Catalogue } from './index.ts';
+
+export const FI = {
+  'app.name': 'Spendifre',
+  'app.skipToContent': 'Siirry pääsisältöön',
+  'app.sections': 'Osiot',
+  'app.loading': 'Ladataan…',
+  'app.signOut': 'Kirjaudu ulos',
+  'app.themeLight': 'Vaalea teema',
+  'app.themeDark': 'Tumma teema',
+  'app.fiscalYear': 'TK{year}',
+  'app.eurAtLockedRate': 'TK{year}, EUR vuoden lukittuun kurssiin',
+  'app.contentRegion': 'Näkymän {view} sisältö',
+  'app.actionFailed': 'Toiminto epäonnistui.',
+
+  'signIn.title': 'Spendifre',
+  'signIn.blurb':
+    'Kirjaudu sisään Birgma-tunnuksellasi. Käyttöoikeus perustuu Entra ID -ryhmäjäsenyyteen — paikallista tiliä tai palautettavaa salasanaa ei ole.',
+  'signIn.button': 'Kirjaudu Microsoft Entra ID:llä',
+
+  'nav.group.plan': 'Suunnittelu',
+  'nav.group.analyse': 'Analyysi',
+  'nav.group.approve': 'Hyväksyntä',
+  'nav.group.govern': 'Hallinta',
+
+  'nav.budget': 'Budjetin syöttö',
+  'nav.consumption': 'Toteumat',
+  'nav.variance': 'Poikkeama',
+  'nav.trend': 'Trendi',
+  'nav.consolidation': 'Konsolidointi',
+  'nav.allocations': 'Kohdistukset',
+  'nav.fxHistory': 'Valuuttakurssihistoria',
+  'nav.submissions': 'Lähetykset',
+  'nav.costCentres': 'Kustannuspaikat',
+  'nav.audit': 'Auditointiloki',
+  'nav.governance': 'Tiedonhallinta',
+  'nav.operations': 'Käyttötoiminnot',
+
+  'budget.title': 'Budjetin syöttö',
+  'budget.noEntity': 'Ei yksikköä käyttöoikeuksien piirissä',
+  'budget.planned': '{amount} suunniteltu',
+  'budget.entity': 'Yksikkö',
+  'budget.displayCurrency': 'Näyttövaluutta',
+  'budget.local': 'Paikallinen',
+  'budget.eur': 'EUR',
+  'budget.submit': 'Lähetä tarkastettavaksi',
+
+  'trend.title': 'Viiden vuoden trendi',
+  'trend.description':
+    'Suunnitelmasummat euroina kunkin vuoden lukittuun kurssiin. Vuotta TK{year} edeltävät vuodet ovat mallinnettuja, eivät kirjattuja.',
+  'trend.mode': 'Erittele',
+  'trend.mode.total': 'Konsernin summa',
+  'trend.mode.category': 'Kategorioittain',
+  'trend.mode.line': 'Suurimmat rivit',
+  'trend.allEntities': 'Kaikki yksiköt käyttöoikeuksien piirissä',
+  'trend.series': 'Sarjat',
+  'trend.noData': 'Ei trenditietoja nykyiselle rajaukselle.',
+  'trend.caption': 'Konsernin suunnitelmasumma vuosittain ja muutos edellisvuoteen.',
+  'trend.captionPlotted': 'Kohteen {label} suunnitelmasumma vuosittain ja muutos edellisvuoteen.',
+  'trend.seriesCaption':
+    'Kukin rivi on yksi sarja viiden vuoden ajalta. Valitse Piirrä näyttääksesi sen yllä.',
+  'trend.plotted': 'Näytetään: {label}',
+  'trend.plot': 'Piirrä',
+  'trend.year': 'Vuosi',
+  'trend.total': 'Summa (EUR)',
+  'trend.change': 'Muutos',
+
+  'fx.title': 'Valuuttakurssihistoria',
+  'fx.description':
+    'Kurssi euroa vastaan valuutoittain viiden vuoden ajalta, sekä muutos ensimmäisen ja viimeisen kirjatun vuoden välillä.',
+  'fx.currency': 'Valuutta',
+  'fx.drift': 'Muutos',
+  'fx.volatility': 'Volatiliteetti',
+  'fx.rate': 'Kurssi',
+  'fx.noData': 'Valuuttakurssihistoriaa ei ole kirjattu.',
+  'fx.volatilityHint':
+    'Volatiliteetti on korkeimman ja matalimman kirjatun kurssin välinen vaihteluväli suhteessa keskiarvoon.',
+
+  'alloc.title': 'Kohdistukset ja sisäinen laskutus',
+  'alloc.description':
+    'Keskitetyt kustannuserät kohdistetaan yksiköille ajurin perusteella. Yksikölle kohdistettu summa on sille vain luettava (INV-6).',
+  'alloc.pools': 'Keskitetyt erät',
+  'alloc.pool': 'Erä',
+  'alloc.amount': 'Summa',
+  'alloc.driver': 'Ajuri',
+  'alloc.byEntity': 'Oma, kohdistettu ja yhteensä yksiköittäin',
+  'alloc.entity': 'Yksikkö',
+  'alloc.own': 'Oma (EUR)',
+  'alloc.charged': 'Kohdistettu (EUR)',
+  'alloc.total': 'Yhteensä (EUR)',
+  'alloc.readOnly': 'Vain luettava vastaanottavalle yksikölle',
+  'alloc.noPools': 'Tälle vuodelle ei ole määritetty keskitettyjä eriä.',
+  'alloc.poolsCaption': 'Kukin erä kohdistetaan kokonaan viereisen ajurin mukaan.',
+  'alloc.entityCaption':
+    'Oma on yksikön oma suunnitelma; kohdistettu on sen osuus keskitetyistä eristä. Lukko merkitsee summan, jota yksikkö ei voi muuttaa.',
+
+  'grid.line': 'Rivi',
+  'grid.vendor': 'Toimittaja',
+  'grid.costCentre': 'Kustannuspaikka',
+  'grid.currency': 'Valuutta',
+  'grid.total': 'Summa',
+  'grid.status': 'Tila',
+  'grid.entityTotalEur': 'Yksikön summa (EUR)',
+  'grid.dormant': 'Lepotilassa',
+  'grid.overPace': 'Yli tahdin',
+  'grid.aboveThreshold': 'Yli rajan',
+  'grid.complete': 'Valmis',
+  'grid.uplift': 'Korotus %',
+  'grid.applyUplift': 'Käytä korotusta',
+  'grid.moveToCostCentre': 'Siirrä kustannuspaikalle',
+  'grid.choose': 'Valitse…',
+  'grid.reassign': 'Kohdista uudelleen',
+  'grid.copyPriorYear': 'Kopioi edellinen vuosi',
+  'grid.delete': 'Poista',
+  'grid.clearSelection': 'Tyhjennä valinta',
+
+  'drawer.vendor': 'Toimittaja',
+  'drawer.costCentre': 'Kustannuspaikka',
+  'drawer.notSet': 'Ei asetettu',
+  'drawer.glAccount': 'Tili',
+  'drawer.justification': 'Perustelu',
+  'drawer.phasing': 'Jaksotus',
+  'drawer.period': 'Jakso',
+  'drawer.plan': 'Suunnitelma',
+  'drawer.recorded': 'Kirjattu',
+  'drawer.total': 'Summa',
+  'drawer.capex': 'Investointi',
+  'drawer.approved': 'Hyväksytty',
+  'drawer.rejected': 'Hylätty',
+  'drawer.awaitingFinanceManager': 'Odottaa talousjohtajaa',
+  'drawer.comments': 'Kommentit',
+  'drawer.addAComment': 'Lisää kommentti',
+  'drawer.postComment': 'Lähetä kommentti',
+
+  'ops.thisActionNeedsAFreshSigninBackupsAndExp':
+    'Tämä toiminto vaatii uuden kirjautumisen. Varmuuskopiot ja viennit siirtävät koko',
+  'ops.signInAgain': 'Kirjaudu uudelleen',
+  'ops.operations': 'Käyttötoiminnot',
+  'ops.bothActionsAreRecordedInTheAuditTrailWit':
+    'Molemmat toiminnot kirjataan auditointilokiin rivimäärineen.',
+  'ops.backupHistory': 'Varmuuskopioiden historia',
+  'ops.taken': 'Otettu',
+  'ops.region': 'Alue',
+  'ops.status': 'Tila',
+  'ops.rows': 'Rivejä',
+  'ops.size': 'Koko',
+  'ops.auditChain': 'Auditointiketju',
+  'ops.download': 'Lataa',
+  'ops.complete': 'Valmis',
+  'ops.failed': 'Epäonnistui',
+  'ops.intact': 'Ehjä',
+  'ops.broken': 'Katkennut',
+  'ops.notRecorded': 'Ei kirjattu',
+  'ops.noBackupsTakenYet': 'Varmuuskopioita ei ole vielä otettu.',
+
+  'status.notSet': 'Ei asetettu',
+
+  'views.loading': 'Ladataan…',
+  'views.groupTotalEur': 'Konsernin summa (EUR)',
+  'views.recordedSpend': 'Kirjattu käyttö',
+  'views.consumed': 'Käytetty',
+  'views.entitiesInScope': 'Yksiköitä käyttöoikeuksien piirissä',
+  'views.categorySplit': 'Jakauma kategorioittain',
+  'views.submissionStatusByEntity': 'Lähetysten tila yksiköittäin',
+  'views.everyFigureIsTheSumOfThatEntitysLines': 'Jokainen luku on kyseisen yksikön rivien summa.',
+  'views.entity': 'Yksikkö',
+  'views.name': 'Nimi',
+  'views.state': 'Tila',
+  'views.planEur': 'Suunnitelma (EUR)',
+  'views.spend': 'Käyttö',
+  'views.allEntitiesInScope': 'Kaikki yksiköt käyttöoikeuksien piirissä',
+  'views.fullyearPlan': 'Koko vuoden suunnitelma',
+  'views.spendToDate': 'Käytetty tähän mennessä',
+  'views.variance': 'Poikkeama',
+  'views.consumptionByLine': 'Käyttö riveittäin',
+  'views.line': 'Rivi',
+  'views.category': 'Kategoria',
+  'views.plan': 'Suunnitelma',
+  'views.pace': 'Tahti',
+  'views.overPace': 'Yli tahdin',
+  'views.onPace': 'Tahdissa',
+  'views.largestMovements': 'Suurimmat muutokset',
+  'views.priorYear': 'Edellinen vuosi',
+  'views.thisYear': 'Tämä vuosi',
+  'views.movement': 'Muutos',
+  'views.kind': 'Tyyppi',
+  'views.allKinds': 'Kaikki tyypit',
+  'views.change': 'Muutos',
+  'views.approval': 'Hyväksyntä',
+  'views.workflow': 'Työnkulku',
+  'views.governance': 'Hallinta',
+  'views.search': 'Haku',
+  'views.appendonlyEntriesCannotBeEditedOrDeleted':
+    'Vain lisäys. Kukaan ei voi muokata tai poistaa merkintöjä (FR-073).',
+  'views.when': 'Milloin',
+  'views.actor': 'Tekijä',
+  'views.role': 'Rooli',
+  'views.action': 'Toiminto',
+  'views.detail': 'Tiedot',
+  'views.noMatchingEvents': 'Ei vastaavia tapahtumia.',
+  'views.noSubmissionsForThisCycleYet': 'Tälle kierrokselle ei ole vielä lähetyksiä.',
+  'views.approve': 'Hyväksy',
+  'views.requestMoreInformation': 'Pyydä lisätietoja',
+  'views.reject': 'Hylkää',
+  'views.costCentreRegistry': 'Kustannuspaikkarekisteri',
+  'views.managersMayOnlyBookLinesToApprovedCentre':
+    'Esihenkilöt voivat kirjata rivejä vain hyväksytyille kustannuspaikoille. Olemassa olevat viittaukset',
+  'views.code': 'Koodi',
+  'views.description': 'Kuvaus',
+  'views.status': 'Tila',
+  'views.decision': 'Päätös',
+  'views.approved': 'Hyväksytty',
+  'views.pending': 'Odottaa',
+  'views.rejected': 'Hylätty',
+  'views.fieldClassification': 'Kenttien luokittelu',
+  'views.everyFieldCarriesExactlyOneClassificatio':
+    'Jokaisella kentällä on täsmälleen yksi luokitus (SPEC §9.1).',
+  'views.field': 'Kenttä',
+  'views.class': 'Luokka',
+  'views.personalData': 'Henkilötiedot',
+  'views.confidential': 'Luottamuksellinen',
+  'views.retention': 'Säilytys',
+  'views.enforcedByAScheduledJobThatWritesAnAudit':
+    'Toteutetaan ajastetulla työllä, joka kirjaa auditointitapahtuman jokaisesta ajosta, mukaan lukien',
+  'views.dataset': 'Tietojoukko',
+  'views.months': 'Kuukautta',
+
+  'session.title': 'Istuntosi on päättymässä',
+  'session.idleBody':
+    'Olet ollut toimettomana, joten Spendifre kirjaa sinut ulos {remaining} kuluttua. Valitse Jatka pysyäksesi kirjautuneena.',
+  'session.absoluteBody':
+    'Istunto saavuttaa enimmäispituutensa {remaining} kuluttua, eikä sitä voi jatkaa. Tallenna työsi ja kirjaudu uudelleen.',
+  'session.continue': 'Jatka työskentelyä',
+
+  'language.label': 'Kieli',
+  'language.saved': 'Kieli päivitetty.',
+
+
+
+  // Budget state chips
+  'state.draft': 'Luonnos',
+  'state.submitted': 'Lähetetty',
+  'state.changesRequested': 'Muutoksia pyydetty',
+  'state.approved': 'Hyväksytty',
+  'state.locked': 'Lukittu',
+
+  // Grid caption and validation banner
+  'grid.caption': 'Tilikauden TK{year} budjettirivit kategorioittain. Summat näytetään {unit}.',
+  'grid.unitEur': 'euroina vuoden lukittuun kurssiin',
+  'grid.unitLocal': 'kunkin rivin omassa valuutassa',
+  'validation.blocking': 'Estävä',
+  'validation.warning': 'Varoitus',
+  'validation.affectedLines': '({count} riviä)',
+
+  'table.noResults': 'Ei näytettävää.',
+  'common.error': 'Jokin meni pieleen.',
+} satisfies Catalogue;

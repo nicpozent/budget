@@ -1,31 +1,12 @@
 /**
- * String catalogue (NFR-010).
+ * English — the source catalogue (NFR-010).
  *
- * English is the source language. Every user-visible string in the client is
- * looked up here rather than written inline, so translating the product is
- * adding a catalogue rather than auditing every JSX file for quoted text.
- *
- * Deliberately not a translation library. What a library adds over this is
- * plural rules, gender and message-format parsing; none of those apply to a
- * budget grid whose variable content is numbers and dates, and all of which
- * `Intl` already handles in `format.ts`. It also adds a dependency inside the
- * trust boundary, which ADR-0004 sets a high bar for.
- *
- * Two properties this file guarantees, both enforced by the type system:
- *
- *   Every key exists.  `t()` is keyed by `MessageKey`, so a typo is a compile
- *                      error, not a string reading "budget.entry.missing" in
- *                      production.
- *   Every locale is complete.  A `Catalogue` must supply every key. A partial
- *                      translation cannot be registered and then fall back
- *                      silently to English in a way nobody notices.
- *
- * Interpolation takes named parameters and never concatenates fragments —
- * word order differs between languages, so "{count} of {total}" must stay one
- * translatable unit.
+ * Every other locale is typed against this one, so a key added here without a
+ * translation is a compile error in five files rather than a silent fallback
+ * nobody notices.
  */
 
-const EN = {
+export const EN = {
   // Shell
   'app.name': 'Spendifre',
   'app.skipToContent': 'Skip to main content',
@@ -265,43 +246,36 @@ const EN = {
   'views.dataset': 'Dataset',
   'views.months': 'Months',
 
+  // Session (WCAG 2.2.1, ZT-004)
+  'session.title': 'Your session is about to end',
+  'session.idleBody':
+    'You have been inactive, so Spendifre will sign you out in {remaining}. Choose Continue to stay signed in.',
+  'session.absoluteBody':
+    'This session reaches its maximum length in {remaining} and cannot be extended. Save your work and sign in again.',
+  'session.continue': 'Continue working',
+
+  // Language
+  'language.label': 'Language',
+  'language.saved': 'Language updated.',
+
+
+
+  // Budget state chips
+  'state.draft': 'Draft',
+  'state.submitted': 'Submitted',
+  'state.changesRequested': 'Changes requested',
+  'state.approved': 'Approved',
+  'state.locked': 'Locked',
+
+  // Grid caption and validation banner
+  'grid.caption': 'FY{year} budget lines, grouped by category. Amounts shown in {unit}.',
+  'grid.unitEur': 'euro at the year-locked rate',
+  'grid.unitLocal': 'each line’s local currency',
+  'validation.blocking': 'Blocking',
+  'validation.warning': 'Warning',
+  'validation.affectedLines': '({count} lines)',
+
   // Shared table furniture
   'table.noResults': 'Nothing to show.',
   'common.error': 'Something went wrong.',
 } as const;
-
-export type MessageKey = keyof typeof EN;
-
-/** A complete catalogue. Partial translations do not type-check. */
-export type Catalogue = Readonly<Record<MessageKey, string>>;
-
-const CATALOGUES: Record<string, Catalogue> = { en: EN };
-
-/**
- * The active catalogue, resolved from the browser once. Only the language
- * subtag is used: `sv-SE` and `sv-FI` share a catalogue even though `format.ts`
- * keeps the full tag, because number formatting is regional and wording is not.
- */
-function resolveCatalogue(): Catalogue {
-  const tag =
-    typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en';
-  return CATALOGUES[tag.split('-')[0]!] ?? CATALOGUES.en!;
-}
-
-const ACTIVE = resolveCatalogue();
-
-/**
- * Look up a message, substituting `{name}` placeholders.
- *
- * Values are substituted as-is; React escapes them on render, and this function
- * must never be used to build HTML. A placeholder with no matching parameter is
- * left in place rather than blanked, so the gap is visible in review instead of
- * producing a sentence with a hole in it.
- */
-export function t(key: MessageKey, params?: Readonly<Record<string, string | number>>): string {
-  const template = ACTIVE[key];
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
-    name in params ? String(params[name]) : whole,
-  );
-}

@@ -26,7 +26,7 @@ import {
   formatPercent,
 } from '../format.ts';
 import { BudgetStateChip, Status } from './Status.tsx';
-import { t } from '../i18n.ts';
+import { t } from '../i18n/index.ts';
 
 /**
  * A labelled horizontal bar.

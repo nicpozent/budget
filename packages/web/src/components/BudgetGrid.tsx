@@ -19,7 +19,7 @@ import { useMemo, useState } from 'react';
 import type { BudgetLine, BudgetView, CostCentre } from '../types.ts';
 import { PERIOD_LABELS, formatMoney, formatNumber, toInputValue } from '../format.ts';
 import { CostCentreChip, Status } from './Status.tsx';
-import { t } from '../i18n.ts';
+import { t } from '../i18n/index.ts';
 
 export type Unit = 'local' | 'eur';
 
@@ -81,8 +81,10 @@ export function BudgetGrid({
       <div className="table-scroll" tabIndex={0} role="group">
         <table>
           <caption>
-            FY{view.cycle.fiscal_year} budget lines, grouped by category. Amounts shown in{' '}
-            {unit === 'eur' ? 'euro at the year-locked rate' : 'each line’s local currency'}.
+            {t('grid.caption', {
+              year: view.cycle.fiscal_year,
+              unit: unit === 'eur' ? t('grid.unitEur') : t('grid.unitLocal'),
+            })}
           </caption>
           <thead>
             <tr>

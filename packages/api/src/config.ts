@@ -70,6 +70,16 @@ const envSchema = z.object({
   RATE_LIMIT: z.enum(['on', 'off']).default('on'),
 
   SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(720).default(60),
+  /**
+   * ZT-004 idle timeout. A session untouched for this long is dead regardless
+   * of the absolute TTL. 15 minutes is the default for a system holding
+   * commercial budget data on shared workstations.
+   *
+   * WCAG 2.2.1 requires the user be warned before this expires and given a way
+   * to extend it; `SESSION_IDLE_WARN_SECONDS` is how long before.
+   */
+  SESSION_IDLE_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
+  SESSION_IDLE_WARN_SECONDS: z.coerce.number().int().min(20).max(600).default(120),
   /** ZT-007: how fresh primary authentication must be for an irreversible action. */
   STEP_UP_MAX_AGE_MINUTES: z.coerce.number().int().min(1).max(120).default(15),
 

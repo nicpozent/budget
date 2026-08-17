@@ -46,10 +46,25 @@ export async function writeAudit(db: Db, input: AuditInput): Promise<void> {
   if (input.request) input.request.auditWrites += 1;
 }
 
+/**
+ * Routes that change state but are not business actions, with the reason each
+ * is here. The list is short on purpose: every entry is a hole in FR-070, and
+ * the ledger-replay path was deliberately *not* added to it — a POST returning
+ * 200 with nothing recorded is usually a missing audit call, not an exemption.
+ */
 const AUDIT_EXEMPT = new Set([
+  // Authentication has its own events, written by the auth routes themselves.
   'POST /auth/login',
   'POST /auth/logout',
+  // A browser-generated report about the browser, not an action by a principal.
   'POST /api/security/csp-report',
+  // Touches `last_seen_at` and nothing else — the same write every authenticated
+  // request already performs implicitly. Auditing it would add one row per
+  // active user every quarter-hour and record no decision anyone made.
+  'POST /api/session/extend',
+  // A UI language preference. Not a control, and auditing it would add noise to
+  // a trail whose value depends on being readable.
+  'PATCH /api/me/locale',
 ]);
 
 /**

@@ -273,6 +273,13 @@ export const classificationSchema = z.object({
   dataClass,
 });
 
+/** NFR-010. The set matches the catalogues in packages/web/src/i18n and the
+ *  CHECK constraint on `users.locale`; a value here without a catalogue would
+ *  render English while claiming otherwise. */
+export const localeSchema = z.object({
+  locale: z.enum(['en', 'sv', 'nb', 'da', 'fi', 'fr']),
+});
+
 // ---------------------------------------------------------------------------
 // FR-005 template versioning
 // ---------------------------------------------------------------------------

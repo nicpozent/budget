@@ -84,7 +84,7 @@ export function registerAuthGuard(app: FastifyInstance, db: Db, config: AppConfi
     const cookieName = sessionCookieName(config.cookieSecure);
     const token = request.cookies[cookieName] ?? null;
     if (token) {
-      const session = await loadSession(db, token);
+      const session = await loadSession(db, token, config);
       if (session) {
         request.sessionToken = token;
         request.displayName = session.displayName;

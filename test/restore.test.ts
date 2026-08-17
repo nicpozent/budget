@@ -45,6 +45,7 @@ beforeAll(async () => {
 
   const admin = new pg.Client({ connectionString: ADMIN_URL });
   await admin.connect();
+  // eslint-disable-next-line no-restricted-syntax -- generated identifier, validated above
   await admin.query(`create database ${targetName}`);
   await admin.end();
 
@@ -58,6 +59,7 @@ afterAll(async () => {
   await targetDb?.close?.();
   const admin = new pg.Client({ connectionString: ADMIN_URL });
   await admin.connect();
+  // eslint-disable-next-line no-restricted-syntax -- same generated identifier
   await admin.query(`drop database if exists ${targetName} with (force)`);
   await admin.end();
   await harness?.close();

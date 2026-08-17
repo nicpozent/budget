@@ -10,7 +10,7 @@
 
 import type { ReactNode } from 'react';
 import type { RuleViolation } from '../types.ts';
-import { t } from '../i18n.ts';
+import { t, type MessageKey } from '../i18n/index.ts';
 
 export type Tone = 'ok' | 'pending' | 'bad' | 'neutral';
 
@@ -40,18 +40,21 @@ const BUDGET_STATE_TONE: Record<string, Tone> = {
   locked: 'ok',
 };
 
-const BUDGET_STATE_LABEL: Record<string, string> = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  changes_requested: 'Changes requested',
-  approved: 'Approved',
-  locked: 'Locked',
+const BUDGET_STATE_LABEL: Record<string, MessageKey> = {
+  draft: 'state.draft',
+  submitted: 'state.submitted',
+  changes_requested: 'state.changesRequested',
+  approved: 'state.approved',
+  locked: 'state.locked',
 };
 
 export function BudgetStateChip({ state }: { state: string }): JSX.Element {
   return (
     <Status tone={BUDGET_STATE_TONE[state] ?? 'neutral'}>
-      {BUDGET_STATE_LABEL[state] ?? state}
+      {/* An unknown state falls through to its raw value rather than a blank
+          chip: a new state the client has not learned about should be visible,
+          not invisible. */}
+      {BUDGET_STATE_LABEL[state] ? t(BUDGET_STATE_LABEL[state]) : state}
     </Status>
   );
 }
@@ -98,8 +101,13 @@ export function ValidationBanner({ violations }: { violations: RuleViolation[] }
       <ul>
         {violations.map((v) => (
           <li key={v.code}>
-            <strong>{v.severity === 'blocking' ? 'Blocking' : 'Warning'}:</strong> {v.description}{' '}
-            ({v.lineIds.length} lines)
+            <strong>
+              {v.severity === 'blocking' ? t('validation.blocking') : t('validation.warning')}:
+            </strong>{' '}
+            {/* The description is a validation-rule label from the database, so
+                it is data rather than a UI string and stays in the source
+                language. Translating it would mean translating rows. */}
+            {v.description} {t('validation.affectedLines', { count: v.lineIds.length })}
           </li>
         ))}
       </ul>

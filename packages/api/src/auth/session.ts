@@ -25,11 +25,18 @@ export interface SessionRecord {
   role: Role;
   displayName: string;
   email: string;
+  /** UI language (NFR-010). Stored per user, not sniffed per browser. */
+  locale: string;
   ownedEntityIds: string[];
   authTime: Date;
   amr: string[];
   deviceCompliant: boolean;
   csrfTokenHash: Buffer;
+  /** When this session dies from inactivity (ZT-004). Sent to the client so it
+   *  can warn before expiry rather than dropping the user mid-edit (WCAG 2.2.1). */
+  idleDeadline: Date;
+  /** When it dies regardless of activity. The idle window never outlives this. */
+  absoluteDeadline: Date;
 }
 
 export interface NewSession {
@@ -88,7 +95,11 @@ export async function createSession(
  * inactive-user sessions all resolve to null — the caller cannot distinguish
  * them, so session state is not an oracle.
  */
-export async function loadSession(db: Db, token: string): Promise<SessionRecord | null> {
+export async function loadSession(
+  db: Db,
+  token: string,
+  config: Pick<AppConfig, 'SESSION_IDLE_MINUTES'>,
+): Promise<SessionRecord | null> {
   if (!token || token.length > 128) return null;
 
   const row = await db.one<{
@@ -96,15 +107,20 @@ export async function loadSession(db: Db, token: string): Promise<SessionRecord 
     role: Role;
     display_name: string;
     email: string;
+    locale: string;
     auth_time: Date;
     amr: string[];
     device_compliant: boolean;
     csrf_token_hash: Buffer;
     owned_entity_ids: string[] | null;
+    idle_deadline: Date;
+    absolute_deadline: Date;
   }>(sql`
     select
-      s.user_id, u.role, u.display_name, u.email,
+      s.user_id, u.role, u.display_name, u.email, u.locale,
       s.auth_time, s.amr, s.device_compliant, s.csrf_token_hash,
+      s.last_seen_at + make_interval(mins => ${config.SESSION_IDLE_MINUTES}) as idle_deadline,
+      s.expires_at as absolute_deadline,
       array_remove(array_agg(eo.entity_id), null) as owned_entity_ids
     from sessions s
     join users u on u.id = s.user_id
@@ -112,9 +128,15 @@ export async function loadSession(db: Db, token: string): Promise<SessionRecord 
     where s.id_hash = ${sha256(token)}
       and s.revoked_at is null
       and s.expires_at > now()
+      -- ZT-004: the idle window is enforced here, not merely recorded. Before
+      -- this clause existed, last_seen_at was written on every request and read
+      -- by nothing, so an abandoned session stayed usable for the whole
+      -- absolute TTL.
+      and s.last_seen_at > now() - make_interval(mins => ${config.SESSION_IDLE_MINUTES})
       and u.is_active
-    group by s.user_id, u.role, u.display_name, u.email,
-             s.auth_time, s.amr, s.device_compliant, s.csrf_token_hash
+    group by s.user_id, u.role, u.display_name, u.email, u.locale,
+             s.auth_time, s.amr, s.device_compliant, s.csrf_token_hash,
+             s.last_seen_at, s.expires_at
   `);
 
   if (!row) return null;
@@ -124,11 +146,14 @@ export async function loadSession(db: Db, token: string): Promise<SessionRecord 
     role: row.role,
     displayName: row.display_name,
     email: row.email,
+    locale: row.locale,
     ownedEntityIds: row.owned_entity_ids ?? [],
     authTime: row.auth_time,
     amr: row.amr,
     deviceCompliant: row.device_compliant,
     csrfTokenHash: row.csrf_token_hash,
+    idleDeadline: row.idle_deadline,
+    absoluteDeadline: row.absolute_deadline,
   };
 }
 

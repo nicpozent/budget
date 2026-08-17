@@ -9,13 +9,16 @@ import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../config.ts';
 import type { Db } from '../db/pool.ts';
 import { sql } from '../db/pool.ts';
-import { publicRoute, authenticatedRoute } from '../http/guard.ts';
+import { publicRoute, authenticatedRoute, principalOf } from '../http/guard.ts';
+import { parse } from '../http/validate.ts';
+import { schemas } from '@spendifre/shared';
 import { badRequest, unauthenticated } from '../http/errors.ts';
 import {
   createSession,
   loadSession,
   revokeSession,
   sessionCookieName,
+  touchSession,
 } from '../auth/session.ts';
 import { createIdentityProvider, safeRedirectPath } from '../auth/oidc.ts';
 import { writeAudit } from '../services/audit.ts';
@@ -175,7 +178,7 @@ export async function registerAuthRoutes(
   /** Bootstrap payload for the client: who am I, and what cycle am I in. */
   app.get('/api/me', { config: authenticatedRoute }, async (request) => {
     if (!request.sessionToken) throw unauthenticated('no session');
-    const session = await loadSession(db, request.sessionToken);
+    const session = await loadSession(db, request.sessionToken, config);
     if (!session) throw unauthenticated('no session');
 
     return {
@@ -184,10 +187,59 @@ export async function registerAuthRoutes(
         displayName: session.displayName,
         email: session.email,
         role: session.role,
+        locale: session.locale,
         ownedEntityIds: session.ownedEntityIds,
       },
       fiscalYear: config.FISCAL_YEAR,
       region: config.RESIDENCY_REGION,
+      // ZT-004 / WCAG 2.2.1. The client warns before the idle deadline and
+      // offers to extend, rather than dropping someone mid-edit. Absolute
+      // expiry is sent too, because that one cannot be extended and the
+      // warning has to say so.
+      session: {
+        idleDeadline: session.idleDeadline.toISOString(),
+        absoluteDeadline: session.absoluteDeadline.toISOString(),
+        warnSecondsBefore: config.SESSION_IDLE_WARN_SECONDS,
+      },
+    };
+  });
+
+  /**
+   * NFR-010: change your own language.
+   *
+   * A user may only set their own — there is no `userId` in the path, and the
+   * subject is taken from the session rather than the body, so this cannot be
+   * used to change someone else's. Not audited as a governance event: a UI
+   * language preference is not a control, and auditing it would add noise to a
+   * trail whose value depends on being readable.
+   */
+  app.patch('/api/me/locale', { config: authenticatedRoute }, async (request) => {
+    if (!request.sessionToken) throw unauthenticated('no session');
+    const { locale } = parse(schemas.localeSchema, request.body);
+    const principal = principalOf(request);
+
+    await db.query(sql`
+      update users set locale = ${locale} where id = ${principal.userId}
+    `);
+    return { locale };
+  });
+
+  /**
+   * WCAG 2.2.1: extend the idle window with a simple action.
+   *
+   * This is the only route that exists purely to keep a session alive, so it
+   * cannot be used to sidestep the absolute TTL — `loadSession` still refuses
+   * once `expires_at` passes, and this does not move that. It only refreshes
+   * the sliding idle window, which is what the criterion asks for.
+   */
+  app.post('/api/session/extend', { config: authenticatedRoute }, async (request) => {
+    if (!request.sessionToken) throw unauthenticated('no session');
+    await touchSession(db, request.sessionToken);
+    const refreshed = await loadSession(db, request.sessionToken, config);
+    if (!refreshed) throw unauthenticated('session has expired');
+    return {
+      idleDeadline: refreshed.idleDeadline.toISOString(),
+      absoluteDeadline: refreshed.absoluteDeadline.toISOString(),
     };
   });
 

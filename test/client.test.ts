@@ -10,9 +10,121 @@ import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { glob } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { t } from '../packages/web/src/i18n.ts';
+import { EN } from '../packages/web/src/i18n/en.ts';
+import { SV } from '../packages/web/src/i18n/sv.ts';
+import { NB } from '../packages/web/src/i18n/nb.ts';
+import { DA } from '../packages/web/src/i18n/da.ts';
+import { FI } from '../packages/web/src/i18n/fi.ts';
+import { FR } from '../packages/web/src/i18n/fr.ts';
+import {
+  LOCALES, LOCALE_NAMES, guessLocale, isLocale, setLocale, t,
+} from '../packages/web/src/i18n/index.ts';
 
 const WEB_SRC = fileURLToPath(new URL('../packages/web/src', import.meta.url));
+
+const CATALOGUES = { en: EN, sv: SV, nb: NB, da: DA, fi: FI, fr: FR } as const;
+
+/** Keys whose translation is byte-identical to the English source. */
+function identicalKeys(locale: keyof typeof CATALOGUES): string[] {
+  return Object.entries(EN)
+    .filter(([key, english]) => CATALOGUES[locale][key as keyof typeof EN] === english)
+    .map(([key]) => key);
+}
+
+// Words that are genuinely the same in the target language, not forgotten ones.
+// Each was checked individually: "Plan (EUR)" is identical in all four
+// Germanic/Romance targets, "Period" is Swedish, "Download" is the usual Danish
+// borrowing, and French keeps Sections/Total/Justification/Code.
+const ALLOWED_IDENTICAL = new Set([
+  'alloc.driver', 'alloc.pool', 'alloc.total', 'app.name', 'app.sections', 'budget.eur',
+  'drawer.justification', 'drawer.period', 'drawer.plan', 'drawer.total', 'fx.drift',
+  'grid.status', 'grid.total', 'nav.consolidation', 'nav.trend', 'ops.download',
+  'ops.region', 'ops.status', 'signIn.title', 'trend.total', 'views.action',
+  'views.code', 'views.description', 'views.plan', 'views.planEur', 'views.status',
+]);
+
+describe('NFR-010 catalogues', () => {
+  /**
+   * `satisfies Catalogue` already makes a missing key a compile error. This
+   * asserts the other direction — a key present in a translation but *not* in
+   * English, which the type system permits and which means a string nobody
+   * renders.
+   */
+  it.each(LOCALES)('%s has exactly the English key set', (locale) => {
+    const english = Object.keys(EN).sort();
+    expect(Object.keys(CATALOGUES[locale]).sort()).toEqual(english);
+  });
+
+  it.each(LOCALES)('%s carries the same placeholders as English', (locale) => {
+    const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    const wrong: string[] = [];
+
+    for (const [key, english] of Object.entries(EN)) {
+      const translated = CATALOGUES[locale][key as keyof typeof EN];
+      const expected = placeholders(english);
+      const actual = placeholders(translated);
+      // A dropped {amount} renders a sentence with the number missing; an
+      // invented one renders a literal brace. Both are silent in production.
+      if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+        wrong.push(`${key}: expected ${expected.join(',') || 'none'}, got ${actual.join(',') || 'none'}`);
+      }
+    }
+    expect(wrong, wrong.join('\n')).toEqual([]);
+  });
+
+  it.each(LOCALES)('%s leaves no string untranslated except proper nouns', (locale) => {
+    if (locale === 'en') return;
+    const identical = identicalKeys(locale).filter((key) => !ALLOWED_IDENTICAL.has(key));
+    // Not a hard rule — some words genuinely coincide — but an untouched string
+    // is usually a forgotten one, and the allow-list makes each coincidence a
+    // decision someone made.
+    expect(identical, `untranslated in ${locale}:\n${identical.join('\n')}`).toEqual([]);
+  });
+
+  /**
+   * The allow-list above is the same shape as the backup exclusion list, and
+   * carries the same failure mode: an entry nobody needs looks like a decision
+   * someone made. If a translation later diverges, its exemption should go.
+   */
+  it('has no unnecessary entries in the identical-string allow-list', () => {
+    const stillIdentical = new Set(
+      LOCALES.filter((l) => l !== 'en').flatMap((l) => identicalKeys(l)),
+    );
+    const unnecessary = [...ALLOWED_IDENTICAL].filter((key) => !stillIdentical.has(key));
+    expect(
+      unnecessary,
+      `these keys are no longer identical in any locale — drop them from the allow-list:\n${unnecessary.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('names every locale in its own language', () => {
+    for (const locale of LOCALES) {
+      expect(LOCALE_NAMES[locale], `${locale} has no endonym`).toBeTruthy();
+    }
+    // A picker that says "Swedish" to a Swedish-only reader is useless.
+    expect(LOCALE_NAMES.sv).toBe('Svenska');
+    expect(LOCALE_NAMES.fi).toBe('Suomi');
+  });
+
+  it('recognises only known locales', () => {
+    expect(isLocale('sv')).toBe(true);
+    expect(isLocale('de')).toBe(false);
+    expect(isLocale(null)).toBe(false);
+  });
+
+  it('switches the active catalogue', () => {
+    setLocale('fr');
+    expect(t('app.signOut')).toBe('Se déconnecter');
+    setLocale('fi');
+    expect(t('app.signOut')).toBe('Kirjaudu ulos');
+    setLocale('en');
+    expect(t('app.signOut')).toBe('Sign out');
+  });
+
+  it('falls back to English when the browser offers nothing known', () => {
+    expect(guessLocale()).toBe('en');
+  });
+});
 
 describe('NFR-010 string catalogue', () => {
   it('substitutes named parameters', () => {

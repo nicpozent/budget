@@ -3,13 +3,22 @@
  *
  * Amounts arrive as canonical decimal strings and are formatted with `Intl`,
  * never parsed into arithmetic. Sweden, Switzerland and APAC differ on
- * separators and date order, so the locale comes from the browser rather than
- * being hard-coded — but the *value* is never reconstructed from the formatted
- * text, which is what keeps NFR-002 intact on the client too.
+ * separators and date order, so the locale is the user's stored preference
+ * rather than being hard-coded — but the *value* is never reconstructed from
+ * the formatted text, which is what keeps NFR-002 intact on the client too.
  */
 
-const DEFAULT_LOCALE =
-  typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-GB';
+import { intlTag } from './i18n/index.ts';
+
+/**
+ * Formatting follows the user's stored locale, not the browser's.
+ *
+ * These are two different questions and they used to have one answer. A Finnish
+ * controller who has chosen Finnish should see Finnish number grouping even on
+ * a Swedish workstation — `intlTag()` maps the catalogue language to the BCP-47
+ * tag `Intl` needs, and it changes when the user changes their preference.
+ */
+const DEFAULT_LOCALE = () => intlTag();
 
 export function formatMoney(
   decimalString: string,
@@ -21,7 +30,7 @@ export function formatMoney(
   // show the canonical string rather than a rounded approximation.
   if (!Number.isFinite(asNumber)) return decimalString;
 
-  return new Intl.NumberFormat(DEFAULT_LOCALE, {
+  return new Intl.NumberFormat(DEFAULT_LOCALE(), {
     style: 'currency',
     currency,
     notation: options.compact ? 'compact' : 'standard',
@@ -32,14 +41,14 @@ export function formatMoney(
 export function formatNumber(decimalString: string): string {
   const asNumber = Number(decimalString);
   if (!Number.isFinite(asNumber)) return decimalString;
-  return new Intl.NumberFormat(DEFAULT_LOCALE, { maximumFractionDigits: 0 }).format(asNumber);
+  return new Intl.NumberFormat(DEFAULT_LOCALE(), { maximumFractionDigits: 0 }).format(asNumber);
 }
 
 export function formatPercent(numerator: string, denominator: string): string {
   const n = Number(numerator);
   const d = Number(denominator);
   if (!Number.isFinite(n) || !Number.isFinite(d) || d === 0) return '—';
-  return new Intl.NumberFormat(DEFAULT_LOCALE, {
+  return new Intl.NumberFormat(DEFAULT_LOCALE(), {
     style: 'percent',
     maximumFractionDigits: 1,
   }).format(n / d);
@@ -48,7 +57,7 @@ export function formatPercent(numerator: string, denominator: string): string {
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
+  return new Intl.DateTimeFormat(DEFAULT_LOCALE(), {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
