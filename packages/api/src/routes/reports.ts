@@ -8,6 +8,12 @@
  * Scope is applied before aggregation, never after. A manager's consolidation
  * is the sum of the lines they may see, computed from a query that only
  * returned those lines (SEC-011).
+ *
+ * The line-level fold itself runs in the database (`loadLineTotals`) rather
+ * than in JavaScript. That is an NFR-001 decision with a measurement behind it,
+ * not a preference — see the note on that function. What did *not* change is
+ * where the aggregates come from: `rollUpTotals` is still a fold over line
+ * rows, so INV-4 holds for the same reason it always did.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -21,14 +27,20 @@ import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
 import { exportedRows } from '../observability/metrics.ts';
 import {
+  byFiscalYear,
   computeLineTotals,
   depreciationSchedule,
   elapsedPeriods,
   isOverPace,
   loadFxTable,
+  loadGroupedTotals,
+  loadLineTotals,
   loadLines,
-  rollUp,
+  loadVarianceLines,
+  loadYearTotals,
+  rollUpTotals,
   toEur,
+  type TotalsGroup,
 } from '../services/budget.ts';
 import { buildXlsx, num, text, type Sheet } from '../services/xlsx.ts';
 import { loadCycle, periodsIn, visibleEntityIds } from './meta.ts';
@@ -47,23 +59,26 @@ export async function registerReportRoutes(
 
     const cycle = await loadCycle(db, year);
     const periods = periodsIn(cycle.granularity);
-    const fx = await loadFxTable(db, year);
-    const lines = await loadLines(db, ids, year);
-    const totals = computeLineTotals(lines, fx, cycle.headcount_planning, periods);
 
-    const byEntity = rollUp(lines, totals, (l) => l.entityId);
-    const byCategory = rollUp(lines, totals, (l) => l.categoryId);
+    // Three groupings from one evaluation of the fold. This report shows 21
+    // entity rows and 8 category rows; loading 588 line rows to produce 29
+    // numbers was the single largest source of per-request work in the API.
+    const grouped = await loadGroupedTotals(
+      db, ids, [year], cycle.headcount_planning, periods, ['year', 'entity', 'category'],
+    );
+    const byEntity = new Map(
+      grouped.filter((g) => g.group === 'entity').map((g) => [g.key, g]),
+    );
+    const categories = grouped.filter((g) => g.group === 'category');
+    const whole = grouped.find((g) => g.group === 'year');
 
     const entityMeta = await db.query<{ id: string; code: string; name: string; state: string }>(sql`
       select id, code, name, state from entities where id = any(${ids}::uuid[]) order by code
     `);
-    const categoryMeta = await db.query<{ id: string; name: string }>(sql`
-      select id, name from categories order by position
-    `);
 
     return {
-      total: Money.sum(totals.map((t) => t.eur)).toString(),
-      actual: Money.sum(totals.map((t) => t.actualEur)).toString(),
+      total: (whole?.plan ?? Money.ZERO).toString(),
+      actual: (whole?.actual ?? Money.ZERO).toString(),
       entities: entityMeta.map((e) => ({
         id: e.id,
         code: e.code,
@@ -72,13 +87,13 @@ export async function registerReportRoutes(
         plan: (byEntity.get(e.id)?.plan ?? Money.ZERO).toString(),
         actual: (byEntity.get(e.id)?.actual ?? Money.ZERO).toString(),
       })),
-      categories: categoryMeta
-        .filter((c) => byCategory.has(c.id))
-        .map((c) => ({
-          id: c.id,
-          name: c.name,
-          plan: (byCategory.get(c.id)?.plan ?? Money.ZERO).toString(),
-        })),
+      // Ordered by category position, and only categories with a visible line
+      // appear — both fall out of the grouping rather than needing a filter.
+      categories: categories.map((c) => ({
+        id: c.key,
+        name: c.label,
+        plan: c.plan.toString(),
+      })),
     };
   });
 
@@ -104,48 +119,59 @@ export async function registerReportRoutes(
 
     const years = [year - 4, year - 3, year - 2, year - 1, year];
 
-    // One query per year rather than a pivot, so the summation property is the
-    // same fold used everywhere else and can be property-tested (NFR-004).
     const series = new Map<string, { label: string; values: Record<number, string> }>();
     const totalsByYear: Record<number, string> = {};
 
-    // Hoisted: the cycle is the *current* year's in every iteration, so this
-    // was five identical queries. Cheap, but it was also hiding the real cost —
-    // see the note below.
     const cycle = await loadCycle(db, year);
     const periods = periodsIn(cycle.granularity);
 
-    // NFR-001 note. At monthly × three-version scale (30k period rows) this
-    // loop is the slowest path in the application: `tools/loadtest.ts` measures
-    // p95 around 670 ms against a 300 ms budget. The cost is not the database —
-    // the underlying scan is sub-millisecond with the 007 indexes — it is that
-    // `loadLines` + `computeLineTotals` fold every line for every one of five
-    // years in JavaScript. The fix is to push the fold into SQL and return one
-    // row per (year, series); it is a real refactor of the reporting layer and
-    // is deliberately not attempted here rather than half-done. Recorded in
-    // docs/application-evaluation.md rather than left to be discovered.
-    for (const y of years) {
-      const fx = await loadFxTable(db, y).catch(() => loadFxTable(db, year));
-      const lines = await loadLines(db, ids, y);
-      const lineTotals = computeLineTotals(lines, fx, cycle.headcount_planning, periods);
-
-      totalsByYear[y] = Money.sum(lineTotals.map((t) => t.eur)).toString();
-
-      if (query.mode === 'category') {
-        for (const [categoryId, t] of rollUp(lines, lineTotals, (l) => l.categoryId)) {
-          const label = lines.find((l) => l.categoryId === categoryId)?.categoryName ?? categoryId;
-          const entry = series.get(categoryId) ?? { label, values: {} };
-          entry.values[y] = t.plan.toString();
-          series.set(categoryId, entry);
-        }
-      } else if (query.mode === 'line') {
-        const byId = new Map(lineTotals.map((t) => [t.lineId, t]));
-        for (const line of lines) {
-          const entry = series.get(line.id) ?? { label: line.name, values: {} };
-          entry.values[y] = (byId.get(line.id)?.eur ?? Money.ZERO).toString();
-          series.set(line.id, entry);
+    // NFR-001. This was the slowest route in the application — `tools/loadtest.ts`
+    // measured p95 at 557 ms against a 300 ms budget at monthly × three-version
+    // scale — for three compounding reasons. `loadLines` built two JSON arrays
+    // per line and `computeLineTotals` walked them; it did that five times, once
+    // per year, in five round trips; and it did it at line level to draw a chart
+    // of eight categories.
+    //
+    // All three are gone for the two aggregate modes: the fold runs in the
+    // database, all five years come from one statement, and the grouping
+    // happens there too. `line` mode still needs a row per line, because that
+    // is what it draws.
+    //
+    // What is unchanged is that every figure is still the sum of the line
+    // figures for that year, which is what makes an exploded category reconcile
+    // with its parent (INV-4, NFR-004).
+    if (query.mode === 'line') {
+      const perYear = byFiscalYear(
+        await loadLineTotals(db, ids, years, cycle.headcount_planning, periods),
+      );
+      for (const y of years) {
+        const lineTotals = perYear.get(y) ?? [];
+        totalsByYear[y] = Money.sum(lineTotals.map((t) => t.eur)).toString();
+        for (const t of lineTotals) {
+          const entry = series.get(t.lineId) ?? { label: t.name, values: {} };
+          entry.values[y] = t.eur.toString();
+          series.set(t.lineId, entry);
         }
       }
+    } else {
+      const groups: TotalsGroup[] = query.mode === 'category'
+        ? ['year', 'category']
+        : ['year'];
+      const grouped = await loadGroupedTotals(
+        db, ids, years, cycle.headcount_planning, periods, groups,
+      );
+      for (const g of grouped) {
+        if (g.group === 'year') {
+          totalsByYear[g.fiscalYear] = g.plan.toString();
+          continue;
+        }
+        const entry = series.get(g.key) ?? { label: g.label, values: {} };
+        entry.values[g.fiscalYear] = g.plan.toString();
+        series.set(g.key, entry);
+      }
+      // A year with no visible line has no row to group, and the chart still
+      // needs a point for it.
+      for (const y of years) totalsByYear[y] ??= Money.ZERO.toString();
     }
 
     return {
@@ -164,64 +190,49 @@ export async function registerReportRoutes(
 
     const cycle = await loadCycle(db, year);
     const periods = periodsIn(cycle.granularity);
-    const fx = await loadFxTable(db, year);
 
-    const current = await loadLines(db, ids, year);
-    const prior = await loadLines(db, ids, year - 1);
-    const currentTotals = new Map(
-      computeLineTotals(current, fx, cycle.headcount_planning, periods).map((t) => [t.lineId, t.eur]),
+    // Both years in one statement, twice: a variance is a comparison, so asking
+    // per year was two round trips to answer one question. The line list is
+    // ranked and cut in the database because the view shows a hundred rows and
+    // there are eleven hundred to choose from.
+    const TOP_LINES = 100;
+    const lineVariances = await loadVarianceLines(
+      db, ids, year - 1, year, cycle.headcount_planning, periods, TOP_LINES,
     );
-    const priorTotals = new Map(
-      computeLineTotals(prior, fx, cycle.headcount_planning, periods).map((t) => [t.lineId, t.eur]),
-    );
 
-    const lineVariances = current.map((line) => {
-      const now = currentTotals.get(line.id) ?? Money.ZERO;
-      const then = priorTotals.get(line.id) ?? Money.ZERO;
-      const delta = now.subtract(then);
-      return {
-        id: line.id,
-        name: line.name,
-        categoryName: line.categoryName,
-        entityCode: line.entityCode,
-        current: now.toString(),
-        prior: then.toString(),
-        delta: delta.toString(),
-        // The README's convention: increases are the bad direction in a cost
-        // tool, so the sign is carried through and the view colours it.
-        direction: delta.compare(Money.ZERO) > 0 ? 'increase' : delta.isZero() ? 'flat' : 'decrease',
-      };
-    });
-
-    lineVariances.sort((a, b) => {
-      const aAbs = Money.parse(a.delta).compare(Money.ZERO) < 0
-        ? Money.parse(a.delta).negate() : Money.parse(a.delta);
-      const bAbs = Money.parse(b.delta).compare(Money.ZERO) < 0
-        ? Money.parse(b.delta).negate() : Money.parse(b.delta);
-      return bAbs.compare(aAbs);
-    });
-
-    const categoriesNow = rollUp(current, [...currentTotals].map(([lineId, eur]) => ({
-      lineId, eur, local: eur, actualEur: Money.ZERO, actualLocal: Money.ZERO,
-    })), (l) => l.categoryId);
-    const categoriesThen = rollUp(prior, [...priorTotals].map(([lineId, eur]) => ({
-      lineId, eur, local: eur, actualEur: Money.ZERO, actualLocal: Money.ZERO,
-    })), (l) => l.categoryId);
-
-    const categoryNames = new Map(current.map((l) => [l.categoryId, l.categoryName]));
+    const categories = new Map<string, { name: string; current: Money; prior: Money }>();
+    for (const g of await loadGroupedTotals(
+      db, ids, [year - 1, year], cycle.headcount_planning, periods, ['category'],
+    )) {
+      const entry = categories.get(g.key)
+        ?? { name: g.label, current: Money.ZERO, prior: Money.ZERO };
+      if (g.fiscalYear === year) entry.current = g.plan;
+      else entry.prior = g.plan;
+      categories.set(g.key, entry);
+    }
 
     return {
-      lines: lineVariances.slice(0, 100),
-      categories: [...categoryNames].map(([id, name]) => {
-        const now = categoriesNow.get(id)?.plan ?? Money.ZERO;
-        const then = categoriesThen.get(id)?.plan ?? Money.ZERO;
-        return {
-          id, name,
-          current: now.toString(),
-          prior: then.toString(),
-          delta: now.subtract(then).toString(),
-        };
-      }),
+      lines: lineVariances.map((v) => ({
+        id: v.lineId,
+        name: v.name,
+        categoryName: v.categoryName,
+        entityCode: v.entityCode,
+        current: v.current.toString(),
+        prior: v.prior.toString(),
+        delta: v.delta.toString(),
+        // The README's convention: increases are the bad direction in a cost
+        // tool, so the sign is carried through and the view colours it.
+        direction: v.delta.compare(Money.ZERO) > 0
+          ? 'increase'
+          : v.delta.isZero() ? 'flat' : 'decrease',
+      })),
+      categories: [...categories].map(([id, c]) => ({
+        id,
+        name: c.name,
+        current: c.current.toString(),
+        prior: c.prior.toString(),
+        delta: c.current.subtract(c.prior).toString(),
+      })),
     };
   });
 
@@ -243,13 +254,9 @@ export async function registerReportRoutes(
     const cycle = await loadCycle(db, year);
     const periods = periodsIn(cycle.granularity);
     const elapsed = elapsedPeriods(year, periods);
-    const fx = await loadFxTable(db, year);
 
-    let lines = await loadLines(db, ids, year);
-    if (query.categoryId) lines = lines.filter((l) => l.categoryId === query.categoryId);
-
-    const totals = computeLineTotals(lines, fx, cycle.headcount_planning, periods);
-    const byId = new Map(totals.map((t) => [t.lineId, t]));
+    let totals = await loadYearTotals(db, ids, year, cycle.headcount_planning, periods);
+    if (query.categoryId) totals = totals.filter((t) => t.categoryId === query.categoryId);
 
     const plan = Money.sum(totals.map((t) => t.eur));
     const actual = Money.sum(totals.map((t) => t.actualEur));
@@ -266,15 +273,14 @@ export async function registerReportRoutes(
         elapsedPeriods: elapsed,
         totalPeriods: periods,
       },
-      lines: lines.map((line) => {
-        const t = byId.get(line.id)!;
+      lines: totals.map((t) => {
         const lineYtdPlan = t.eur.multiplyByRate(String(elapsed)).divideByRate(String(periods));
         return {
-          id: line.id,
-          name: line.name,
-          entityCode: line.entityCode,
-          categoryName: line.categoryName,
-          currency: line.currency,
+          id: t.lineId,
+          name: t.name,
+          entityCode: t.entityCode,
+          categoryName: t.categoryName,
+          currency: t.currency,
           plan: t.eur.toString(),
           actual: t.actualEur.toString(),
           ytdPlan: lineYtdPlan.toString(),
@@ -282,7 +288,7 @@ export async function registerReportRoutes(
           overPace: isOverPace(t.eur, t.actualEur, elapsed, periods),
         };
       }),
-      categories: [...rollUp(lines, totals, (l) => l.categoryName)].map(([name, t]) => ({
+      categories: [...rollUpTotals(totals, (t) => t.categoryName)].map(([name, t]) => ({
         name,
         plan: t.plan.toString(),
         actual: t.actual.toString(),
@@ -299,21 +305,18 @@ export async function registerReportRoutes(
 
     const cycle = await loadCycle(db, year);
     const periods = periodsIn(cycle.granularity);
-    const fx = await loadFxTable(db, year);
-    const lines = (await loadLines(db, ids, year)).filter((l) => l.costType === 'capex');
-    const totals = new Map(
-      computeLineTotals(lines, fx, cycle.headcount_planning, periods).map((t) => [t.lineId, t.eur]),
-    );
+    const lines = (await loadYearTotals(db, ids, year, cycle.headcount_planning, periods))
+      .filter((l) => l.costType === 'capex');
 
     const yearTotals: Record<number, Money> = {};
     const rows = lines.map((line) => {
-      const capitalised = totals.get(line.id) ?? Money.ZERO;
+      const capitalised = line.eur;
       const schedule = depreciationSchedule(capitalised, line.assetLifeYears ?? 0, year);
       for (const entry of schedule) {
         yearTotals[entry.year] = (yearTotals[entry.year] ?? Money.ZERO).add(entry.charge);
       }
       return {
-        id: line.id,
+        id: line.lineId,
         name: line.name,
         entityCode: line.entityCode,
         capitalised: capitalised.toString(),
@@ -371,10 +374,15 @@ export async function registerReportRoutes(
 
     const cycle = await loadCycle(db, year);
     const periods = periodsIn(cycle.granularity);
+    // Still needed here, and only here: the pools carry their own currency and
+    // are not line rows, so they are converted in JavaScript.
     const fx = await loadFxTable(db, year);
-    const lines = await loadLines(db, ids, year);
-    const totals = computeLineTotals(lines, fx, cycle.headcount_planning, periods);
-    const own = rollUp(lines, totals, (l) => l.entityId);
+    // Per entity is all this report shows of the budget itself.
+    const own = new Map(
+      (await loadGroupedTotals(
+        db, ids, [year], cycle.headcount_planning, periods, ['entity'],
+      )).map((g) => [g.key, g]),
+    );
 
     const drivers = await db.query<{ entity_id: string; driver_key: string; value: number }>(sql`
       select entity_id, driver_key, value from drivers

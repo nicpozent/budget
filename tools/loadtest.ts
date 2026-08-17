@@ -18,6 +18,23 @@
  * It measures the *server*, not the browser: no rendering, no network
  * variance. NFR-001's p95 target is a server-side number, and mixing in a
  * headless browser would measure something else and call it the same thing.
+ *
+ * Two things it forces, because leaving them to the environment made the
+ * numbers mean something other than what they claimed:
+ *
+ *   `RATE_LIMIT=off`. SEC-013 caps a caller at 600 requests a minute. A run
+ *   long enough to matter crosses that, and from then on the tool measures how
+ *   fast the limiter can say 429. The limiter has its own test; this one is
+ *   about the cost of a report.
+ *
+ *   `NODE_ENV=test`, for the logger only. The default writes a JSON line per
+ *   request, which at these rates is both a distortion and 2,000 lines of noise
+ *   between the reader and the table.
+ *
+ * And it runs `analyze` after amplifying. Twenty thousand fresh rows with the
+ * planner's old statistics is a measurement of a cold database, not a loaded
+ * one — the first run of this after the amplification step reported a p95 five
+ * times the steady-state figure for exactly that reason.
  */
 
 import { loadConfig } from '../packages/api/src/config.ts';
@@ -83,6 +100,11 @@ async function amplify(db: Db, fiscalYear: number): Promise<number> {
     `);
   }
 
+  // Not optional. The planner's row estimates are now wrong by a factor of
+  // four on the table every report reads, and a bad estimate here is the
+  // difference between a hash aggregate and a sort.
+  await db.query(sql`analyze period_amounts, actuals, line_items`);
+
   const total = await db.one<{ count: string }>(sql`
     select count(*)::text as count from period_amounts where fiscal_year = ${fiscalYear}
   `);
@@ -97,7 +119,13 @@ function percentile(sorted: readonly number[], p: number): number {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const config = loadConfig(process.env);
+  const config = loadConfig({
+    ...process.env,
+    // See the header. Both of these change what is being measured, so they are
+    // set here rather than left to whoever runs the command to remember.
+    RATE_LIMIT: 'off',
+    NODE_ENV: 'test',
+  });
   const db = createDb(config);
 
   if (!args.skipSeed) {

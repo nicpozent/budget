@@ -17,10 +17,17 @@ import {
   effectivePeriodAmount,
   elapsedPeriods,
   isOverPace,
+  byFiscalYear,
   loadFxTable,
+  loadGroupedTotals,
+  loadLineTotals,
   loadLines,
+  loadVarianceLines,
+  loadYearTotals,
   rollUp,
+  rollUpTotals,
   toEur,
+  type LineTotalRow,
 } from '../packages/api/src/services/budget.ts';
 import { createHarness, type AuthHeaders, type Harness } from './harness.ts';
 
@@ -277,6 +284,269 @@ describe('INV-4 / NFR-004 aggregates equal the sum of their children', () => {
       .toBe(Money.parse(body.total).toString());
     expect(Money.sum(body.categories.map((c) => Money.parse(c.plan))).toString())
       .toBe(Money.parse(body.total).toString());
+  });
+});
+
+/**
+ * NFR-001 moved the reporting fold into SQL. `computeLineTotals` stays as the
+ * readable definition of the rule; these tests are what stop the two drifting.
+ *
+ * Equality is asserted row for row over the whole seeded dataset rather than on
+ * the group total, because a group total hides compensating errors: two lines
+ * rounded the wrong way in opposite directions still add up.
+ */
+describe('the SQL fold agrees with the JavaScript definition', () => {
+  const allEntityIds = async (): Promise<string[]> => {
+    const rows = await harness.db.query<{ id: string }>(sql`
+      select id from entities order by code
+    `);
+    return rows.map((r) => r.id);
+  };
+
+  it('produces identical rows in every year, with headcount planning on and off', async () => {
+    const ids = await allEntityIds();
+    let compared = 0;
+
+    for (const year of [2022, 2023, 2024, 2025, 2026]) {
+      for (const headcount of [true, false]) {
+        const fx = await loadFxTable(harness.db, year);
+        const lines = await loadLines(harness.db, ids, year);
+        const expected = computeLineTotals(lines, fx, headcount, 4);
+        const actual = await loadYearTotals(harness.db, ids, year, headcount, 4);
+
+        const where = `FY${year}, headcount ${headcount ? 'on' : 'off'}`;
+        expect(actual.length, `row count in ${where}`).toBe(expected.length);
+
+        for (const [i, want] of expected.entries()) {
+          const got = actual[i]!;
+          // Order matters as much as the figures: the reports render rows in
+          // the order the loader returns them, so a different sort would be a
+          // visible change even with the same totals.
+          expect(got.lineId, `line order at ${i} in ${where}`).toBe(want.lineId);
+          expect(got.local.toString(), `local for ${got.name} in ${where}`)
+            .toBe(want.local.toString());
+          expect(got.eur.toString(), `eur for ${got.name} in ${where}`)
+            .toBe(want.eur.toString());
+          expect(got.actualLocal.toString(), `actual local for ${got.name} in ${where}`)
+            .toBe(want.actualLocal.toString());
+          expect(got.actualEur.toString(), `actual eur for ${got.name} in ${where}`)
+            .toBe(want.actualEur.toString());
+          compared += 1;
+        }
+      }
+    }
+
+    // A guard against the whole thing passing vacuously on an empty fixture.
+    expect(compared).toBeGreaterThan(1000);
+  });
+
+  it('gives the same answer for five years at once as for five years one at a time', async () => {
+    const ids = await allEntityIds();
+    const years = [2022, 2023, 2024, 2025, 2026];
+
+    // FR-061 asks for all five in one statement; FR-060 asks for one. They are
+    // the same query with a different year list, and the risk in that is a
+    // join that silently borrows one year's FX rate or driver value for
+    // another. Comparing the two shapes is what rules that out.
+    const together = byFiscalYear(
+      await loadLineTotals(harness.db, ids, years, true, 4),
+    );
+    expect([...together.keys()]).toEqual(years);
+
+    for (const year of years) {
+      const alone = await loadYearTotals(harness.db, ids, year, true, 4);
+      const fromBatch = together.get(year)!;
+      expect(fromBatch.length, `row count for ${year}`).toBe(alone.length);
+      expect(
+        fromBatch.map((r) => `${r.lineId} ${r.local} ${r.eur} ${r.actualEur}`),
+        `rows for ${year}`,
+      ).toEqual(alone.map((r) => `${r.lineId} ${r.local} ${r.eur} ${r.actualEur}`));
+    }
+  });
+
+  it('groups in SQL to the same figures as folding the line rows', async () => {
+    const ids = await allEntityIds();
+    const years = [2022, 2023, 2024, 2025, 2026];
+
+    // INV-4 with the fold in a different place. The grouped query sums in the
+    // database; `rollUpTotals` sums the line rows in JavaScript. If those two
+    // ever disagreed, a consolidation would stop reconciling with the lines it
+    // claims to be made of — the exact failure the invariant exists to catch.
+    const grouped = await loadGroupedTotals(harness.db, ids, years, true, 4,
+      ['year', 'entity', 'category']);
+    const perYear = byFiscalYear(await loadLineTotals(harness.db, ids, years, true, 4));
+
+    expect(grouped.length).toBeGreaterThan(0);
+
+    for (const year of years) {
+      const lines = perYear.get(year) ?? [];
+      const rows = (group: string) => grouped.filter((g) => g.group === group && g.fiscalYear === year);
+
+      const whole = rows('year');
+      expect(whole.length, `one year row for ${year}`).toBe(1);
+      expect(whole[0]!.plan.toString(), `year total ${year}`)
+        .toBe(Money.sum(lines.map((l) => l.eur)).toString());
+      expect(whole[0]!.actual.toString(), `year actual ${year}`)
+        .toBe(Money.sum(lines.map((l) => l.actualEur)).toString());
+
+      for (const [group, keyOf] of [
+        ['entity', (r: LineTotalRow) => r.entityId],
+        ['category', (r: LineTotalRow) => r.categoryId],
+      ] as const) {
+        const folded = rollUpTotals(lines, keyOf);
+        const fromSql = rows(group);
+        expect(fromSql.length, `${group} rows in ${year}`).toBe(folded.size);
+        for (const g of fromSql) {
+          expect(g.plan.toString(), `${group} ${g.label} plan in ${year}`)
+            .toBe(folded.get(g.key)!.plan.toString());
+          expect(g.actual.toString(), `${group} ${g.label} actual in ${year}`)
+            .toBe(folded.get(g.key)!.actual.toString());
+        }
+      }
+
+      // The partitions add back to the whole, which is the property itself
+      // rather than a restatement of the equality above.
+      for (const group of ['entity', 'category']) {
+        expect(
+          Money.sum(rows(group).map((g) => g.plan)).toString(),
+          `${group} partition of ${year}`,
+        ).toBe(whole[0]!.plan.toString());
+      }
+    }
+  });
+
+  it('ranks the variance lines the way the JavaScript sort did', async () => {
+    const ids = await allEntityIds();
+    const perYear = byFiscalYear(await loadLineTotals(harness.db, ids, [2025, 2026], true, 4));
+    const current = perYear.get(2026) ?? [];
+    const priorById = new Map((perYear.get(2025) ?? []).map((t) => [t.lineId, t.eur]));
+
+    // The oracle: the fold in JavaScript, then the stable sort the route used
+    // to do. `current` arrives ordered by (category position, name), and
+    // Array.prototype.sort is stable, so equal movements keep that order —
+    // which is what the SQL tie-break has to reproduce.
+    const expected = current
+      .map((line) => {
+        const prior = priorById.get(line.lineId) ?? Money.ZERO;
+        return { lineId: line.lineId, delta: line.eur.subtract(prior), current: line.eur, prior };
+      })
+      .sort((a, b) => {
+        const abs = (m: Money) => (m.compare(Money.ZERO) < 0 ? m.negate() : m);
+        return abs(b.delta).compare(abs(a.delta));
+      })
+      .slice(0, 100);
+
+    const actual = await loadVarianceLines(harness.db, ids, 2025, 2026, true, 4, 100);
+
+    expect(actual.length).toBe(expected.length);
+    expect(actual.length).toBeGreaterThan(0);
+    for (const [i, want] of expected.entries()) {
+      const got = actual[i]!;
+      expect(got.lineId, `rank ${i}`).toBe(want.lineId);
+      expect(got.current.toString(), `current at rank ${i}`).toBe(want.current.toString());
+      expect(got.prior.toString(), `prior at rank ${i}`).toBe(want.prior.toString());
+      expect(got.delta.toString(), `delta at rank ${i}`).toBe(want.delta.toString());
+    }
+  });
+
+  it('covers the non-EUR and actuals cases in the fixture it ran against', async () => {
+    const ids = await allEntityIds();
+    const lines = await loadLines(harness.db, ids, 2026);
+
+    // Non-EUR lines, so the rate is something other than one and the rounding
+    // rule is actually exercised rather than multiplied away.
+    expect(new Set(lines.map((l) => l.currency)).size).toBeGreaterThan(1);
+
+    // Lines with recorded actuals, so the actual columns are not all zero.
+    expect(lines.some((l) => Object.keys(l.actuals).length > 0)).toBe(true);
+  });
+
+  /**
+   * The driver branch is the one place the two implementations are written
+   * differently rather than translated: `effectivePeriodAmount` spreads the
+   * annual figure across the periods and hands the remainder to the last one,
+   * and the SQL writes value × rate directly on the argument that the spread
+   * sums back to exactly that (INV-1).
+   *
+   * The seeded fixture links no line to a driver, so asserting over it would
+   * have proved nothing about the branch most likely to diverge. These links
+   * are made here and rolled back.
+   */
+  it('agrees on driver-linked lines, including the rounding remainder', async () => {
+    const ids = await allEntityIds();
+    const marker = new Error('rollback');
+
+    await expect(
+      harness.db.transaction(async (tx) => {
+        // A rate with more precision than the money scale, so the spread has a
+        // remainder to place and the rounding has somewhere to disagree.
+        const rates = ['1000', '333.3333', '17.5', '0.0001'];
+        const keys = ['headcount', 'sites', 'devices', 'stores'];
+        const targets = await tx.query<{ id: string }>(sql`
+          select id from line_items where deleted_at is null order by id limit 40
+        `);
+        expect(targets.length).toBe(40);
+
+        for (const [i, target] of targets.entries()) {
+          await tx.query(sql`
+            update line_items
+            set driver_key = ${keys[i % keys.length]!},
+                driver_rate_per_unit = ${rates[i % rates.length]!}
+            where id = ${target.id}
+          `);
+        }
+
+        for (const headcount of [true, false]) {
+          const fx = await loadFxTable(tx, 2026);
+          const lines = await loadLines(tx, ids, 2026);
+          const expected = computeLineTotals(lines, fx, headcount, 4);
+          const actual = await loadYearTotals(tx, ids, 2026, headcount, 4);
+
+          const active = lines.filter((l) => l.driverKey !== null && l.driverValue !== null);
+          expect(active.length, 'driver-active lines').toBeGreaterThan(0);
+          expect(active.some((l) => l.driverKey === 'headcount')).toBe(true);
+
+          for (const [i, want] of expected.entries()) {
+            const got = actual[i]!;
+            const where = `${got.name}, headcount ${headcount ? 'on' : 'off'}`;
+            expect(got.local.toString(), `local for ${where}`).toBe(want.local.toString());
+            expect(got.eur.toString(), `eur for ${where}`).toBe(want.eur.toString());
+          }
+        }
+
+        throw marker;
+      }),
+    ).rejects.toBe(marker);
+  });
+
+  it('refuses a missing rate the same way toEur does', async () => {
+    const ids = await allEntityIds();
+    // 2021 is outside the seeded FX range, so no line but a EUR one has a rate.
+    await expect(loadYearTotals(harness.db, ids, 2021, true, 4))
+      .rejects.toThrow(/no FX rate for/);
+
+    const fx = await loadFxTable(harness.db, 2021);
+    const lines = await loadLines(harness.db, ids, 2021);
+    expect(() => computeLineTotals(lines, fx, true, 4)).toThrow(/no FX rate for/);
+  });
+
+  it('treats EUR as one whether or not a rate row exists', async () => {
+    const ids = await allEntityIds();
+    const withRow = await loadYearTotals(harness.db, ids, 2026, true, 4);
+
+    // Rolled back: the point is what the fold does with the row missing, not
+    // to leave the fixture without it.
+    const marker = new Error('rollback');
+    await expect(
+      harness.db.transaction(async (tx) => {
+        await tx.query(sql`delete from fx_rates where currency = 'EUR' and fiscal_year = 2026`);
+        const without = await loadYearTotals(tx, ids, 2026, true, 4);
+        expect(without.map((r) => r.eur.toString())).toEqual(
+          withRow.map((r) => r.eur.toString()),
+        );
+        throw marker;
+      }),
+    ).rejects.toBe(marker);
   });
 });
 

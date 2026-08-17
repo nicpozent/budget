@@ -34,7 +34,7 @@ stated as a gap, and two rows deliberately did not move.*
 | 11 | **Non-production data** | ★★★★☆ | Synthetic seed by default; offline anonymiser outside `packages/`; CI refuses any import of the workbook; **the anonymiser reports its own k-anonymity failure** rather than overclaiming | The real extract is still in the repository (`osint-exposure.md` §1); the anonymised fixture is pseudonymous, not anonymous |
 | 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | **WCAG 2.2.1 now met**: the session warns two minutes before the idle timeout with a Continue action, and says so plainly when it is the absolute TTL that cannot be extended. | axe across **11 views** in a real browser; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions. **VPAT 2.5 / EN 301 549 report** criterion by criterion, marking which claims are verified and which are code-reading. **NFR-010 catalogue**: every client string typed, with a test that fails on JSX text bypassing it — it found 120. **WCAG 4.1.3 fixed** while writing the VPAT: banners were not live regions | Still ★★★★ for one reason: **no assistive-technology user has tested this.** Automated checks catch roughly a third of WCAG issues. six locales, none native-reviewed. A hover-contrast defect found this revision — the `background` shorthand on `:hover` wiped every primary button's gradient, leaving near-black text on grey — suggests other state-dependent contrast problems automated tooling cannot see |
 | 13 | **Observability** | ★★★★☆ | Structured JSON logs with credential redaction; per-request correlation ids; every authorisation denial logged with its reason; CSP violation sink; audit-completeness signal; health endpoint. **Prometheus metrics** behind a bearer token that is unregistered without one; **OTLP/HTTP tracing** joining an inbound W3C traceparent, deterministically sampled, dropping rather than queueing without bound; **the three ZT-008 alerts as loadable rules** in Prometheus and KQL form, deployed by the Bicep. Route labels use the pattern and spans carry role not identity — asserted by a test that drives a real id through and checks it does not appear | No SIEM is actually receiving any of it: the rules exist and nothing is subscribed. That is a deployment step, not a code one |
-| 14 | **Testing** | ★★★★★ | 444 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **five real defects found by the suite during build** and each now has a regression test **Runtime self-test**: 14 read-only checks over live data, runnable from the Operations view, PowerShell, `npm run selftest` or any scheduler, with tests that break the system on purpose to prove each check can fail. **Load test at monthly × three-version scale** (`npm run loadtest`) | **The load test found a real NFR-001 breach and it is not fixed**: at 30k period rows, four of six report routes exceed the 300 ms p95 budget, trend worst at 557 ms. The cause is measured, not guessed — the SQL is sub-millisecond; the cost is folding every line for five years in JavaScript. The fix is pushing the fold into SQL, which is a real refactor of the reporting layer and was deliberately not half-done. No mutation testing |
+| 14 | **Testing** | ★★★★★ | 532 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **five real defects found by the suite during build** and each now has a regression test **Runtime self-test**: 14 read-only checks over live data, runnable from the Operations view, PowerShell, `npm run selftest` or any scheduler, with tests that break the system on purpose to prove each check can fail. **Load test at monthly × three-version scale** (`npm run loadtest`) | **The load test found a real NFR-001 breach, and the breach is now fixed**: at 30k period rows four of six report routes exceeded the 300 ms p95 budget, trend worst at 557 ms; the fold moved into SQL and the worst p95 is 195 ms with throughput up from 88 to 171 requests a second. The equivalence of the two implementations is asserted over the whole seeded dataset rather than assumed, and doing it turned up two more defects (a drifted EUR rate in the fixture, and a load-test tool that measured with the rate limiter on). No mutation testing |
 | 15 | **CI/CD** | ★★★★★ | 8 gates plus a release pipeline that builds, SBOMs *from the image*, signs with Sigstore keyless, attests provenance and the SBOM, scans, and only then runs DAST against it running — in that order, because a signature on an unscanned image is not the claim anyone needs | Base images are pinned by version tag, not digest, with CI recording the resolved digests in the attestation. A deliberate half-measure with its reasoning stated in the Dockerfile |
 | 16 | **Delivery & runtime** | ★★★★☆ | Distroless non-root image with no shell; Bicep for the whole environment — passwordless PostgreSQL over a private endpoint, Key Vault with purge protection, alerts as resources — one deployment per residency region | **Nothing has been deployed.** The template has never been applied to a subscription, so it is unproven in exactly the way the Entra client is |
 | 17 | **Backup & recovery** | ★★★★☆ | Encrypted, integrity double-checked, chain-attesting, audited with counts. **Restore implemented and round-trip tested** against two real databases: every table's row count, the audit chain still verifying, the anchor re-pointed, and the sum of amounts identical rather than approximately equal. Restore is a CLI, not an endpoint, because it truncates the audit trail. A read-only verify endpoint is safe to run against production on a schedule | **No published RTO/RPO.** The mechanism works; the commitment is still a `CMP-107` open item, and only the organisation can make it |
@@ -90,13 +90,29 @@ instrumentation exists and the alert rules are loadable files rather than a
 table in a document — but nothing is subscribed to them. "The rule is written"
 and "someone gets paged" are different claims, and only the first is true.
 
-**Testing (14) found a performance breach it did not fix.** That is the
-intended outcome of adding a load test: at monthly × three-version scale the
-reporting routes miss NFR-001's 300 ms p95, worst at 557 ms. The measurement
-also says where the time is not — the database scan is sub-millisecond with the
-007 indexes — so the answer is to fold in SQL rather than in JavaScript. That
-is a reporting-layer refactor with real risk to INV-4, and doing it badly would
-be worse than naming it.
+**Testing (14) found a performance breach, and the breach is fixed.** That is
+the intended outcome of adding a load test. At monthly × three-version scale the
+reporting routes missed NFR-001's 300 ms p95, worst at 557 ms; the fold now runs
+in the database and the worst p95 is 195 ms.
+
+Getting there took three measurements, not one, and each pointed somewhere
+different from the last. Moving the fold into SQL roughly halved the cost of a
+report and was not enough. Batching five years into one statement helped the
+trend and not the rest. What actually closed the gap was watching the process
+under load: Node sat at one saturated core while the ten PostgreSQL backends
+between them used 1.4 — the bottleneck was 2,940 rows a request crossing into
+JavaScript to be turned into `Money` objects and immediately summed away. FR-060
+renders 29 numbers and was parsing 588 rows to get them. Grouping in the
+database took the whole suite from 88 to 171 requests a second.
+
+The risk in this was always INV-4, so the guard is equivalence rather than
+inspection: `computeLineTotals` is kept as the readable definition and the tests
+assert, over the whole seeded dataset and in five years, that the SQL fold
+matches it row for row, that the grouped query matches folding those rows in
+JavaScript, and that the variance ranking matches the sort it replaced. Two of
+those tests failed the first time they ran, which is the argument for writing
+them: the fixture had been drifting the EUR rate away from 1 for historical
+years, and `loadFxTable` was quietly masking it.
 
 **Modelling depth (20) is thin on purpose for v1**, and is the honest answer to
 "is this best of breed". Spendifre is a governed system of record; best-of-breed
@@ -126,7 +142,6 @@ total served from the EU deployment; and framework-level 4xx errors reported as
 | 3 | **Real workbook in the repository** | Vendor map, contract values and named employees exposed if the repo is or was public | Confirm visibility; remove; treat prior exposure as disclosure |
 | 4 | **No penetration test, no DAST** | Unknown unknowns in exactly the business-logic paths automation cannot reason about | Engage against staging using `pentest-scope.md` |
 | 5 | **Alert rules exist; nothing is subscribed** | The metrics, traces and rules are all in place. Until a SIEM ingests them, a broken audit chain is still discovered by someone looking | Point a collector at the OTLP endpoint and load `ops/alerts/` |
-| 5b | **Reporting misses NFR-001 at scale** | At monthly × three versions, p95 is 557 ms against a 300 ms budget | Push the report fold from JavaScript into SQL. Measured, not guessed — see row 14 |
 | 6 | **Entra never tested live** | Sign-in may fail on first contact with the tenant | Stand up the app registration and run the flow end to end |
 | 7 | **No ledger feed connected** | The ingest endpoint is built and tested; nothing sends to it, so actuals are still hand-typed | Choose the source system and stand up the job. A service principal holding `ledger.ingest` alone is the missing identity |
 | 8 | **The IaC has never been applied** | Bicep exists for the whole environment; no subscription has run it, so it is unproven in the same way the Entra client is | Apply it to a non-production subscription and find out what is wrong with it |
@@ -172,6 +187,6 @@ findings, and the volume of code here does not reduce that.
 first contact with reality, in this order — apply the Bicep to a non-production
 subscription, point it at a real Entra tenant, subscribe a SIEM, run the
 penetration test against it, commission a screen-reader audit and a translation
-review, and publish an RTO/RPO backed by an actual timed restore. Then fix the
-NFR-001 reporting breach the load test found, which is the one item on this
-list that *is* more application code.
+review, and publish an RTO/RPO backed by an actual timed restore. Every item on
+that list is first contact with something outside this repository, which is
+exactly why none of it can be finished from here.

@@ -18,7 +18,7 @@ docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              524 tests: authorisation matrix, security, invariants, a11y,
+test/              532 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -163,6 +163,27 @@ proves the code is right against a throwaway database, and this proves the data
 is sound in the one someone is using. A system can pass either and fail the
 other.
 
+## Reporting performance (NFR-001)
+
+```bash
+npm run loadtest      # amplifies to monthly × 3 versions, then measures
+```
+
+Worst p95 **195 ms** against a 300 ms budget, 171 requests a second across six
+report routes at twenty concurrent readers. It was 557 ms and 88 a second.
+
+The fold from period rows to line totals runs in the database, and the reports
+that show aggregates group there too. What made the difference was not the query
+plan — `explain analyze` was already sub-millisecond — but the row count
+crossing into JavaScript: the consolidation was parsing 588 line rows into
+`Money` objects to render 29 numbers.
+
+`computeLineTotals` is still there as the readable definition of what a line's
+total is, and `test/invariants.test.ts` asserts the SQL agrees with it over the
+whole seeded dataset, in five years, with headcount planning on and off, and on
+driver-linked lines specifically. That test is the reason the refactor was safe
+to do; it failed the first time it ran and was right to.
+
 ## Three things worth knowing
 
 **The application never reads the real workbook.** `design/budget-data.js` is
@@ -185,8 +206,17 @@ places against a `numeric(18,8)` column, which made VND, LAK and KRW
 unadministrable — and it did so by *throwing inside a Zod refine*, turning a
 422 into a 500. The residency filter was initially applied only to the entity
 list, so the consolidation report summed Swiss and Chinese entities into a EUR
-total. Framework-level 4xx errors were being reported as 500. All fixed, all
-now covered.
+total. Framework-level 4xx errors were being reported as 500.
+
+The most recent came from the NFR-001 work: **the seed was drifting the EUR
+rate**, writing 0.94 EUR per EUR for FY2022 so that FR-063's volatility chart
+would look interesting. Nothing caught it because `loadFxTable` overrides EUR to
+1 after reading the table — the read path was compensating for a fixture that
+was wrong. It surfaced the moment a second implementation of the same
+conversion read the row instead. Both are fixed: the seed no longer drifts EUR,
+and the SQL pins it the same way the loader does.
+
+All fixed, all now covered.
 
 ## Not done
 
@@ -224,11 +254,6 @@ Stated plainly rather than left to be discovered.
 - **A SIEM subscribed to the alerts.** The metrics, traces and the three ZT-008
   rules all exist (`ops/alerts/`). Nothing ingests them yet, so a broken audit
   chain is still found by someone looking rather than by a page.
-- **NFR-001 at monthly × version scale.** `npm run loadtest` measures p95 at
-  557 ms against a 300 ms budget on the reporting routes. The cause is measured:
-  the SQL is sub-millisecond, and the cost is folding every line for five years
-  in JavaScript. The fix is to fold in SQL, which is a reporting-layer refactor
-  and is named rather than half-done.
 - **A penetration test** (`SEC-041`). The DAST stage is not a substitute: it
   runs with DEV_AUTH on so the scanner can get past the front door.
 - **A second locale.** `NFR-010` is met structurally — every client string goes

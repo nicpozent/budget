@@ -118,8 +118,13 @@ export async function seedFrom(
     // -- FX, current year and four prior ------------------------------------
     for (const [currency, rate] of Object.entries(dataset.fx)) {
       for (let y = fiscalYear - 4; y <= fiscalYear; y += 1) {
-        // Drift historical rates slightly so FR-063 volatility is non-trivial.
-        const drift = 1 + (y - fiscalYear) * 0.015;
+        // Drift historical rates slightly so FR-063 volatility is non-trivial —
+        // but never EUR. EUR per EUR is one in every year by definition, and a
+        // drifted row made the fixture claim the reporting currency had moved
+        // against itself. FR-063 rendered that as 6% of volatility, and the
+        // read path only hid it because loadFxTable overrides EUR after
+        // reading. A fixture should not need a guard downstream to be right.
+        const drift = currency === 'EUR' ? 1 : 1 + (y - fiscalYear) * 0.015;
         const adjusted = (Number(rate) * drift).toFixed(8);
         await tx.query(sql`
           insert into fx_rates (currency, fiscal_year, rate, updated_by)
