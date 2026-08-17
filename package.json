@@ -24,7 +24,10 @@
     "audit:ci": "npm audit --audit-level=high --omit=dev",
     "flows": "node tools/render-flows.mjs",
     "screenshots": "node tools/capture-screens.mjs",
-    "docs:html": "node tools/render-docs.mjs"
+    "docs:html": "node tools/render-docs.mjs",
+    "loadtest": "node --experimental-strip-types tools/loadtest.ts",
+    "restore": "node --experimental-strip-types tools/restore.ts",
+    "selftest": "node --experimental-strip-types tools/selftest-cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

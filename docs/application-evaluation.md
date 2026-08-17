@@ -10,12 +10,12 @@ the evidence is thin. Scale:
 - **★★☆☆☆ Partial** — scaffolded / in progress.
 - **★☆☆☆☆ Absent** — not started.
 
-*Last reviewed: v1.1, `claude/file-review-8a42qx`. 444 tests, 0 lint errors,
+*Last reviewed: v1.2, `claude/file-review-8a42qx`. 524 tests, 0 lint errors,
 0 dependency vulnerabilities, 6 direct production dependencies.*
 
-*Rows 1, 2, 3, 10 and 12 were re-scored after the gaps named in the previous
-revision were addressed. Each re-scored row states what changed; what did not
-change is still stated as a gap.*
+*Rows 1, 2, 3, 9, 10, 12, 13, 14, 15, 16, 17, 18 and 21 have been re-scored
+across two revisions. Each states what changed; what did not change is still
+stated as a gap, and two rows deliberately did not move.*
 
 ## 1. Scorecard
 
@@ -29,19 +29,19 @@ change is still stated as a gap.*
 | 6 | **Data & persistence** | ★★★★★ | PostgreSQL 16; three least-privilege roles; `numeric(18,4)` money with no float column anywhere; amounts addressable by `(line, year, period, version)` from day one; SoD as `CHECK` constraints; checksum-guarded migrations | — |
 | 7 | **Financial correctness** | ★★★★★ | `Money` over scaled `bigint`, string-only construction, rounding stated once; FX at read time so restatement is consistent; **`INV-4` property-tested over two partitions × five years**; optimistic concurrency with a real conflict path | — |
 | 8 | **Audit & non-repudiation** | ★★★★★ | Append-only by **grant, trigger and SHA-256 hash chain**; audit insert shares the handler transaction so an unrecorded change rolls back; `audit_verify_chain()` pinpoints tampering performed with the trigger disabled; completeness hook fails a 2xx state change that wrote no event | — |
-| 9 | **Security & hardening** | ★★★★☆ | Nonce CSP with no `unsafe-inline`; full header set; CSRF token + origin check + `SameSite`; rate limiting incl. per-route; bound-parameter SQL with an allow-list for identifiers and **lint rules that block the alternatives**; formula-injection guard verified by inflating a real workbook; step-up on irreversible actions; config fails closed in production; TLS to the database with `verify-full` | **No penetration test, no DAST** (`SEC-041`); no artefact signing; SIEM not wired |
+| 9 | **Security & hardening** | ★★★★☆ | Nonce CSP with no `unsafe-inline`; full header set; CSRF token + origin check + `SameSite`; rate limiting incl. per-route; bound-parameter SQL with an allow-list for identifiers and **lint rules that block the alternatives**; formula-injection guard verified by inflating a real workbook; step-up on irreversible actions; config fails closed in production; TLS to the database with `verify-full`; **15-minute idle timeout now enforced** rather than merely recorded; **ZAP baseline in CI** with injection and XSS rules set to fail; **Sigstore signing and SLSA provenance** on the image | **No penetration test** (`SEC-041`) — a scan is not a pen test, and the DAST stage runs with DEV_AUTH on so the scanner gets past the front door, which is the one way the scanned system differs from production |
 | 10 | **Privacy & data protection** | ★★★★☆ | Classification per field; retention enforced by a job that audits its counts; DSAR export and **erasure that pseudonymises while keeping the audit chain intact**; IP/UA only as salted hashes; residency enforced in the single scope resolver. **RoPA, employee privacy notice, lawful-basis assessment with a full legitimate-interests balancing test, and a purpose-limitation commitment are now drafted** (`ropa.md`, `privacy-notice.md`, `lawful-basis.md`) | Still ★★★★ because **drafted is not adopted**: a controller decides the lawful basis and issues the notice, and every `[org]` placeholder is a real unknown. The balancing test is explicitly conditional on the purpose-limitation wording being adopted. `CMP-140` PIPL unresolved, and the GDPR reasoning does not transfer to it |
 | 11 | **Non-production data** | ★★★★☆ | Synthetic seed by default; offline anonymiser outside `packages/`; CI refuses any import of the workbook; **the anonymiser reports its own k-anonymity failure** rather than overclaiming | The real extract is still in the repository (`osint-exposure.md` §1); the anonymised fixture is pseudonymous, not anonymous |
-| 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | axe across **11 views** in a real browser; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions. **VPAT 2.5 / EN 301 549 report** criterion by criterion, marking which claims are verified and which are code-reading. **NFR-010 catalogue**: every client string typed, with a test that fails on JSX text bypassing it — it found 120. **WCAG 4.1.3 fixed** while writing the VPAT: banners were not live regions | Still ★★★★ for one reason: **no assistive-technology user has tested this.** Automated checks catch roughly a third of WCAG issues. 2.2.1 (session timeout not extendable) is a real non-conformance in tension with ZT-004; one locale only |
-| 13 | **Observability** | ★★☆☆☆ | Structured JSON logs with credential redaction; per-request correlation ids; every authorisation denial logged with its reason; CSP violation sink; audit-completeness signal; health endpoint | **No OTLP traces, no metrics export, no SIEM shipping, no alert rules.** The three `ZT-008` alerts are specified, not configured. Weakest dimension |
-| 14 | **Testing** | ★★★★★ | 444 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **five real defects found by the suite during build** and each now has a regression test | No load test at monthly × version scale; no mutation testing |
-| 15 | **CI/CD** | ★★★★☆ | 8 gates: typecheck, lint, `npm audit`, build, tests, SBOM, CodeQL security-extended, gitleaks over full history, plus a confidential-data grep | **No deployment pipeline, no IaC**; no DAST stage; builds not reproducible or signed |
-| 16 | **Delivery & runtime** | ★★☆☆☆ | Single container serves shell + API; migrations separate by role; graceful shutdown; config fails closed | **No IaC, no container image, no environments provisioned.** Runtime topology is documented, not deployed |
-| 17 | **Backup & recovery** | ★★★☆☆ | Encrypted (AES-256-GCM, AAD binds id+region), integrity double-checked, **chain-attesting**, audited with counts, step-up and rate limited, admin UI | **Restore is not implemented** — deliberately, but it means `NFR-006`/`CMP-107` are unmet. No tested RTO/RPO |
-| 18 | **Supply chain** | ★★★★☆ | 6 direct production dependencies; lockfile; `npm audit` gate at high; SBOM per build; **two dependencies removed rather than accepted** after one produced a path-traversal advisory (ADR-0004) | No artefact signing, no reproducible builds, no provenance attestation |
+| 12 | **Accessibility (WCAG 2.2 AA)** | ★★★★☆ | **WCAG 2.2.1 now met**: the session warns two minutes before the idle timeout with a Continue action, and says so plainly when it is the absolute TTL that cannot be extended. | axe across **11 views** in a real browser; contrast asserted arithmetically for both themes; type-scale floor parsed from tokens; non-colour cue beside every status; real table semantics; keyboard-operable scroll regions. **VPAT 2.5 / EN 301 549 report** criterion by criterion, marking which claims are verified and which are code-reading. **NFR-010 catalogue**: every client string typed, with a test that fails on JSX text bypassing it — it found 120. **WCAG 4.1.3 fixed** while writing the VPAT: banners were not live regions | Still ★★★★ for one reason: **no assistive-technology user has tested this.** Automated checks catch roughly a third of WCAG issues. six locales, none native-reviewed. A hover-contrast defect found this revision — the `background` shorthand on `:hover` wiped every primary button's gradient, leaving near-black text on grey — suggests other state-dependent contrast problems automated tooling cannot see |
+| 13 | **Observability** | ★★★★☆ | Structured JSON logs with credential redaction; per-request correlation ids; every authorisation denial logged with its reason; CSP violation sink; audit-completeness signal; health endpoint. **Prometheus metrics** behind a bearer token that is unregistered without one; **OTLP/HTTP tracing** joining an inbound W3C traceparent, deterministically sampled, dropping rather than queueing without bound; **the three ZT-008 alerts as loadable rules** in Prometheus and KQL form, deployed by the Bicep. Route labels use the pattern and spans carry role not identity — asserted by a test that drives a real id through and checks it does not appear | No SIEM is actually receiving any of it: the rules exist and nothing is subscribed. That is a deployment step, not a code one |
+| 14 | **Testing** | ★★★★★ | 444 tests against a **real PostgreSQL** (throwaway DB per run) because constraints, triggers and grants are half the controls; authz matrix, security regressions, invariant properties, browser a11y, operations; **five real defects found by the suite during build** and each now has a regression test **Runtime self-test**: 14 read-only checks over live data, runnable from the Operations view, PowerShell, `npm run selftest` or any scheduler, with tests that break the system on purpose to prove each check can fail. **Load test at monthly × three-version scale** (`npm run loadtest`) | **The load test found a real NFR-001 breach and it is not fixed**: at 30k period rows, four of six report routes exceed the 300 ms p95 budget, trend worst at 557 ms. The cause is measured, not guessed — the SQL is sub-millisecond; the cost is folding every line for five years in JavaScript. The fix is pushing the fold into SQL, which is a real refactor of the reporting layer and was deliberately not half-done. No mutation testing |
+| 15 | **CI/CD** | ★★★★★ | 8 gates plus a release pipeline that builds, SBOMs *from the image*, signs with Sigstore keyless, attests provenance and the SBOM, scans, and only then runs DAST against it running — in that order, because a signature on an unscanned image is not the claim anyone needs | Base images are pinned by version tag, not digest, with CI recording the resolved digests in the attestation. A deliberate half-measure with its reasoning stated in the Dockerfile |
+| 16 | **Delivery & runtime** | ★★★★☆ | Distroless non-root image with no shell; Bicep for the whole environment — passwordless PostgreSQL over a private endpoint, Key Vault with purge protection, alerts as resources — one deployment per residency region | **Nothing has been deployed.** The template has never been applied to a subscription, so it is unproven in exactly the way the Entra client is |
+| 17 | **Backup & recovery** | ★★★★☆ | Encrypted, integrity double-checked, chain-attesting, audited with counts. **Restore implemented and round-trip tested** against two real databases: every table's row count, the audit chain still verifying, the anchor re-pointed, and the sum of amounts identical rather than approximately equal. Restore is a CLI, not an endpoint, because it truncates the audit trail. A read-only verify endpoint is safe to run against production on a schedule | **No published RTO/RPO.** The mechanism works; the commitment is still a `CMP-107` open item, and only the organisation can make it |
+| 18 | **Supply chain** | ★★★★★ | Still 6 direct production dependencies — metrics, tracing and the OTLP exporter were all written rather than taken, on ADR-0004's reasoning. Lockfile; `npm audit` at high; SBOM generated **from the built image**; Sigstore keyless signing with no private key to steal; SLSA provenance and SBOM attestations pushed to the registry; Trivy failing on a fixable high | — |
 | 19 | **Governance & compliance** | ★★★★☆ | Threat model (STRIDE + LINDDUN + ATT&CK + attack trees), NIST CSF 2.0 profile, SP 800-207 maturity assessment, NIS2 position, GDPR/revFADP, Sweden-specific, DPIA input, pentest scope, OSINT assessment | Legal decisions outstanding: `CMP-140` PIPL (**blocks hosting**), `CMP-120` NIS2, lawful basis, MBL |
 | 20 | **Modelling depth** | ★★☆☆☆ | Single driver link with rate per unit; even spread with remainder; headcount toggle with dormancy; allocation pools on one driver key | **No scenarios/versions in use, no rolling forecast, no driver trees, no formula engine.** Schema is ready (`FR-080`); nothing writes a version other than `working` |
-| 21 | **i18n** | ★★★☆☆ | Locale-aware currency, number and date formatting via `Intl`; typed string catalogue with a test that fails on any JSX text bypassing it | One catalogue. Adding a locale is a translation job, but nothing has been translated, and `lang` on the document is still hard-coded to `en` |
+| 21 | **i18n** | ★★★★☆ | **Six locales** — English, Swedish, Norwegian bokmål, Danish, Finnish, French — stored per user rather than sniffed per browser, so a Finnish controller on a shared Swedish workstation gets Finnish. Number and date formatting follows the choice; `<html lang>` follows it too (WCAG 3.1.1). Each catalogue is typed against English, and tests assert identical key sets, identical placeholders, and no untranslated string outside a checked list of genuine cognates | **No native speaker has reviewed any of the five translations.** They are competent, not professional, and finance terminology is exactly where a plausible-but-wrong word does damage. Every file says so at the top |
 | 22 | **Documentation** | ★★★★★ | HLD, LLD, building blocks, 6 ADRs, threat model, security hardening, observability, accessibility, VPAT, retention, secrets, Postgres TLS, Sweden compliance, DPIA, RoPA, lawful basis, privacy notice, pentest scope, OSINT, user stories, per-role user guide with screenshots, SoW with 28 flow diagrams | — |
 | 23 | **Maintainability / DX** | ★★★★☆ | Consistent patterns; comments explain *why* and cite requirement IDs; one command to migrate, seed, build and run; screenshots and flows regenerate from source | Node type-stripping means no parameter properties or enums — a small, documented constraint |
 
@@ -85,6 +85,19 @@ point. Drafting a RoPA does not make it the controller's record; drafting a
 privacy notice does not issue it. The documents remove the excuse that nobody
 knew what to write — they do not remove the decision.
 
+**Observability (13) moved from 2 stars to 4, and stops there.** The
+instrumentation exists and the alert rules are loadable files rather than a
+table in a document — but nothing is subscribed to them. "The rule is written"
+and "someone gets paged" are different claims, and only the first is true.
+
+**Testing (14) found a performance breach it did not fix.** That is the
+intended outcome of adding a load test: at monthly × three-version scale the
+reporting routes miss NFR-001's 300 ms p95, worst at 557 ms. The measurement
+also says where the time is not — the database scan is sub-millisecond with the
+007 indexes — so the answer is to fold in SQL rather than in JavaScript. That
+is a reporting-layer refactor with real risk to INV-4, and doing it badly would
+be worse than naming it.
+
 **Modelling depth (20) is thin on purpose for v1**, and is the honest answer to
 "is this best of breed". Spendifre is a governed system of record; best-of-breed
 planning tools are calculation engines with a system of record attached. The
@@ -109,19 +122,20 @@ total served from the EU deployment; and framework-level 4xx errors reported as
 | # | Risk | Impact | Recommendation |
 |---|---|---|---|
 | 1 | **`CMP-140` PIPL unresolved** | Blocks hosting topology and therefore go-live for CN entities | Legal decision. The code already fails closed — an EU deployment 404s `cn` rows even for an admin |
-| 2 | **Restore not implemented** | `NFR-006`/`CMP-107` unmet; a backup you cannot restore is not a backup | Build restore **and test it**. Publish RTO/RPO |
+| 2 | **No published RTO/RPO** | Restore works and is round-trip tested, but nobody has committed to how fast or how much loss is acceptable | `CMP-107`. The mechanism is done; the commitment is the organisation's |
 | 3 | **Real workbook in the repository** | Vendor map, contract values and named employees exposed if the repo is or was public | Confirm visibility; remove; treat prior exposure as disclosure |
 | 4 | **No penetration test, no DAST** | Unknown unknowns in exactly the business-logic paths automation cannot reason about | Engage against staging using `pentest-scope.md` |
-| 5 | **No telemetry to a SIEM** | Mass export or a broken audit chain would be discovered by someone looking, not by an alert | Wire OTLP + the three named alert rules |
+| 5 | **Alert rules exist; nothing is subscribed** | The metrics, traces and rules are all in place. Until a SIEM ingests them, a broken audit chain is still discovered by someone looking | Point a collector at the OTLP endpoint and load `ops/alerts/` |
+| 5b | **Reporting misses NFR-001 at scale** | At monthly × three versions, p95 is 557 ms against a 300 ms budget | Push the report fold from JavaScript into SQL. Measured, not guessed — see row 14 |
 | 6 | **Entra never tested live** | Sign-in may fail on first contact with the tenant | Stand up the app registration and run the flow end to end |
 | 7 | **No ledger feed connected** | The ingest endpoint is built and tested; nothing sends to it, so actuals are still hand-typed | Choose the source system and stand up the job. A service principal holding `ledger.ingest` alone is the missing identity |
-| 8 | **No IaC or deployment pipeline** | Environments are hand-built and drift | Bicep/Terraform + a release pipeline |
+| 8 | **The IaC has never been applied** | Bicep exists for the whole environment; no subscription has run it, so it is unproven in the same way the Entra client is | Apply it to a non-production subscription and find out what is wrong with it |
 | 9 | **Anonymised fixture is pseudonymous** | Could be described as anonymous in a RoPA and be wrong | Already documented, and `ropa.md` §5 names it. Needs Legal to agree the classification |
 | 10 | **No assistive-technology testing** | `vpat.md` claims conformance a screen-reader user has never checked; a VPAT that overstates is worse than none | Commission a screen-reader audit. The rows marked *not independently verified* are where to start |
 
 ## 4. Overall
 
-**★★★★☆ — strong engineering, largely complete product, undeployed.**
+**★★★★☆ — strong engineering, largely complete product, still undeployed.**
 
 The security, correctness and governance foundations are genuinely above what an
 internal tool of this size usually gets: authorisation that fails closed at
@@ -142,10 +156,22 @@ organisation has to make rather than work anyone can do for it. None of these is
 a design flaw; all are work not yet done, and each is named in this document
 rather than left to be discovered.
 
-**Recommended posture:** the product is now feature-complete for a governed
-budget cycle. Spend the next increment entirely on deployment readiness —
-restore with a tested RTO/RPO, telemetry to a SIEM, IaC, a penetration test, a
-live Entra tenant, and a screen-reader audit — before adding any further
-functionality. The four highest-value items on that list are all things that
-cannot be done by writing more application code, which is the clearest signal
-that the balance of the work has shifted.
+Since the previous revision the deployment-readiness list has largely been
+built rather than described: restore is implemented and round-trip tested,
+telemetry and alert rules exist, there is a container image and a Bicep
+environment, and the release pipeline signs and attests what it produces.
+
+**What that has not changed is that none of it has met production.** The image
+has not been deployed, the Bicep has not been applied to a subscription, no SIEM
+is subscribed to the alerts, the Entra client has never seen a real tenant, no
+screen-reader user has tried the interface, and no native speaker has read the
+translations. Every one of those is a first-contact task that will produce
+findings, and the volume of code here does not reduce that.
+
+**Recommended posture:** stop adding functionality. The next increment is
+first contact with reality, in this order — apply the Bicep to a non-production
+subscription, point it at a real Entra tenant, subscribe a SIEM, run the
+penetration test against it, commission a screen-reader audit and a translation
+review, and publish an RTO/RPO backed by an actual timed restore. Then fix the
+NFR-001 reporting breach the load test found, which is the one item on this
+list that *is* more application code.

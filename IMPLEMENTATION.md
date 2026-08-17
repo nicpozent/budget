@@ -16,7 +16,9 @@ docs/              architecture, security, privacy, operations — see docs/READ
 docs/adr           six decisions with their reasoning
 docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
-test/              444 tests: authorisation matrix, security, invariants, a11y,
+ops/               alert rules, Bicep for the Azure environment, the PowerShell
+                   self-test runner
+test/              524 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -130,8 +132,36 @@ Both require `backup.run` / `backup.download`, both are step-up capabilities
 (ZT-007) so a stale session is asked to re-authenticate, both are rate limited,
 and both are audited with counts for the ZT-008 mass-export alert.
 
-Restore is deliberately **not** implemented — an untested restore path invites
-false confidence. `CMP-107` needs a tested RTO/RPO.
+**Restore** is implemented and round-trip tested (`npm run restore`), but it is
+a command-line tool rather than a button. It truncates `audit_events`, which the
+application role cannot do by grant and the append-only trigger would refuse
+anyway — an endpoint would mean granting the running service the right to erase
+its own audit trail, which is the capability the trail exists to deny.
+
+What the Operations view does offer is **verify**: decrypt the most recent
+archive, parse it and reconcile it against its manifest, writing nothing. Safe
+to run against production on a schedule, which is what makes "we have a restore
+path" checkable rather than asserted.
+
+`CMP-107` still needs a published RTO/RPO. The mechanism works; the commitment
+is the organisation's.
+
+## Self-test (row 14)
+
+Fourteen read-only checks against the live database — audit chain and anchor,
+the financial invariants over real rows, whether the latest backup can still be
+read, whether the retention job is running. Three ways in:
+
+```bash
+npm run selftest                       # in-process, no running service needed
+curl .../api/admin/self-test           # the endpoint, admin or CFO
+ops/selftest/Invoke-SpendifreSelfTest.ps1 -BaseUrl https://…
+```
+
+Distinct from `npm test`, and the distinction is the point: the test suite
+proves the code is right against a throwaway database, and this proves the data
+is sound in the one someone is using. A system can pass either and fail the
+other.
 
 ## Three things worth knowing
 
@@ -187,8 +217,20 @@ Stated plainly rather than left to be discovered.
   hand-rolled. It has never been pointed at a real tenant, so
   treat first connection as an integration task with real findings in it
   (group-to-role mapping and `amr` values in particular).
-- **Deployment:** no Bicep/Terraform, no SIEM wiring, no DAST run, no
-  penetration test (`SEC-041`). The CI workflow defines the gates.
+- **Deployment.** There is now a container image, Bicep for the whole
+  environment, and a release pipeline that signs and attests what it builds —
+  but none of it has been applied to a subscription. It is unproven in the same
+  way the Entra client is.
+- **A SIEM subscribed to the alerts.** The metrics, traces and the three ZT-008
+  rules all exist (`ops/alerts/`). Nothing ingests them yet, so a broken audit
+  chain is still found by someone looking rather than by a page.
+- **NFR-001 at monthly × version scale.** `npm run loadtest` measures p95 at
+  557 ms against a 300 ms budget on the reporting routes. The cause is measured:
+  the SQL is sub-millisecond, and the cost is folding every line for five years
+  in JavaScript. The fix is to fold in SQL, which is a reporting-layer refactor
+  and is named rather than half-done.
+- **A penetration test** (`SEC-041`). The DAST stage is not a substitute: it
+  runs with DEV_AUTH on so the scanner can get past the front door.
 - **A second locale.** `NFR-010` is met structurally — every client string goes
   through a typed catalogue and a test fails the build on JSX text that bypassed
   it — but English is the only catalogue. Adding one is a translation job, not an

@@ -109,9 +109,22 @@ export async function registerReportRoutes(
     const series = new Map<string, { label: string; values: Record<number, string> }>();
     const totalsByYear: Record<number, string> = {};
 
+    // Hoisted: the cycle is the *current* year's in every iteration, so this
+    // was five identical queries. Cheap, but it was also hiding the real cost —
+    // see the note below.
+    const cycle = await loadCycle(db, year);
+    const periods = periodsIn(cycle.granularity);
+
+    // NFR-001 note. At monthly × three-version scale (30k period rows) this
+    // loop is the slowest path in the application: `tools/loadtest.ts` measures
+    // p95 around 670 ms against a 300 ms budget. The cost is not the database —
+    // the underlying scan is sub-millisecond with the 007 indexes — it is that
+    // `loadLines` + `computeLineTotals` fold every line for every one of five
+    // years in JavaScript. The fix is to push the fold into SQL and return one
+    // row per (year, series); it is a real refactor of the reporting layer and
+    // is deliberately not attempted here rather than half-done. Recorded in
+    // docs/application-evaluation.md rather than left to be discovered.
     for (const y of years) {
-      const cycle = await loadCycle(db, year);
-      const periods = periodsIn(cycle.granularity);
       const fx = await loadFxTable(db, y).catch(() => loadFxTable(db, year));
       const lines = await loadLines(db, ids, y);
       const lineTotals = computeLineTotals(lines, fx, cycle.headcount_planning, periods);
