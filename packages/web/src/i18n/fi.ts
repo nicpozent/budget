@@ -250,6 +250,35 @@ export const FI = {
 
 
 
+
+  // Self-test and operations (row 14)
+  'selftest.title': 'Järjestelmän itsetesti',
+  'selftest.intro':
+    'Suorittaa vain luettavia tarkistuksia tähän asennukseen nyt: auditointiketju, taloudelliset invariantit oikeita rivejä vasten, onko viimeisin varmuuskopio yhä luettavissa ja onko säilytystyö käynnissä. Mitään ei muuteta. Suoritus itsessään kirjataan.',
+  'selftest.run': 'Suorita itsetesti',
+  'selftest.running': 'Suoritetaan…',
+  'selftest.healthy': 'Kaikki tarkistukset läpäisty.',
+  'selftest.unhealthy': '{count} tarkistusta epäonnistui.',
+  'selftest.summary':
+    '{pass} läpäisty, {fail} epäonnistui, {warn} varoitusta, {skipped} ohitettu ajassa {ms} ms',
+  'selftest.check': 'Tarkistus',
+  'selftest.status': 'Tila',
+  'selftest.requirement': 'Vaatimus',
+  'selftest.detail': 'Tiedot',
+  'selftest.pass': 'Läpäisty',
+  'selftest.fail': 'Epäonnistui',
+  'selftest.warn': 'Varoitus',
+  'selftest.skipped': 'Ohitettu',
+  'selftest.caption': 'Kukin rivi on yksi tarkistus, sen puolustama vaatimus ja havainto.',
+  'selftest.never': 'Ei vielä suoritettu.',
+  'ops.backupBlurb':
+    'Varmuuskopio kattaa kaikki taulut aktiivisia istuntoja lukuun ottamatta, salattuna AES-256-GCM:llä. Kukin kopio kirjaa, todennettiinko auditointiketju ottohetkellä, joten palautusta voi arvioida todisteiden eikä oletusten perusteella.',
+  'ops.runBackup': 'Ota varmuuskopio nyt',
+  'ops.backingUp': 'Varmuuskopioidaan…',
+  'ops.exportXlsx': 'Vie konsolidointi (XLSX)',
+  'ops.notConfigured':
+    'Varmuuskopiointia ei ole määritetty tähän asennukseen. Aseta BACKUP_ENCRYPTION_KEY — arkisto salataan levossa, joten asennus ilman avainta kieltäytyy luomasta kopiota sen sijaan että kirjoittaisi selkokielenä.',
+
   // Budget state chips
   'state.draft': 'Luonnos',
   'state.submitted': 'Lähetetty',

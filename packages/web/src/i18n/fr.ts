@@ -250,6 +250,35 @@ export const FR = {
 
 
 
+
+  // Self-test and operations (row 14)
+  'selftest.title': 'Autotest du système',
+  'selftest.intro':
+    'Exécute des contrôles en lecture seule sur ce déploiement : la chaîne d’audit, les invariants financiers sur les lignes réelles, la lisibilité de la sauvegarde la plus récente et l’exécution de la tâche de conservation. Rien n’est modifié. L’exécution elle-même est enregistrée.',
+  'selftest.run': 'Lancer l’autotest',
+  'selftest.running': 'Exécution…',
+  'selftest.healthy': 'Tous les contrôles réussis.',
+  'selftest.unhealthy': '{count} contrôles ont échoué.',
+  'selftest.summary':
+    '{pass} réussis, {fail} échoués, {warn} avertissements, {skipped} ignorés en {ms} ms',
+  'selftest.check': 'Contrôle',
+  'selftest.status': 'Statut',
+  'selftest.requirement': 'Exigence',
+  'selftest.detail': 'Détail',
+  'selftest.pass': 'Réussi',
+  'selftest.fail': 'Échoué',
+  'selftest.warn': 'Avertissement',
+  'selftest.skipped': 'Ignoré',
+  'selftest.caption': 'Chaque ligne est un contrôle, l’exigence qu’il défend et son résultat.',
+  'selftest.never': 'Pas encore exécuté.',
+  'ops.backupBlurb':
+    'Une sauvegarde couvre toutes les tables sauf les sessions actives, chiffrée en AES-256-GCM. Chacune enregistre si la chaîne d’audit était vérifiée au moment de la capture, de sorte qu’une restauration s’apprécie sur preuves plutôt que sur hypothèses.',
+  'ops.runBackup': 'Lancer une sauvegarde',
+  'ops.backingUp': 'Sauvegarde en cours…',
+  'ops.exportXlsx': 'Exporter la consolidation (XLSX)',
+  'ops.notConfigured':
+    'Les sauvegardes ne sont pas configurées sur ce déploiement. Définissez BACKUP_ENCRYPTION_KEY — l’archive est chiffrée au repos, donc un déploiement sans clé refuse d’en créer une plutôt que d’écrire en clair.',
+
   // Budget state chips
   'state.draft': 'Brouillon',
   'state.submitted': 'Soumis',

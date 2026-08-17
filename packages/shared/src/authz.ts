@@ -88,6 +88,10 @@ export const CAPABILITIES = [
   // every figure, every comment, and the whole audit trail.
   'backup.run',
   'backup.download',
+  // Runtime verification. Read-only, and granted to the CFO as well as the
+  // Administrator: "is the audit trail still sound" is a question the person
+  // who signs the budget has standing to ask without going through IT.
+  'selftest.run',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -151,6 +155,7 @@ export const PERMISSION_MATRIX: Readonly<Record<Capability, Row>> = Object.freez
   'governance.edit': row(['admin', 'cfo']),
   'backup.run': row(['admin']),
   'backup.download': row(['admin']),
+  'selftest.run': row(['admin', 'cfo']),
 });
 
 /**

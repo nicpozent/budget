@@ -108,6 +108,28 @@ describe('CMP-107 restore', () => {
   let sourceCounts: Record<string, number>;
 
   it('takes a backup that reconciles with its own manifest', async () => {
+    // Several audit events first, so the chain has a distinct head and tail.
+    // With a single event the first and last row are the same row, and a
+    // re-anchor to the wrong end of the chain verifies anyway — which is
+    // exactly how a real bug in `restoreInto` survived its first test.
+    const { writeAudit } = await import('../packages/api/src/services/audit.ts');
+    const actor = (await harness.db.one<{ id: string; role: 'admin' }>(sql`
+      select id, role from users where role = 'admin' limit 1
+    `))!;
+    for (let i = 0; i < 4; i += 1) {
+      await writeAudit(harness.db, {
+        actor: { userId: actor.id, role: 'admin' },
+        action: 'selftest.probe',
+        targetType: 'system',
+        detail: `chain depth probe ${i}`,
+        kind: 'governance',
+      });
+    }
+    const depth = await harness.db.one<{ count: string }>(sql`
+      select count(*)::text as count from audit_events
+    `);
+    expect(Number(depth!.count)).toBeGreaterThan(1);
+
     const principal = {
       userId: (await harness.db.one<{ id: string }>(sql`
         select id from users where role = 'admin' limit 1
@@ -163,14 +185,25 @@ describe('CMP-107 restore', () => {
     expect(chain!.bad).toBeNull();
   });
 
-  it('re-anchors the chain so the next event links to what was restored', async () => {
-    const anchor = await targetDb.one<{ head_seq: string | null }>(sql`
-      select head_seq::text from audit_chain_anchor
+  it('anchors verification at the earliest restored event, not the latest', async () => {
+    // `audit_verify_chain()` starts from the anchor and walks *forward* from
+    // the lowest sequence, so the anchor must be what the first surviving row
+    // claims as its predecessor. Anchoring to the head instead makes
+    // verification fail at row one — and it fails invisibly on a chain of
+    // length one, where first and last are the same row. That is exactly how
+    // this bug survived its first test, which is why the fixture above now
+    // builds a chain several events deep before backing up.
+    const row = await targetDb.one<{ anchor: string; first: string }>(sql`
+      select encode((select head_hash from audit_chain_anchor), 'hex') as anchor,
+             encode((select prev_hash from audit_events order by seq limit 1), 'hex') as first
     `);
-    const head = await targetDb.one<{ seq: string | null }>(sql`
-      select max(seq)::text as seq from audit_events
+    expect(row!.anchor).toBe(row!.first);
+
+    // And the whole point of getting that right:
+    const chain = await targetDb.one<{ bad: string | null }>(sql`
+      select audit_verify_chain()::text as bad
     `);
-    expect(anchor!.head_seq).toBe(head!.seq);
+    expect(chain!.bad).toBeNull();
   });
 
   it('preserves figures exactly, not approximately', async () => {

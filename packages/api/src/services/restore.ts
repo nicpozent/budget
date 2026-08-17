@@ -244,12 +244,22 @@ export async function restoreInto(
       tablesRestored += 1;
     }
 
-    // Re-anchor the chain to the restored head, so the next appended event
-    // links to what was restored rather than to a stale anchor.
+    // Re-anchor to the *earliest* restored row, not the latest.
+    //
+    // `audit_verify_chain()` starts from the anchor and walks forward from the
+    // lowest sequence, so the anchor has to be what the first surviving row
+    // claims as its predecessor. Anchoring to the head instead makes
+    // verification fail at row one — and it fails invisibly on a chain of
+    // length one, where the first and last row are the same row, which is
+    // exactly how this survived its first test.
     await tx.query(sql`
       update audit_chain_anchor
-      set head_hash = (select prev_hash from audit_events order by seq desc limit 1),
-          head_seq  = (select max(seq) from audit_events)
+      set head_hash = coalesce(
+            (select prev_hash from audit_events order by seq limit 1),
+            head_hash
+          ),
+          head_seq = coalesce((select min(seq) - 1 from audit_events), 0),
+          anchored_at = now()
     `);
 
     await tx.query(sql`set local session_replication_role = origin`);

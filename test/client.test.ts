@@ -39,8 +39,9 @@ const ALLOWED_IDENTICAL = new Set([
   'alloc.driver', 'alloc.pool', 'alloc.total', 'app.name', 'app.sections', 'budget.eur',
   'drawer.justification', 'drawer.period', 'drawer.plan', 'drawer.total', 'fx.drift',
   'grid.status', 'grid.total', 'nav.consolidation', 'nav.trend', 'ops.download',
-  'ops.region', 'ops.status', 'signIn.title', 'trend.total', 'views.action',
-  'views.code', 'views.description', 'views.plan', 'views.planEur', 'views.status',
+  'ops.region', 'ops.status', 'selftest.status', 'signIn.title', 'trend.total',
+  'views.action', 'views.code', 'views.description', 'views.plan', 'views.planEur',
+  'views.status',
 ]);
 
 describe('NFR-010 catalogues', () => {

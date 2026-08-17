@@ -249,6 +249,35 @@ export const SV = {
 
 
 
+
+  // Self-test and operations (row 14)
+  'selftest.title': 'Systemets självtest',
+  'selftest.intro':
+    'Kör skrivskyddade kontroller mot denna driftsättning nu: granskningskedjan, de finansiella invarianterna mot faktiska rader, om den senaste säkerhetskopian fortfarande går att läsa och om gallringsjobbet körs. Inget ändras. Själva körningen registreras.',
+  'selftest.run': 'Kör självtest',
+  'selftest.running': 'Kör…',
+  'selftest.healthy': 'Alla kontroller godkända.',
+  'selftest.unhealthy': '{count} kontroller misslyckades.',
+  'selftest.summary':
+    '{pass} godkända, {fail} misslyckade, {warn} varningar, {skipped} överhoppade på {ms} ms',
+  'selftest.check': 'Kontroll',
+  'selftest.status': 'Status',
+  'selftest.requirement': 'Krav',
+  'selftest.detail': 'Detalj',
+  'selftest.pass': 'Godkänd',
+  'selftest.fail': 'Misslyckad',
+  'selftest.warn': 'Varning',
+  'selftest.skipped': 'Överhoppad',
+  'selftest.caption': 'Varje rad är en kontroll, kravet den försvarar och vad den fann.',
+  'selftest.never': 'Inte körd än.',
+  'ops.backupBlurb':
+    'En säkerhetskopia omfattar alla tabeller utom aktiva sessioner, krypterad med AES-256-GCM. Varje kopia registrerar om granskningskedjan verifierades vid tillfället, så en återställning kan bedömas på bevis i stället för antaganden.',
+  'ops.runBackup': 'Kör säkerhetskopiering nu',
+  'ops.backingUp': 'Säkerhetskopierar…',
+  'ops.exportXlsx': 'Exportera konsolidering (XLSX)',
+  'ops.notConfigured':
+    'Säkerhetskopiering är inte konfigurerad för denna driftsättning. Ange BACKUP_ENCRYPTION_KEY — arkivet krypteras i vila, så en driftsättning utan nyckel vägrar skapa en kopia i stället för att skriva klartext.',
+
   // Budget state chips
   'state.draft': 'Utkast',
   'state.submitted': 'Inskickad',

@@ -200,3 +200,22 @@ export interface Allocations {
     chargedReadOnly: boolean;
   }[];
 }
+
+/** Runtime self-test (row 14). Mirrors services/selftest.ts. */
+export interface SelfTestReport {
+  startedAt: string;
+  durationMs: number;
+  region: string;
+  fiscalYear: number;
+  summary: { pass: number; fail: number; warn: number; skipped: number };
+  /** False if any check failed. Warnings do not make a system unhealthy. */
+  healthy: boolean;
+  checks: {
+    id: string;
+    title: string;
+    requirement: string;
+    status: 'pass' | 'fail' | 'warn' | 'skipped';
+    detail: string;
+    durationMs: number;
+  }[];
+}

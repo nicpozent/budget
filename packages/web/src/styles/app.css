@@ -483,8 +483,20 @@ button {
   cursor: pointer;
 }
 
+/* `background-color`, not the `background` shorthand.
+   The shorthand resets `background-image` to `none`, and this selector is more
+   specific than `.button-primary` — so hovering a primary button used to wipe
+   its gradient and leave `--on-accent` (near-black) text on a dark grey fill.
+   It showed up only after a click, because that is when the pointer is still
+   resting on the button; axe never caught it because contrast is evaluated in
+   the default state. */
 .button:hover:not(:disabled) {
-  background: var(--hover);
+  background-color: var(--hover);
+}
+
+/* Primary buttons keep their gradient on hover and lift slightly instead. */
+.button-primary:hover:not(:disabled) {
+  background-image: linear-gradient(135deg, var(--accent-deep), var(--accent));
 }
 
 .button:disabled {

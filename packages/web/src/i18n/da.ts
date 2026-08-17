@@ -246,6 +246,35 @@ export const DA = {
 
 
 
+
+  // Self-test and operations (row 14)
+  'selftest.title': 'Systemets selvtest',
+  'selftest.intro':
+    'Kører skrivebeskyttede kontroller mod denne installation nu: revisionskæden, de finansielle invarianter mod faktiske rækker, om den nyeste sikkerhedskopi stadig kan læses, og om opbevaringsjobbet kører. Intet ændres. Selve kørslen registreres.',
+  'selftest.run': 'Kør selvtest',
+  'selftest.running': 'Kører…',
+  'selftest.healthy': 'Alle kontroller bestået.',
+  'selftest.unhealthy': '{count} kontroller mislykkedes.',
+  'selftest.summary':
+    '{pass} bestået, {fail} mislykkedes, {warn} advarsler, {skipped} sprunget over på {ms} ms',
+  'selftest.check': 'Kontrol',
+  'selftest.status': 'Status',
+  'selftest.requirement': 'Krav',
+  'selftest.detail': 'Detalje',
+  'selftest.pass': 'Bestået',
+  'selftest.fail': 'Mislykkedes',
+  'selftest.warn': 'Advarsel',
+  'selftest.skipped': 'Sprunget over',
+  'selftest.caption': 'Hver række er én kontrol, kravet den forsvarer, og hvad den fandt.',
+  'selftest.never': 'Ikke kørt endnu.',
+  'ops.backupBlurb':
+    'En sikkerhedskopi omfatter alle tabeller undtagen aktive sessioner, krypteret med AES-256-GCM. Hver kopi registrerer, om revisionskæden blev verificeret på tidspunktet, så en gendannelse kan vurderes på beviser frem for antagelser.',
+  'ops.runBackup': 'Kør sikkerhedskopiering nu',
+  'ops.backingUp': 'Sikkerhedskopierer…',
+  'ops.exportXlsx': 'Eksportér konsolidering (XLSX)',
+  'ops.notConfigured':
+    'Sikkerhedskopiering er ikke konfigureret for denne installation. Angiv BACKUP_ENCRYPTION_KEY — arkivet krypteres i hvile, så en installation uden nøgle nægter at oprette en kopi frem for at skrive klartekst.',
+
   // Budget state chips
   'state.draft': 'Kladde',
   'state.submitted': 'Indsendt',

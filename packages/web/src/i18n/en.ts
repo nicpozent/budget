@@ -260,6 +260,35 @@ export const EN = {
 
 
 
+
+  // Self-test and operations (row 14)
+  'selftest.title': 'System self-test',
+  'selftest.intro':
+    'Runs read-only checks against this deployment right now: the audit chain, the financial invariants over live rows, whether the most recent backup can still be read, and whether the retention job is running. Nothing is modified. The run itself is recorded.',
+  'selftest.run': 'Run self-test',
+  'selftest.running': 'Running…',
+  'selftest.healthy': 'All checks passed.',
+  'selftest.unhealthy': '{count} checks failed.',
+  'selftest.summary':
+    '{pass} passed, {fail} failed, {warn} warnings, {skipped} skipped in {ms} ms',
+  'selftest.check': 'Check',
+  'selftest.status': 'Status',
+  'selftest.requirement': 'Requirement',
+  'selftest.detail': 'Detail',
+  'selftest.pass': 'Pass',
+  'selftest.fail': 'Fail',
+  'selftest.warn': 'Warning',
+  'selftest.skipped': 'Skipped',
+  'selftest.caption': 'Each row is one check, the requirement it defends, and what it found.',
+  'selftest.never': 'Not run yet.',
+  'ops.backupBlurb':
+    'A backup captures every table except live sessions, encrypted with AES-256-GCM. Each one records whether the audit hash chain verified at the moment it was taken, so a restore can be trusted or questioned on evidence rather than assumption.',
+  'ops.runBackup': 'Run backup now',
+  'ops.backingUp': 'Backing up…',
+  'ops.exportXlsx': 'Export consolidation (XLSX)',
+  'ops.notConfigured':
+    'Backups are not configured on this deployment. Set BACKUP_ENCRYPTION_KEY — the archive is encrypted at rest, so a deployment without a key refuses to create one rather than writing plaintext.',
+
   // Budget state chips
   'state.draft': 'Draft',
   'state.submitted': 'Submitted',

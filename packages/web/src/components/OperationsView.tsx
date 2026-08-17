@@ -12,8 +12,9 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.ts';
 import { formatDateTime } from '../format.ts';
-import { Status } from './Status.tsx';
-import { t } from '../i18n/index.ts';
+import { Status, type Tone } from './Status.tsx';
+import { t, type MessageKey } from '../i18n/index.ts';
+import type { SelfTestReport } from '../types.ts';
 
 interface BackupManifest {
   id: string;
@@ -103,26 +104,18 @@ export function OperationsView(): JSX.Element {
       {!configured ? (
         <div className="banner banner-warn" role="status">
           <span aria-hidden="true">!</span>
-          <span>
-            Backups are not configured on this deployment. Set{' '}
-            <code>BACKUP_ENCRYPTION_KEY</code> — the archive is encrypted at rest,
-            so a deployment without a key refuses to create one rather than writing
-            plaintext.
-          </span>
+          <span>{t('ops.notConfigured')}</span>
         </div>
       ) : null}
+
+      <SelfTestPanel />
 
       <section className="panel">
         <div className="panel-header">
           <h2>{t('ops.operations')}</h2>
         </div>
         <div className="panel-body">
-          <p>
-            A backup captures every table except live sessions, encrypted with
-            AES-256-GCM. Each one records whether the audit hash chain verified at
-            the moment it was taken, so a restore can be trusted or questioned on
-            evidence rather than assumption.
-          </p>
+          <p>{t('ops.backupBlurb')}</p>
           <div className="button-row">
             <button
               type="button"
@@ -130,14 +123,14 @@ export function OperationsView(): JSX.Element {
               onClick={runBackup}
               disabled={busy || !configured}
             >
-              {busy ? 'Backing up…' : 'Run backup now'}
+              {busy ? t('ops.backingUp') : t('ops.runBackup')}
             </button>
 
             {/* A plain link, not fetch(): the browser handles the download and
                 the Content-Disposition header, and the session cookie rides
                 along the same way it does for any navigation. */}
             <a className="button" href="/api/reports/export.xlsx">
-              Export consolidation (XLSX)
+              {t('ops.exportXlsx')}
             </a>
           </div>
           <p className="currency-code">
@@ -202,5 +195,109 @@ export function OperationsView(): JSX.Element {
         </div>
       </section>
     </>
+  );
+}
+
+/**
+ * Runtime self-test (row 14).
+ *
+ * The same checks the PowerShell script runs and the same ones a scheduled
+ * probe runs — one endpoint, three ways in. Putting it in the UI matters
+ * because the person who most often needs the answer ("is the audit trail
+ * still sound?") is a CFO, not someone with a shell.
+ */
+function SelfTestPanel(): JSX.Element {
+  const [report, setReport] = useState<SelfTestReport | null>(null);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      setReport(await api.get<SelfTestReport>('/api/admin/self-test'));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('common.error'));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const TONE: Record<string, Tone> = {
+    pass: 'ok', fail: 'bad', warn: 'pending', skipped: 'neutral',
+  };
+  const LABEL: Record<string, MessageKey> = {
+    pass: 'selftest.pass', fail: 'selftest.fail',
+    warn: 'selftest.warn', skipped: 'selftest.skipped',
+  };
+
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <h2>{t('selftest.title')}</h2>
+      </div>
+      <div className="panel-body">
+        <p>{t('selftest.intro')}</p>
+        <div className="button-row">
+          <button type="button" className="button button-primary" onClick={run} disabled={running}>
+            {running ? t('selftest.running') : t('selftest.run')}
+          </button>
+        </div>
+        {error ? <p className="banner banner-error" role="alert">{error}</p> : null}
+        {!report && !error ? <p className="currency-code">{t('selftest.never')}</p> : null}
+      </div>
+
+      {report ? (
+        <>
+          <div
+            className={`banner ${report.healthy ? 'banner-info' : 'banner-error'}`}
+            role={report.healthy ? 'status' : 'alert'}
+          >
+            <span aria-hidden="true">{report.healthy ? '✓' : '✕'}</span>
+            <span>
+              {report.healthy
+                ? t('selftest.healthy')
+                : t('selftest.unhealthy', { count: report.summary.fail })}
+              {' '}
+              {t('selftest.summary', {
+                pass: report.summary.pass,
+                fail: report.summary.fail,
+                warn: report.summary.warn,
+                skipped: report.summary.skipped,
+                ms: report.durationMs,
+              })}
+            </span>
+          </div>
+
+          <div className="table-scroll" tabIndex={0} role="group">
+            <table>
+              <caption>{t('selftest.caption')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('selftest.check')}</th>
+                  <th scope="col">{t('selftest.status')}</th>
+                  <th scope="col">{t('selftest.requirement')}</th>
+                  <th scope="col">{t('selftest.detail')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.checks.map((check) => (
+                  <tr key={check.id}>
+                    <th scope="row">{check.title}</th>
+                    <td>
+                      <Status tone={TONE[check.status] ?? 'neutral'}>
+                        {t(LABEL[check.status] ?? 'selftest.skipped')}
+                      </Status>
+                    </td>
+                    <td className="currency-code">{check.requirement}</td>
+                    <td>{check.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
+    </section>
   );
 }

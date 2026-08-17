@@ -155,6 +155,47 @@ describe('A11Y-002 axe', () => {
 });
 
 /**
+ * Hover states, asserted in a real browser.
+ *
+ * axe evaluates contrast in the default state, and the palette test computes it
+ * over token pairs — neither can see a `:hover` rule that changes what is
+ * actually painted. That gap hid a real defect: `.button:hover:not(:disabled)`
+ * used the `background` shorthand, which resets `background-image` to `none`,
+ * and it outranks `.button-primary`. Hovering any primary button therefore
+ * wiped its gradient and left near-black label text on dark grey. It surfaced
+ * only after a click, because that is when the pointer is still on the button.
+ */
+describe('hover contrast', () => {
+  it('keeps a primary button legible while hovered', async () => {
+    if (!browser) return;
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.addCookies([
+      { name: 'sid', value: sessionToken, url: origin, httpOnly: true, sameSite: 'Lax' },
+    ]);
+    const page = await context.newPage();
+    await page.goto(origin, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+
+    const button = page.locator('.button-primary').first();
+    if ((await button.count()) === 0) {
+      await context.close();
+      return;
+    }
+
+    const before = await button.evaluate((el) => getComputedStyle(el).backgroundImage);
+    await button.hover();
+    await page.waitForTimeout(150);
+    const after = await button.evaluate((el) => getComputedStyle(el).backgroundImage);
+
+    await context.close();
+
+    // The specific regression: a gradient must not become `none` on hover.
+    expect(before).not.toBe('none');
+    expect(after, 'hovering a primary button must not remove its background').not.toBe('none');
+  }, 120_000);
+});
+
+/**
  * Route splitting, asserted against a real browser under the real CSP.
  *
  * The absence of a console error is weak evidence — it also holds if nothing

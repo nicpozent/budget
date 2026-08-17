@@ -23,6 +23,7 @@ import { writeAudit } from '../services/audit.ts';
 import { createBackup, listBackups, readBackup } from '../services/backup.ts';
 import { privilegeChanges } from '../observability/metrics.ts';
 import { parseArchive, verifyArchive } from '../services/restore.ts';
+import { runSelfTest } from '../services/selftest.ts';
 
 export async function registerAdminRoutes(
   app: FastifyInstance,
@@ -537,6 +538,48 @@ export async function registerAdminRoutes(
       const principal = principalOf(request);
       const manifest = await createBackup(db, config, principal, request);
       return reply.status(201).send(manifest);
+    },
+  );
+
+  /**
+   * Runtime self-test (row 14). GET because it changes nothing — which is what
+   * makes it safe to run against production on a schedule, and a verification
+   * you dare not run is not a verification.
+   *
+   * Audited even though it is a read: "someone verified the system on this
+   * date, and this was the answer" is exactly the kind of fact an auditor asks
+   * for and nobody can reconstruct afterwards.
+   */
+  app.get(
+    '/api/admin/self-test',
+    {
+      config: {
+        ...requires('selftest.run'),
+        // Each run does real work across every table. Bounded so it cannot
+        // become a denial-of-service against the database.
+        rateLimit: { max: 6, timeWindow: '5 minutes' },
+      },
+    },
+    async (request) => {
+      const principal = principalOf(request);
+      const report = await runSelfTest(db, config);
+
+      await writeAudit(db, {
+        actor: principal,
+        action: report.healthy ? 'selftest.pass' : 'selftest.fail',
+        targetType: 'system',
+        targetId: null,
+        detail:
+          `Self-test: ${report.summary.pass} passed, ${report.summary.fail} failed, ` +
+          `${report.summary.warn} warnings, ${report.summary.skipped} skipped` +
+          (report.summary.fail > 0
+            ? ` — ${report.checks.filter((c) => c.status === 'fail').map((c) => c.id).join(', ')}`
+            : ''),
+        kind: 'governance',
+        request,
+      });
+
+      return report;
     },
   );
 
