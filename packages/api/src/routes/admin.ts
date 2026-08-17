@@ -21,6 +21,7 @@ import { badRequest, conflict, forbidden, notFound } from '../http/errors.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
 import { createBackup, listBackups, readBackup } from '../services/backup.ts';
+import { parseArchive, verifyArchive } from '../services/restore.ts';
 
 export async function registerAdminRoutes(
   app: FastifyInstance,
@@ -535,6 +536,52 @@ export async function registerAdminRoutes(
     // The client shows this rather than offering a button that cannot work.
     configured: Boolean(config.BACKUP_ENCRYPTION_KEY),
   }));
+
+  /**
+   * CMP-107: verify that an archive can actually be read back.
+   *
+   * Writes nothing — it decrypts, parses and reconciles against the manifest.
+   * Safe to run against production on a schedule, which is what turns "we have
+   * a restore path" into a claim with evidence behind it. The destructive half
+   * lives in `tools/restore.ts` and is not reachable from the API at all.
+   */
+  app.post(
+    '/api/admin/backups/:backupId/verify',
+    {
+      config: {
+        ...requires('backup.run'),
+        rateLimit: { max: 10, timeWindow: '10 minutes' },
+      },
+    },
+    async (request) => {
+      const { backupId } = parse(z.object({ backupId: schemas.uuid }), request.params);
+      const principal = principalOf(request);
+
+      const { manifest, contents } = await readBackup(db, config, backupId);
+      const report = verifyArchive(manifest, parseArchive(contents));
+
+      await writeAudit(db, {
+        actor: principal,
+        action: report.ok ? 'backup.verify.ok' : 'backup.verify.failed',
+        targetType: 'backup',
+        targetId: backupId,
+        detail: report.ok
+          ? `Verified backup ${backupId}: ${report.totalRows} rows readable, manifest reconciled`
+          : `Backup ${backupId} FAILED verification: ` +
+            [
+              ...report.mismatches.map(
+                (m) => `${m.table} manifest ${m.manifest} vs archive ${m.archive}`,
+              ),
+              ...report.missingTables.map((t) => `archive is missing ${t}`),
+              ...report.unknownTables.map((t) => `archive carries unknown ${t}`),
+            ].join('; '),
+        kind: 'governance',
+        request,
+      });
+
+      return report;
+    },
+  );
 
   /**
    * Download. Decrypted in-process for an authorised admin and streamed as an

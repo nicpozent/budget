@@ -52,12 +52,17 @@ import { writeAudit } from './audit.ts';
  * credentials, not records. Including them would put session material into an
  * archive that outlives the sessions themselves, for no restore value.
  */
-const BACKUP_TABLES = [
+export const BACKUP_TABLES = [
   'users',
+  // Before `entities` and `template_fields`, both of which reference it.
+  'template_versions',
   'entities',
   'entity_owners',
   'categories',
   'cost_centres',
+  // Before `actuals`, which references a batch when the row came from a feed.
+  'ledger_batches',
+  'ledger_batch_rejects',
   'line_items',
   'period_amounts',
   'actuals',
@@ -69,13 +74,32 @@ const BACKUP_TABLES = [
   'cycles',
   'cycle_exceptions',
   'validation_rules',
+  'approval_stages',
   'submissions',
   'submission_line_decisions',
+  'submission_stage_decisions',
   'reminders',
   'data_classifications',
   'retention_policies',
   'audit_events',
 ] as const;
+
+/**
+ * Tables deliberately excluded, with the reason. Every table in the schema must
+ * appear here or in `BACKUP_TABLES`; `test/operations.test.ts` asserts that
+ * against the live schema.
+ *
+ * The original comment here claimed a missing table would be "noticed". It was
+ * not: five tables added in one change went unbacked-up until the test below
+ * was written. An allow-list without a completeness check is a list that drifts.
+ */
+export const EXCLUDED_FROM_BACKUP: Readonly<Record<string, string>> = Object.freeze({
+  sessions: 'live credentials, not records — would outlive the sessions themselves',
+  auth_transactions: 'in-flight OIDC state, seconds-lived',
+  backups: 'the manifest of the archive being written; restoring it would be circular',
+  audit_chain_anchor: 'rebuilt by the restore, not carried by it',
+  schema_migrations: 'owned by the migration runner; a restore targets an already-migrated schema',
+});
 
 export interface BackupManifest {
   id: string;
