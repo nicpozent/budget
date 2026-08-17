@@ -57,6 +57,8 @@ const FxHistoryView = lazy(() =>
   import('./components/reports.tsx').then((m) => ({ default: m.FxHistoryView })));
 const AllocationsView = lazy(() =>
   import('./components/reports.tsx').then((m) => ({ default: m.AllocationsView })));
+const ScenariosView = lazy(() =>
+  import('./components/ScenariosView.tsx').then((m) => ({ default: m.ScenariosView })));
 
 type ViewKey =
   | 'budget'
@@ -65,6 +67,7 @@ type ViewKey =
   | 'trend'
   | 'consolidation'
   | 'allocations'
+  | 'scenarios'
   | 'fxHistory'
   | 'submissions'
   | 'costCentres'
@@ -102,6 +105,17 @@ const NAV: NavEntry[] = [
     visible: (me) => can(me.user.role, 'budget.view.any'),
   },
   { key: 'fxHistory', label: 'nav.fxHistory', glyph: '⇋', group: 'nav.group.analyse', visible: () => true },
+  {
+    key: 'scenarios',
+    label: 'nav.scenarios',
+    glyph: '⑂',
+    group: 'nav.group.analyse',
+    // FR-080. Visible to anyone who can read across entities, because a
+    // scenario is a group-wide artefact and a single-entity owner comparing
+    // "the group's scenario" against their own slice would be reading a
+    // question nobody asked. Managing one still needs `version.manage`.
+    visible: (me) => can(me.user.role, 'budget.view.any'),
+  },
   {
     key: 'submissions',
     label: 'nav.submissions',
@@ -297,6 +311,7 @@ function ReportPane({ me, view }: { me: Me; view: ViewKey }): JSX.Element {
           {view === 'trend' ? <TrendView entities={entities} fiscalYear={me.fiscalYear} /> : null}
           {view === 'allocations' ? <AllocationsView /> : null}
           {view === 'fxHistory' ? <FxHistoryView /> : null}
+          {view === 'scenarios' ? <ScenariosView me={me} /> : null}
           {view === 'submissions' ? (
             <SubmissionsView canDecide={can(me.user.role, 'submission.decide')} />
           ) : null}

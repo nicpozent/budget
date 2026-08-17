@@ -61,6 +61,27 @@ export async function regenerateFlowThrough(
   const targetYear = fiscalYear + 1;
 
   return db.transaction(async (tx) => {
+    // FR-080: the charge lands in *next* year, and every amount is addressed by
+    // a declared version (migration 008). Next year's cycle may not exist yet —
+    // this feature runs during this year's collection — so the cycle and its
+    // working version are created here for the same reason the category below
+    // is: the flow-through should work on a fresh deployment without an
+    // administrator having prepared the following year first.
+    //
+    // The cycle is created in `collection`, which is what a year nobody has
+    // opened yet is. It carries no lock and no exceptions.
+    await tx.query(sql`
+      insert into cycles (fiscal_year) values (${targetYear})
+      on conflict (fiscal_year) do nothing
+    `);
+    await tx.query(sql`
+      insert into budget_versions (fiscal_year, key, label, kind, description, created_by)
+      select ${targetYear}, 'working', 'Working plan', 'working',
+             'Opened by the FR-033 depreciation flow-through.',
+             (select id from users where role = 'admin' order by created_at limit 1)
+      on conflict (fiscal_year, key) do nothing
+    `);
+
     // The opex category derived charges land in. Created if absent so the
     // feature works on a fresh cycle without an administrator preparing one.
     const category = await tx.one<{ id: string }>(sql`

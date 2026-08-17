@@ -91,6 +91,17 @@ async function amplify(db: Db, fiscalYear: number): Promise<number> {
   `);
 
   for (const version of ['baseline', 'reforecast']) {
+    // FR-080: an amount can only reference a version that has been declared.
+    // The load test was writing these keys straight into the column when it was
+    // free text; migration 008 made that a foreign key, and the tool has to say
+    // what it is creating like anything else does.
+    await db.query(sql`
+      insert into budget_versions (fiscal_year, key, label, kind, description, created_by)
+      select ${fiscalYear}, ${version}, ${version}, 'scenario',
+             'Created by tools/loadtest.ts to reach version scale.',
+             (select id from users where role = 'admin' order by created_at limit 1)
+      on conflict (fiscal_year, key) do nothing
+    `);
     await db.query(sql`
       insert into period_amounts (line_id, fiscal_year, period, budget_version, amount)
       select line_id, fiscal_year, period, ${version}, amount * 0.97

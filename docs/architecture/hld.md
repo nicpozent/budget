@@ -162,6 +162,7 @@ the same matrix drives the client's navigation without duplicating the rules.
 | [0004](../adr/0004-minimal-dependencies.md) | Replace a dependency when it is small, on a security boundary, and its tree is larger than the code it saves | Removed `exceljs` and `@fastify/static`; 6 direct production dependencies |
 | [0005](../adr/0005-operations-and-seed-modes.md) | Anonymiser offline; backup encrypted and chain-attesting | Keeps "did production data reach non-production" a checkable question |
 | [0006](../adr/0006-module-structure.md) | Routes by domain, services by layer | The domain grew past what one `admin.ts` could hold; the security-relevant code stays in three reviewable files |
+| [0007](../adr/0007-modelling-depth.md) | Versions and driver trees, but no formula engine | A version dimension and a derived-driver tree are code the tests can hold to INV-4; a user-authored expression language is an interpreter for untrusted input and a second, unreviewed definition of every number |
 
 ## 5. Cross-cutting concerns
 
@@ -232,8 +233,10 @@ Stated here rather than left to be discovered:
 - **No IaC, no DAST run, no penetration test** (`SEC-041`).
 - **Entra ID has never been exercised against a real tenant.** The adapter is
   written to the OIDC spec; the local development provider is what has been run.
-- Deferred by the spec and still deferred: versions/scenarios (`FR-080`),
-  configurable approval stages (`FR-051`), template versioning (`FR-005`).
+- Deferred by the spec and since built at the product owner's request:
+  versions and scenarios (`FR-080`), configurable approval stages (`FR-051`),
+  template versioning (`FR-005`). What remains deliberately unbuilt is the
+  formula engine — see [ADR 0007](../adr/0007-modelling-depth.md).
 
 ## 9. References
 

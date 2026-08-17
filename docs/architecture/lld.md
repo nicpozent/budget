@@ -110,7 +110,7 @@ erDiagram
 | Identifiers are opaque UUIDv4 | Non-enumerable; removes the reconnaissance step (`SEC-011`) |
 | Money is `numeric(18,4)` | No float column exists in the schema (`NFR-002`) |
 | Rates are `numeric(18,8)` | VND 0.0000363, LAK, KRW round to nothing at 4 dp |
-| Amounts keyed `(line, fiscal_year, period, budget_version)` | `FR-080` — scenarios later become a migration, not a rewrite |
+| Amounts keyed `(line, fiscal_year, period, budget_version)` | `FR-080` — and it was: migration 008 added the version table and the foreign key without touching a stored amount |
 | Every free-text column has a length bound | Matches the boundary schema; bounds DoS and log injection |
 | Amounts stored in the line's **local** currency | FX at read time so restatement is consistent (`NFR-003`) |
 

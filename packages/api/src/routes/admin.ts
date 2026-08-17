@@ -20,6 +20,7 @@ import { authenticatedRoute, principalOf, requires } from '../http/guard.ts';
 import { badRequest, conflict, forbidden, notFound } from '../http/errors.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
+import { recomputeDriverTree } from '../services/drivers.ts';
 import { createBackup, listBackups, readBackup } from '../services/backup.ts';
 import { privilegeChanges } from '../observability/metrics.ts';
 import { parseArchive, verifyArchive } from '../services/restore.ts';
@@ -214,28 +215,50 @@ export async function registerAdminRoutes(
   // Drivers and allocations (FR-020, FR-023)
   // -------------------------------------------------------------------------
 
+  /**
+   * FR-020/FR-021. A driver is either typed in or derived from another driver
+   * for the same entity and year — see `services/drivers.ts` for why the
+   * derived figure is stored rather than computed at read time.
+   */
   app.put('/api/drivers', { config: requires('budget.line.edit.own') }, async (request) => {
-    const body = parse(
-      z.object({
-        entityId: schemas.uuid,
-        driverKey: schemas.driverKey,
-        unit: schemas.shortText(40),
-        value: z.number().int().min(0).max(10_000_000),
-      }),
-      request.body,
-    );
+    const body = parse(schemas.driverInputSchema, request.body);
     const principal = principalOf(request);
     if (!principal.ownedEntityIds.includes(body.entityId) && principal.role !== 'admin') {
       throw forbidden('entity out of write scope');
     }
 
-    await db.transaction(async (tx) => {
+    const derivedFrom = body.derivedFrom ?? null;
+    const factor = body.factor ?? null;
+
+    const changed = await db.transaction(async (tx) => {
       await tx.query(sql`
-        insert into drivers (entity_id, driver_key, unit, value, fiscal_year)
-        values (${body.entityId}, ${body.driverKey}, ${body.unit}, ${body.value}, ${year})
+        insert into drivers (entity_id, driver_key, unit, value, fiscal_year, derived_from, factor)
+        values (${body.entityId}, ${body.driverKey}, ${body.unit}, ${body.value ?? 0}, ${year},
+                ${derivedFrom}, ${factor})
         on conflict (entity_id, driver_key, fiscal_year)
-        do update set value = excluded.value, unit = excluded.unit
+        do update set
+          -- A derived driver's stored value is about to be recomputed, so
+          -- keeping whatever was posted would only be a value that exists for
+          -- one statement. A root driver takes the figure that was typed.
+          value = case when ${derivedFrom}::text is null
+                       then excluded.value else drivers.value end,
+          unit = excluded.unit,
+          derived_from = excluded.derived_from,
+          factor = excluded.factor
       `);
+
+      // Runs on every write, including a write that only changed a root value:
+      // that is the point of a tree, and it is also what refuses a cycle before
+      // it is committed rather than after.
+      const moved = await recomputeDriverTree(tx, body.entityId, year);
+
+      const definition = derivedFrom
+        ? `${body.driverKey} defined as ${factor} × ${derivedFrom}`
+        : `${body.driverKey} set to ${body.value ?? 0} ${body.unit}`;
+      const downstream = moved.length > 0
+        ? `; recomputed ${moved.map((m) => `${m.key} ${m.from}→${m.to}`).join(', ')}`
+        : '';
+
       await writeAudit(tx, {
         actor: principal,
         action: 'driver.update',
@@ -243,14 +266,17 @@ export async function registerAdminRoutes(
         targetId: null,
         entityId: body.entityId,
         // FR-021: every driver-linked line recalculates from this, so the
-        // change is recorded with its blast radius implied.
-        detail: `${body.driverKey} set to ${body.value} ${body.unit}`,
+        // change is recorded with its blast radius stated rather than implied —
+        // a tree makes the radius wider than the edit.
+        detail: `${definition}${downstream}`,
         kind: 'change',
         request,
       });
+
+      return moved;
     });
 
-    return { ok: true };
+    return { ok: true, recomputed: changed };
   });
 
   app.post('/api/cycle/headcount-planning', { config: requires('cycle.rules') }, async (request) => {

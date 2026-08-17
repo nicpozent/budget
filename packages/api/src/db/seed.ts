@@ -14,6 +14,7 @@
  */
 
 import path from 'node:path';
+import { WORKING_VERSION } from '@spendifre/shared';
 import { createDb, sql, type Db } from './pool.ts';
 import {
   loadDataset,
@@ -114,6 +115,23 @@ export async function seedFrom(
       values (${fiscalYear}, 'collection', 'quarterly', 50000)
       on conflict (fiscal_year) do nothing
     `);
+
+    // FR-080: every amount is addressed by a version, and every version has to
+    // exist before an amount can reference it. Five years of history are
+    // seeded below, so five years of working versions are declared here.
+    for (let y = fiscalYear - 4; y <= fiscalYear; y += 1) {
+      await tx.query(sql`
+        insert into cycles (fiscal_year, phase, granularity, approval_threshold_eur)
+        values (${y}, 'locked', 'quarterly', 50000)
+        on conflict (fiscal_year) do nothing
+      `);
+      await tx.query(sql`
+        insert into budget_versions (fiscal_year, key, label, kind, description, created_by)
+        values (${y}, ${WORKING_VERSION}, 'Working plan', 'working',
+                'The live plan. Every edit lands here.', ${adminId})
+        on conflict (fiscal_year, key) do nothing
+      `);
+    }
 
     // -- FX, current year and four prior ------------------------------------
     for (const [currency, rate] of Object.entries(dataset.fx)) {

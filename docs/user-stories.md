@@ -579,9 +579,9 @@ Recorded so they are decisions rather than omissions (`SPEC.md` §11).
 
 | Story | Note |
 |---|---|
-| **US-DEF-1** Versions and scenarios | Amounts are addressable by `(line, period, version)` from day one; v1 writes only `working`, so adding this is a migration, not a rewrite (`FR-080`) |
-| **US-DEF-2** Rolling forecast | `reforecast` exists as a cycle phase with no behaviour behind it |
-| **US-DEF-3** Approved-plan snapshots | Same version dimension |
+| **US-DEF-1** Versions and scenarios | **Since built** (`FR-080`, migration 008, ADR 0007). The bet paid off: amounts were addressable by `(line, period, version)` from day one, so it was a migration and a service rather than a rewrite |
+| **US-DEF-2** Rolling forecast | **Since built.** A `forecast` version is rebased from actuals for the periods that have closed and the working plan for the rest; `reforecast` remains the cycle phase it always was |
+| **US-DEF-3** Approved-plan snapshots | A `baseline` version, locked. The lock is a trigger on `period_amounts`, so a snapshot refuses a write at the table rather than in a handler |
 | **US-DEF-4** Procurement / purchase-order integration | Out of scope for v1 |
 | **US-DEF-5** Contract lifecycle management | Out of scope, though the source workbook keeps contract terms in free text |
 | **US-DEF-6** Multi-year capital planning beyond depreciation | Out of scope |

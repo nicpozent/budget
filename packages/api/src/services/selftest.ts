@@ -215,6 +215,88 @@ const CHECKS: readonly Check[] = [
     },
   },
 
+  {
+    id: 'inv.driverTree',
+    title: 'Every derived driver still equals its definition (FR-020)',
+    requirement: 'FR-020',
+    async run(db) {
+      // `drivers.value` is materialised, so the tree is only correct as long as
+      // something keeps recomputing it. This is the check that says whether it
+      // still is: the arithmetic is repeated here in SQL rather than trusted,
+      // which is the same reason the audit chain is re-walked rather than
+      // assumed intact.
+      //
+      // Half away from zero, matching `resolveDriverTree` and `Money`.
+      const stale = await countOf(db, sql`
+        select count(*)::text as count
+        from drivers d
+        join drivers parent
+          on parent.entity_id = d.entity_id
+         and parent.fiscal_year = d.fiscal_year
+         and parent.driver_key = d.derived_from
+        where d.derived_from is not null
+          and d.value <> floor(parent.value * d.factor + 0.5)
+      `);
+      const orphans = await countOf(db, sql`
+        select count(*)::text as count from drivers d
+        where d.derived_from is not null
+          and not exists (
+            select 1 from drivers p
+            where p.entity_id = d.entity_id and p.fiscal_year = d.fiscal_year
+              and p.driver_key = d.derived_from
+          )
+      `);
+      if (orphans > 0) {
+        return {
+          status: 'fail',
+          detail: `${orphans} derived drivers point at a driver the entity does not have.`,
+        };
+      }
+      return stale === 0
+        ? { status: 'pass', detail: 'Every derived driver matches its parent times its factor.' }
+        : {
+            status: 'fail',
+            detail:
+              `${stale} derived drivers no longer equal their definition. ` +
+              'Re-save the parent driver to recompute the tree.',
+          };
+    },
+  },
+  {
+    id: 'inv.versionAmounts',
+    title: 'Every stored amount belongs to a declared version (FR-080)',
+    requirement: 'FR-080',
+    async run(db, config) {
+      // The foreign key added in migration 008 makes this impossible going
+      // forward. The check exists for the case the foreign key does not cover:
+      // a restore, which suspends constraint triggers to load the archive and
+      // would happily reinstate an amount whose version row was lost.
+      const orphans = await countOf(db, sql`
+        select count(*)::text as count from period_amounts pa
+        where not exists (
+          select 1 from budget_versions bv
+          where bv.fiscal_year = pa.fiscal_year and bv.key = pa.budget_version
+        )
+      `);
+      if (orphans > 0) {
+        return {
+          status: 'fail',
+          detail: `${orphans} amounts reference a budget version that does not exist.`,
+        };
+      }
+      const working = await countOf(db, sql`
+        select count(*)::text as count from budget_versions
+        where fiscal_year = ${config.FISCAL_YEAR} and kind = 'working'
+      `);
+      return working === 1
+        ? { status: 'pass', detail: 'Every amount is addressed by a declared version.' }
+        : {
+            status: 'fail',
+            detail: `FY${config.FISCAL_YEAR} has ${working} working versions; it must have exactly one.`,
+          };
+    },
+  },
+
   // -------------------------------------------------------------------------
   // Configuration that is easy to get wrong and silent when it is.
   // -------------------------------------------------------------------------

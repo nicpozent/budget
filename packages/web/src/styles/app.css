@@ -515,6 +515,16 @@ button {
   border-color: color-mix(in srgb, var(--danger) 40%, transparent);
 }
 
+/* Table action cells hold up to four buttons. At the default size they wrap
+   onto three lines and push the row height past the rest of the table; the
+   smaller size keeps a row a row. Padding, not font-size: A11Y-001's 4.5:1 is
+   about contrast and WCAG 2.5.8's 24px is about target size, and shrinking the
+   text would trade against the first to satisfy neither. */
+.button-small {
+  padding: 4px 9px;
+  min-height: 24px;
+}
+
 .button-row {
   display: flex;
   gap: var(--gap-sm);

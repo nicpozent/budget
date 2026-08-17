@@ -31,6 +31,7 @@ import { registerTemplateRoutes } from './routes/template.ts';
 import { registerApprovalRoutes } from './routes/approvals.ts';
 import { registerLedgerRoutes } from './routes/ledger.ts';
 import { registerReportRoutes } from './routes/reports.ts';
+import { registerVersionRoutes } from './routes/versions.ts';
 import { registerAuditRoutes } from './routes/audit.ts';
 import { registerShellRoutes } from './routes/shell.ts';
 
@@ -145,6 +146,7 @@ export async function buildApp({ db, config }: AppDeps): Promise<FastifyInstance
   await registerApprovalRoutes(app, db, config);
   await registerLedgerRoutes(app, db, config);
   await registerReportRoutes(app, db, config);
+  await registerVersionRoutes(app, db, config);
   await registerAuditRoutes(app, db, config);
   await registerShellRoutes(app, config);
 

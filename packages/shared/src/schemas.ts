@@ -355,3 +355,59 @@ export const ledgerBatchSchema = z.object({
   // transaction; an unbounded array is a memory and lock-duration problem.
   rows: z.array(ledgerRowSchema).min(1).max(5000),
 });
+
+// ---------------------------------------------------------------------------
+// FR-080 budget versions and scenarios
+// ---------------------------------------------------------------------------
+
+/**
+ * A version key. Slug-shaped because it appears in a query string and in the
+ * `budget_version` column, and because a key that needed escaping would make
+ * every comparison URL a place to get it wrong. The same pattern is asserted by
+ * the CHECK constraint in migration 008, so a value that reached the database
+ * another way is refused there too.
+ */
+export const versionKey = z
+  .string()
+  .min(1)
+  .max(32)
+  .regex(/^[a-z][a-z0-9_-]{0,31}$/, 'must be lowercase letters, digits, hyphen or underscore');
+
+export const createVersionSchema = z.object({
+  key: versionKey,
+  label: shortText(120),
+  // `working` is absent on purpose: exactly one exists per year and the cycle
+  // creates it. Offering it here would be offering a request that must fail.
+  kind: z.enum(['baseline', 'scenario', 'forecast']),
+  description: longText(500).nullish(),
+  copyFrom: versionKey.nullish(),
+});
+
+/**
+ * FR-020 driver trees. A driver is either typed in or derived from another;
+ * the union makes the two states exclusive rather than leaving a row that
+ * carries both a value and a definition and no rule about which wins.
+ */
+export const driverInputSchema = z.object({
+  entityId: uuid,
+  driverKey,
+  unit: shortText(40),
+}).and(
+  z.union([
+    z.object({
+      value: z.number().int().min(0).max(10_000_000),
+      derivedFrom: z.null().optional(),
+      factor: z.null().optional(),
+    }),
+    z.object({
+      value: z.number().int().min(0).max(10_000_000).optional(),
+      derivedFrom: driverKey,
+      // Bounded above so a tree cannot be used to produce an absurd headcount,
+      // and allowed below one so "sites per store" can be a fraction.
+      factor: rateString.refine(
+        (v) => Number(v) > 0 && Number(v) <= 1000,
+        'factor must be greater than zero and at most 1000',
+      ),
+    }),
+  ]),
+);

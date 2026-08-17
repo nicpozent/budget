@@ -92,6 +92,11 @@ export const CAPABILITIES = [
   // Administrator: "is the audit trail still sound" is a question the person
   // who signs the budget has standing to ask without going through IT.
   'selftest.run',
+  // FR-080: creating, copying, rebasing, locking and deleting a budget version.
+  // Reading versions needs no capability — which scenarios exist is not a
+  // secret, and the figures in one are still filtered by the caller's read
+  // scope like every other report.
+  'version.manage',
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -156,6 +161,11 @@ export const PERMISSION_MATRIX: Readonly<Record<Capability, Row>> = Object.freez
   'backup.run': row(['admin']),
   'backup.download': row(['admin']),
   'selftest.run': row(['admin', 'cfo']),
+  // Scenario planning is a finance act, not an IT one, so the CFO holds it
+  // alongside the Administrator. It is not given to the entity managers: a
+  // version is group-wide, and a scenario one manager created over everyone
+  // else's budget would be a consolidation nobody agreed to.
+  'version.manage': row(['admin', 'cfo']),
 });
 
 /**
@@ -229,6 +239,10 @@ export const STEP_UP_CAPABILITIES: readonly Capability[] = Object.freeze([
   // are the shape ZT-008 asks us to alert on.
   'backup.run',
   'backup.download',
+  // FR-080: deleting a version takes its amounts with it by cascade, and
+  // locking one turns a workspace into a record. Both are the shape ZT-007
+  // asks for fresh authentication on.
+  'version.manage',
   // `ledger.ingest` is deliberately absent. It is designed to be called by a
   // nightly integration, which cannot satisfy an interactive re-authentication;
   // requiring step-up would only guarantee the control is disabled in practice.

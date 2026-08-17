@@ -219,3 +219,39 @@ export interface SelfTestReport {
     durationMs: number;
   }[];
 }
+
+/** FR-080 budget versions and scenarios. Mirrors services/versions.ts. */
+export interface BudgetVersionSummary {
+  fiscalYear: number;
+  key: string;
+  label: string;
+  kind: 'working' | 'baseline' | 'scenario' | 'forecast';
+  description: string | null;
+  locked: boolean;
+  copiedFrom: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  lockedAt: string | null;
+  amountCount: number;
+}
+
+export interface VersionList {
+  fiscalYear: number;
+  versions: BudgetVersionSummary[];
+}
+
+export interface ComparisonRow {
+  key: string;
+  label: string;
+  base: string;
+  against: string;
+  delta: string;
+}
+
+export interface VersionComparison {
+  base: string;
+  against: string;
+  total: ComparisonRow;
+  entities: ComparisonRow[];
+  categories: ComparisonRow[];
+}

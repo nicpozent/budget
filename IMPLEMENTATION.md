@@ -13,12 +13,12 @@ db/fixtures        generated anonymised seed (gitignored — see below)
 tools/             offline tooling; the anonymiser lives here, not in packages/
 design/            the original prototypes, logos, and the real workbook extract
 docs/              architecture, security, privacy, operations — see docs/README.md
-docs/adr           six decisions with their reasoning
+docs/adr           seven decisions with their reasoning
 docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              532 tests: authorisation matrix, security, invariants, a11y,
+test/              570 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -146,9 +146,38 @@ path" checkable rather than asserted.
 `CMP-107` still needs a published RTO/RPO. The mechanism works; the commitment
 is the organisation's.
 
+## Scenarios and driver trees (ADR 0007)
+
+`FR-080` is built. `budget_version` was a free-text column from day one, exactly
+as SPEC §11 asked; migration 008 turned it into a table with a key, a kind, a
+lock and a foreign key from every amount.
+
+The **Scenarios** view lists the versions for the cycle and compares any of them
+against the working plan. A version is copied from another in one statement, a
+forecast is rebased from actuals for the periods that have closed, and a locked
+version refuses every write **at the table** — the trigger is the control and
+the handler check only produces a better message.
+
+A version is group-wide, and `version.manage` is held by the Administrator and
+the CFO. Reading is open to anyone who can already read across entities; the
+figures inside a scenario go through the same scope resolver as every other
+report, so a manager sees their own entities in both sides of a comparison.
+
+`FR-020` driver trees: a driver may be defined as a multiple of another driver
+for the same entity and year. The resolved figure is stored, so every read path
+is unchanged; the resolver refuses a cycle before the transaction commits, and
+the self-test re-derives every derived driver against its definition.
+
+**There is no formula engine, and that is a decision rather than a backlog
+item** — [ADR 0007](docs/adr/0007-modelling-depth.md) sets out why. Short
+version: a user-authored expression language is an interpreter for untrusted
+input in a codebase whose whole SQL and validation story is "nothing supplied is
+ever interpreted", and it is a second definition of every number that no test
+and no review ever sees.
+
 ## Self-test (row 14)
 
-Fourteen read-only checks against the live database — audit chain and anchor,
+Sixteen read-only checks against the live database — audit chain and anchor,
 the financial invariants over real rows, whether the latest backup can still be
 read, whether the retention job is running. Three ways in:
 
@@ -231,15 +260,18 @@ Stated plainly rather than left to be discovered.
   because there is no non-human identity. A scheduled job cannot satisfy the
   step-up requirement, which is why the capability is deliberately not a step-up
   one; the compensating controls are in `shared/authz.ts`.
-- **Restore from a backup.** The archive format is documented and line-oriented
-  so a restore can stream it, but nothing reads it back. `CMP-107`.
-- **Screens for the FR-051 stage configuration and FR-005 template versions.**
-  Both are complete APIs with tests; an administrator drives them over HTTP
-  today. Stage progress is readable per submission; there is no drag-to-reorder
-  UI, and the reorder endpoint takes a whole list precisely so there need not be.
-- **`FR-080`** versions and scenarios remain deferred as the spec instructs, but
-  amounts are addressable by `(line, fiscal_year, period, budget_version)` from
-  day one, so adding the dimension is a data migration.
+- **A restore button.** Restore itself is built and round-trip tested against
+  two real databases (`npm run restore`), but it is a command-line tool: it
+  truncates `audit_events`, and an endpoint would mean granting the running
+  service the right to erase its own audit trail. What is still missing is the
+  published RTO/RPO backed by a timed drill (`CMP-107`).
+- **Screens for the FR-051 stage configuration, FR-005 template versions and
+  FR-020 driver definitions.** All three are complete APIs with tests; an
+  administrator drives them over HTTP today. Stage progress is readable per
+  submission; there is no drag-to-reorder UI, and the reorder endpoint takes a
+  whole list precisely so there need not be. A driver tree is visible wherever a
+  driver is — the grid shows a driver-linked line's formula — but defining one
+  is a `PUT /api/drivers` away, not a form.
 - **Entra ID against a live tenant.** The OIDC client is written to spec —
   authorisation code with PKCE S256, server-side single-use `state` and `nonce`
   held in `auth_transactions`, discovery-driven metadata, and signature, issuer,
@@ -256,11 +288,16 @@ Stated plainly rather than left to be discovered.
   chain is still found by someone looking rather than by a page.
 - **A penetration test** (`SEC-041`). The DAST stage is not a substitute: it
   runs with DEV_AUTH on so the scanner can get past the front door.
-- **A second locale.** `NFR-010` is met structurally — every client string goes
-  through a typed catalogue and a test fails the build on JSX text that bypassed
-  it — but English is the only catalogue. Adding one is a translation job, not an
-  engineering one.
-- **Assistive-technology testing.** axe passes on all 11 views in a real browser
+- **A formula engine.** Named rather than omitted: it is the one item from the
+  modelling-depth row that was not built, and ADR 0007 says why it should not
+  be. Listed here so it is a decision on the record rather than an absence
+  somebody rediscovers.
+- **A native-speaker review of the translations.** `NFR-010` is met and there
+  are six catalogues — English, Swedish, Norwegian, Danish, Finnish, French —
+  each persisted per user and asserted against the English key set. None has
+  been read by a native speaker, and each file says so at the top. That is a
+  translation review, not an engineering task.
+- **Assistive-technology testing.** axe passes on all 12 views in a real browser
   and the palette is asserted arithmetically, but no screen-reader user has used
   this. `docs/vpat.md` marks exactly which claims are code-reading rather than
   verified.

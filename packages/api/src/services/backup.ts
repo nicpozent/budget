@@ -65,6 +65,11 @@ export const BACKUP_TABLES = [
   'ledger_batches',
   'ledger_batch_rejects',
   'line_items',
+  // Before `period_amounts`, whose (fiscal_year, budget_version) references it.
+  // After `cycles`? No — `cycles` is written later and the restore suspends
+  // foreign keys wholesale, so this ordering is for a human reading the archive
+  // rather than for the loader.
+  'budget_versions',
   'period_amounts',
   'actuals',
   'line_comments',

@@ -42,6 +42,9 @@ const ALLOWED_IDENTICAL = new Set([
   'ops.region', 'ops.status', 'selftest.status', 'signIn.title', 'trend.total',
   'views.action', 'views.code', 'views.description', 'views.plan', 'views.planEur',
   'views.status',
+  // "Scenario" is the same word in Swedish and Norwegian; "Versions" and
+  // "Actions" are spelled the same in French.
+  'scenario.kind.scenario', 'scenario.versions', 'scenario.actions',
 ]);
 
 describe('NFR-010 catalogues', () => {

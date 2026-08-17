@@ -159,8 +159,13 @@ export async function registerMetaRoutes(
   app.get('/api/drivers', { config: authenticatedRoute }, async (request) => {
     const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
     if (ids.length === 0) return [];
+    // FR-020: `derivedFrom` and `factor` are the definition, `value` is the
+    // resolved figure. Both are returned so the view can show a derived driver
+    // as read-only with its formula rather than as a number someone might type
+    // over and lose.
     return db.query(sql`
-      select id, entity_id as "entityId", driver_key as "driverKey", unit, value
+      select id, entity_id as "entityId", driver_key as "driverKey", unit, value,
+             derived_from as "derivedFrom", factor::text as factor
       from drivers
       where entity_id = any(${ids}::uuid[]) and fiscal_year = ${config.FISCAL_YEAR}
       order by driver_key

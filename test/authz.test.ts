@@ -191,6 +191,10 @@ const PROBES: Record<Capability, Probe> = {
     method: 'GET',
     url: '/api/admin/backups/00000000-0000-4000-8000-000000000000/download',
   },
+  // FR-080. A key that does not exist: an allowed role gets 404 from the
+  // handler, a denied role never reaches it. Probing the capability, not the
+  // record.
+  'version.manage': { method: 'DELETE', url: '/api/versions/no-such-version' },
 };
 
 let harness: Harness;
