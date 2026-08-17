@@ -388,6 +388,13 @@ export const createVersionSchema = z.object({
  * the union makes the two states exclusive rather than leaving a row that
  * carries both a value and a definition and no rule about which wins.
  */
+/** Only the caption moves. The key is what every amount references and the
+ *  kind is what the migration-008 trigger refuses to change. */
+export const renameVersionSchema = z.object({
+  label: shortText(120),
+  description: longText(500).nullish(),
+});
+
 export const driverInputSchema = z.object({
   entityId: uuid,
   driverKey,

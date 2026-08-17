@@ -18,7 +18,7 @@ docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              570 tests: authorisation matrix, security, invariants, a11y,
+test/              576 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -45,6 +45,11 @@ until four subsystems arrived at once (FR-005, FR-033, FR-040, FR-051) and
 Routes moved to domain modules; `services/`, `http/`, `db/` and `auth/` did not,
 because their value is that there is exactly one `guard.ts`, one `pool.ts` and
 one `audit.ts` to review.
+
+`admin.ts` then drifted back into being exactly the file the ADR warned about —
+712 lines holding reference data, drivers, governance and operations — and has
+since been split into those four. No route module is over 600 lines and no
+service over 800.
 
 ## Running it
 

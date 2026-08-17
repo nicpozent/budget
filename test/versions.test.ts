@@ -65,7 +65,7 @@ async function create(body: Record<string, unknown>): Promise<Record<string, unk
 const totalOf = async (version: string): Promise<string> => {
   const response = await harness.app.inject({
     method: 'GET',
-    url: `/api/reports/compare?base=working&against=${version}`,
+    url: `/api/versions/compare?base=working&against=${version}`,
     headers: json(admin),
   });
   expect(response.statusCode, response.body).toBe(200);
@@ -94,7 +94,7 @@ describe('FR-080 budget versions', () => {
 
     const compare = await harness.app.inject({
       method: 'GET',
-      url: '/api/reports/compare?base=working&against=baseline-q1',
+      url: '/api/versions/compare?base=working&against=baseline-q1',
       headers: json(admin),
     });
     const body = compare.json() as {
@@ -271,6 +271,58 @@ describe('FR-080 locking', () => {
   });
 });
 
+describe('FR-080 renaming', () => {
+  it('changes the caption without touching the key, the kind or the figures', async () => {
+    await create({ key: 'rename-me', label: 'Before', kind: 'scenario', copyFrom: 'working' });
+    const before = await totalOf('rename-me');
+
+    const response = await harness.app.inject({
+      method: 'PATCH', url: '/api/versions/rename-me', headers: json(admin),
+      payload: { label: 'After', description: 'A note added later' },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+
+    const row = await harness.db.one<{ label: string; kind: string; description: string }>(sql`
+      select label, kind, description from budget_versions
+      where fiscal_year = 2026 and key = 'rename-me'
+    `);
+    expect(row!.label).toBe('After');
+    expect(row!.description).toBe('A note added later');
+    expect(row!.kind).toBe('scenario');
+    expect(await totalOf('rename-me')).toBe(before);
+  });
+
+  it('relabels a locked version, because the lock is on the figures', async () => {
+    await create({ key: 'locked-label', label: 'Locked', kind: 'baseline', copyFrom: 'working' });
+    await harness.app.inject({
+      method: 'POST', url: '/api/versions/locked-label/lock', headers: json(admin),
+      payload: { locked: true },
+    });
+    const response = await harness.app.inject({
+      method: 'PATCH', url: '/api/versions/locked-label', headers: json(admin),
+      payload: { label: 'Locked, corrected' },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+  });
+
+  it('refuses a rename from a role without version.manage', async () => {
+    await create({ key: 'not-yours', label: 'Not yours', kind: 'scenario' });
+    const response = await harness.app.inject({
+      method: 'PATCH', url: '/api/versions/not-yours', headers: json(finance),
+      payload: { label: 'Mine now' },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('refuses to change the kind of a version, in the database', async () => {
+    await create({ key: 'kind-fixed', label: 'Kind fixed', kind: 'scenario' });
+    await expect(harness.db.query(sql`
+      update budget_versions set kind = 'working'
+      where fiscal_year = 2026 and key = 'kind-fixed'
+    `)).rejects.toThrow(/kind cannot be changed/);
+  });
+});
+
 describe('FR-080 rolling forecast', () => {
   it('takes actuals for closed periods and the plan for the rest', async () => {
     await create({ key: 'rf', label: 'Rolling forecast', kind: 'forecast' });
@@ -335,6 +387,36 @@ describe('FR-080 rolling forecast', () => {
     }
   });
 
+  it('removes a forecast row the working plan no longer carries', async () => {
+    await create({ key: 'rf-orphan', label: 'Orphan check', kind: 'forecast' });
+    await harness.app.inject({
+      method: 'POST', url: '/api/versions/rf-orphan/rebase', headers: json(admin),
+    });
+
+    // A line the working plan drops. Soft-deleting it is what the application
+    // does; the forecast row it left behind used to survive every later rebase.
+    const line = await harness.db.one<{ id: string }>(sql`
+      select line_id as id from period_amounts
+      where budget_version = 'rf-orphan' and fiscal_year = 2026 limit 1
+    `);
+    await harness.db.query(sql`
+      delete from period_amounts
+      where line_id = ${line!.id} and fiscal_year = 2026 and budget_version = 'working'
+    `);
+
+    const rebase = await harness.app.inject({
+      method: 'POST', url: '/api/versions/rf-orphan/rebase', headers: json(admin),
+    });
+    expect(rebase.statusCode, rebase.body).toBe(200);
+    expect((rebase.json() as { removed: number }).removed).toBeGreaterThan(0);
+
+    const left = await harness.db.one<{ count: string }>(sql`
+      select count(*)::text as count from period_amounts
+      where line_id = ${line!.id} and fiscal_year = 2026 and budget_version = 'rf-orphan'
+    `);
+    expect(Number(left!.count)).toBe(0);
+  });
+
   it('refuses to rebase anything that is not a forecast', async () => {
     await create({ key: 'not-a-forecast', label: 'Scenario', kind: 'scenario' });
     const response = await harness.app.inject({
@@ -357,13 +439,13 @@ describe('FR-080 comparison respects read scope', () => {
     await create({ key: 'scoped', label: 'Scoped', kind: 'scenario', copyFrom: 'working' });
 
     const asAdmin = await harness.app.inject({
-      method: 'GET', url: '/api/reports/compare?base=working&against=scoped', headers: json(admin),
+      method: 'GET', url: '/api/versions/compare?base=working&against=scoped', headers: json(admin),
     });
     // The PMO lead, deliberately: the Finance Manager holds `budget.view.any`
     // and would see the same set as the Administrator, so the test would pass
     // while proving nothing about scope.
     const asManager = await harness.app.inject({
-      method: 'GET', url: '/api/reports/compare?base=working&against=scoped', headers: json(pmo),
+      method: 'GET', url: '/api/versions/compare?base=working&against=scoped', headers: json(pmo),
     });
     expect(asManager.statusCode).toBe(200);
 
@@ -376,7 +458,7 @@ describe('FR-080 comparison respects read scope', () => {
 
   it('404s a version that does not exist rather than comparing against nothing', async () => {
     const response = await harness.app.inject({
-      method: 'GET', url: '/api/reports/compare?base=working&against=ghost', headers: json(admin),
+      method: 'GET', url: '/api/versions/compare?base=working&against=ghost', headers: json(admin),
     });
     expect(response.statusCode).toBe(404);
   });

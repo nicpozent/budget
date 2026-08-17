@@ -31,6 +31,7 @@ import {
   getVersion,
   listVersions,
   rebaseForecast,
+  renameVersion,
 } from '../services/versions.ts';
 import { loadCycle, periodsIn, visibleEntityIds } from './meta.ts';
 
@@ -132,6 +133,40 @@ export async function registerVersionRoutes(
     },
   );
 
+  app.patch(
+    '/api/versions/:key',
+    { config: requires('version.manage') },
+    async (request) => {
+      const { key } = parse(z.object({ key: schemas.versionKey }), request.params);
+      const body = parse(schemas.renameVersionSchema, request.body);
+      const principal = principalOf(request);
+
+      const version = await getVersion(db, year, key);
+      if (!version) throw notFound('no such budget version');
+
+      const updated = await db.transaction(async (tx) => {
+        // Deliberately allowed on a locked version: the lock is on the figures,
+        // and refusing to correct a typo in a caption would be a lock nobody
+        // could live with.
+        const result = await renameVersion(
+          tx, year, key, body.label, body.description ?? null,
+        );
+        await writeAudit(tx, {
+          actor: principal,
+          action: 'version.rename',
+          targetType: 'budget_version',
+          targetId: null,
+          detail: `Renamed ${version.kind} (${key}) from "${version.label}" to "${body.label}"`,
+          kind: 'governance',
+          request,
+        });
+        return result;
+      });
+
+      return { version: updated };
+    },
+  );
+
   app.post(
     '/api/versions/:key/lock',
     { config: requires('version.manage') },
@@ -209,8 +244,14 @@ export async function registerVersionRoutes(
     },
   );
 
-  /** FR-080: two versions side by side, grouped the way FR-060 groups. */
-  app.get('/api/reports/compare', { config: authenticatedRoute }, async (request) => {
+  /**
+   * FR-080: two versions side by side, grouped the way FR-060 groups.
+   *
+   * Under `/api/versions`, not `/api/reports`, because ADR 0006 files a route
+   * by its domain and this one needs the version services. It read as a report
+   * and lived with the versions; the URL now says what the module says.
+   */
+  app.get('/api/versions/compare', { config: authenticatedRoute }, async (request) => {
     const query = parse(
       z.object({
         base: schemas.versionKey.default('working'),

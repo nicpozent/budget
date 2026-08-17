@@ -113,19 +113,6 @@ export async function getVersion(
   return row ? toVersion(row) : null;
 }
 
-/** The version a caller may not edit through, whatever else they hold. */
-export async function assertVersionWritable(
-  db: Db,
-  fiscalYear: number,
-  key: string,
-): Promise<void> {
-  const version = await getVersion(db, fiscalYear, key);
-  if (!version) throw notFound('no such budget version');
-  // The trigger in migration 008 refuses this too. Checking here as well turns
-  // a database exception into a 409 with a sentence in it.
-  if (version.locked) throw conflict(`version "${version.label}" is locked`);
-}
-
 export interface CreateVersionInput {
   fiscalYear: number;
   key: string;
@@ -213,7 +200,26 @@ export async function rebaseForecast(
   fiscalYear: number,
   key: string,
   elapsedPeriods: number,
-): Promise<{ closedPeriods: number; rows: number }> {
+): Promise<{ closedPeriods: number; rows: number; removed: number }> {
+  // Rebasing is a redraw, not a merge. An earlier revision only upserted, so a
+  // cell the working plan no longer carries — a line since soft-deleted, a
+  // period dropped when the cycle went from monthly to quarterly — kept its old
+  // forecast figure for ever. The reports never showed it, because the fold
+  // filters deleted lines and bounds the period; the row count on the Scenarios
+  // screen did, and it only ever went up.
+  const removed = await tx.query<{ line_id: string }>(sql`
+    delete from period_amounts f
+    where f.fiscal_year = ${fiscalYear} and f.budget_version = ${key}
+      and not exists (
+        select 1 from period_amounts w
+        where w.line_id = f.line_id
+          and w.fiscal_year = f.fiscal_year
+          and w.period = f.period
+          and w.budget_version = ${WORKING_VERSION}
+      )
+    returning f.line_id
+  `);
+
   const rows = await tx.query<{ line_id: string }>(sql`
     insert into period_amounts (line_id, fiscal_year, period, budget_version, amount)
     select w.line_id, w.fiscal_year, w.period, ${key},
@@ -231,7 +237,33 @@ export async function rebaseForecast(
       do update set amount = excluded.amount, updated_at = now()
     returning line_id
   `);
-  return { closedPeriods: elapsedPeriods, rows: rows.length };
+  return { closedPeriods: elapsedPeriods, rows: rows.length, removed: removed.length };
+}
+
+/**
+ * Rename a version, or change its description.
+ *
+ * The key is not renameable and neither is the kind. The key is what every
+ * amount references, and the kind is what the trigger in migration 008 refuses
+ * to change — a baseline that could become the working plan would let a frozen
+ * record be edited. A label is a caption, so it moves freely, and a locked
+ * version can still be relabelled: the lock is on the figures.
+ */
+export async function renameVersion(
+  tx: Db,
+  fiscalYear: number,
+  key: string,
+  label: string,
+  description: string | null,
+): Promise<BudgetVersion> {
+  await tx.query(sql`
+    update budget_versions
+    set label = ${label}, description = ${description}
+    where fiscal_year = ${fiscalYear} and key = ${key}
+  `);
+  const updated = await getVersion(tx, fiscalYear, key);
+  if (!updated) throw notFound('no such budget version');
+  return updated;
 }
 
 export interface VersionComparisonRow {

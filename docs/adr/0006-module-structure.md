@@ -33,9 +33,11 @@ actually done about it.
 by layer.**
 
 ```
-routes/     auth  meta  lines  workflow  approvals  template  ledger
-            admin  reports  audit  shell
-services/   approval  audit  backup  budget  depreciation  editability  xlsx
+routes/     auth  meta  lines  workflow  approvals  template  ledger  versions
+            reference  drivers  governance  operations  reports  audit  shell
+services/   approval  audit  backup  budget  depreciation  drivers  editability
+            restore  selftest  versions  xlsx
+observability/  logging  metrics  tracing
 http/       guard  security  errors  validate
 db/         pool  migrate  seed  dataset
 auth/       oidc  session
@@ -44,6 +46,30 @@ auth/       oidc  session
 Concretely: `routes/template.ts`, `routes/approvals.ts` and `routes/ledger.ts`
 were created rather than growing `admin.ts`, and template definition moved out of
 `admin.ts` into `routes/template.ts`.
+
+## Revision: `admin.ts` is gone
+
+This ADR predicted the failure mode and then let it happen anyway. Having said
+that a file called "the rest" is the thing to avoid, the next round of work put
+drivers, allocations, governance, data-subject requests, retention, backups,
+archive verification and the self-test into `admin.ts` — 712 lines and four
+unrelated domains, held together by nothing but the fact that an administrator
+performs all of them. "Administrator" is a role, not a domain, and a module
+named after a role will accept anything that role can do.
+
+It is now four modules, each one domain, each under 240 lines:
+
+| Module | Domain |
+|---|---|
+| `routes/reference.ts` | Cost centres, entities, FX rates — the fixed points a line is written against |
+| `routes/drivers.ts` | Drivers, driver trees, allocation pools — the quantities a budget is computed *from* |
+| `routes/governance.ts` | Classifications, retention, data-subject rights, chain verification |
+| `routes/operations.ts` | Backup, archive verification, the runtime self-test |
+
+The test that this is a real boundary rather than four smaller piles: each one
+can be described in a sentence that does not contain the word "and also". The
+split moved no logic — the endpoints, their capabilities and their audit events
+are unchanged, and the 575-test suite passed before and after without an edit.
 
 ## Why not full feature slices
 

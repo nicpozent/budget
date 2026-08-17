@@ -745,13 +745,6 @@ export function rollUp<K extends string>(
   return out;
 }
 
-export function groupTotal(totals: readonly LineTotals[]): { plan: Money; actual: Money } {
-  return {
-    plan: Money.sum(totals.map((t) => t.eur)),
-    actual: Money.sum(totals.map((t) => t.actualEur)),
-  };
-}
-
 /**
  * FR-041/FR-042. Only elapsed periods accept recorded spend, and a line
  * consuming faster than time elapsed is flagged.

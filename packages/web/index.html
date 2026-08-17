@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Spendifre</title>
     <!--
+      This document is Vite's build entry, not what users are served: the API
+      generates the shell per request so it can stamp the CSP nonce. Anything
+      here that matters at runtime has to be mirrored in `routes/shell.ts`, and
+      the icon below is — see the note there for why it is a data URI.
+    -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6df6'/%3E%3Cpath d='M11 10h10M11 16h10M11 22h6' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <!--
       No inline script and no inline style anywhere in this document. The API
       serves this shell and stamps a per-response nonce onto the module script
       below, which is what lets SEC-032's CSP run without `unsafe-inline`.

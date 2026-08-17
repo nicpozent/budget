@@ -457,6 +457,19 @@ describe('SEC-032 / SEC-033 headers', () => {
     expect(csp).not.toContain('unsafe-eval');
   });
 
+  it('declares an icon inline, so no request escapes the asset map', async () => {
+    // The shell serves /assets/* by exact filename and nothing else, so a page
+    // that let the browser guess /favicon.ico produced a 404 on every load.
+    // The icon is a data URI: an inline image, which `img-src 'self' data:'
+    // permits, and not an inline script or style, which the CSP forbids.
+    const response = await harness.app.inject({ method: 'GET', url: '/' });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatch(/<link rel="icon" href="data:image\/svg\+xml,/);
+    // Still no inline script or style anywhere in the shell.
+    expect(response.body).not.toMatch(/<style/);
+    expect(response.body).not.toMatch(/<script(?![^>]*\bsrc=)/);
+  });
+
   it('issues a different nonce per response', async () => {
     const a = await harness.app.inject({ method: 'GET', url: '/healthz' });
     const b = await harness.app.inject({ method: 'GET', url: '/healthz' });

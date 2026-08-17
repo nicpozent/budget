@@ -52,9 +52,13 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
   const [busy, setBusy] = useState(false);
 
   const [label, setLabel] = useState('');
+  const [description, setDescription] = useState('');
   const [kind, setKind] = useState<'baseline' | 'scenario' | 'forecast'>('scenario');
   const [copyFrom, setCopyFrom] = useState('working');
+  /** The key being renamed, or null when the form is creating. */
+  const [editing, setEditing] = useState<string | null>(null);
 
+  const [base, setBase] = useState('working');
   const [against, setAgainst] = useState('');
   const [comparison, setComparison] = useState<VersionComparison | null>(null);
 
@@ -98,9 +102,11 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
         key,
         label,
         kind,
+        description: description.trim() === '' ? null : description,
         copyFrom: copyFrom === '' ? null : copyFrom,
       });
       setLabel('');
+      setDescription('');
       return t('scenario.created.notice')
         .replace('{label}', label)
         .replace('{rows}', formatNumber(String(result.copiedRows)));
@@ -115,6 +121,31 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
         .replace('{label}', version.label)
         .replace('{periods}', String(result.closedPeriods))
         .replace('{rows}', formatNumber(String(result.rows)));
+    });
+
+  const startEdit = (version: BudgetVersionSummary) => {
+    setEditing(version.key);
+    setLabel(version.label);
+    setDescription(version.description ?? '');
+    setNotice(null);
+    setError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setLabel('');
+    setDescription('');
+  };
+
+  const rename = () =>
+    act(async () => {
+      const key = editing!;
+      await api.patch(`/api/versions/${key}`, {
+        label,
+        description: description.trim() === '' ? null : description,
+      });
+      cancelEdit();
+      return t('scenario.renamed').replace('{label}', label);
     });
 
   const setLocked = (version: BudgetVersionSummary, locked: boolean) =>
@@ -137,11 +168,11 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
     });
   };
 
-  const compare = (key: string) => {
+  const compare = (key: string, baseKey = base) => {
     setAgainst(key);
     setComparison(null);
     api
-      .get<VersionComparison>(`/api/reports/compare?base=working&against=${key}`)
+      .get<VersionComparison>(`/api/versions/compare?base=${baseKey}&against=${key}`)
       .then(setComparison)
       .catch((e: ApiError) => setError(e.message));
   };
@@ -149,7 +180,13 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
   if (error && !list) return <p className="banner banner-error" role="alert">{error}</p>;
   if (!list) return <p className="empty">{t('app.loading')}</p>;
 
-  const copyable = list.versions.filter((v) => !v.locked || v.kind !== 'working');
+  const labelOf = (key: string): string =>
+    list.versions.find((v) => v.key === key)?.label ?? key;
+
+  // Every version is a valid source, locked ones included: copying reads, and a
+  // frozen baseline is exactly the thing someone wants to branch from. An
+  // earlier revision filtered this list with a predicate that was true for
+  // every row it could ever see — a rule that looked like a rule and was not.
 
   return (
     <>
@@ -169,6 +206,7 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
               <tr>
                 <th scope="col">{t('scenario.label')}</th>
                 <th scope="col">{t('scenario.kind')}</th>
+                <th scope="col">{t('scenario.note')}</th>
                 <th scope="col">{t('scenario.source')}</th>
                 <th scope="col" className="num">{t('scenario.amounts')}</th>
                 <th scope="col">{t('scenario.created')}</th>
@@ -184,6 +222,7 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
                     {v.locked ? <span className="lock-cue" title={t('scenario.isLocked')}> 🔒</span> : null}
                   </th>
                   <td>{t(KIND_LABEL[v.kind])}</td>
+                  <td>{v.description ?? '—'}</td>
                   <td className="currency-code">{v.copiedFrom ?? '—'}</td>
                   <td className="num">{formatNumber(String(v.amountCount))}</td>
                   <td>{v.createdByName ?? '—'}</td>
@@ -204,6 +243,16 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
                         disabled={busy || v.locked}
                       >
                         {t('scenario.rebase')}
+                      </button>
+                    ) : null}
+                    {mayManage ? (
+                      <button
+                        type="button"
+                        className="button button-small"
+                        onClick={() => startEdit(v)}
+                        disabled={busy}
+                      >
+                        {t('scenario.rename')}
                       </button>
                     ) : null}
                     {mayManage && v.kind !== 'working' ? (
@@ -237,7 +286,7 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
       {mayManage ? (
         <section className="panel">
           <div className="panel-header">
-            <h2>{t('scenario.new')}</h2>
+            <h2>{editing ? t('scenario.editing').replace('{key}', editing) : t('scenario.new')}</h2>
           </div>
           <div className="filters">
             <div className="field">
@@ -252,11 +301,27 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
               />
             </div>
             <div className="field">
+              <label htmlFor="scenario-note">{t('scenario.note')}</label>
+              <input
+                id="scenario-note"
+                className="input"
+                type="text"
+                value={description}
+                maxLength={500}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            {/* Neither the kind nor the source can change after creation — the
+                kind because the migration-008 trigger refuses it, the source
+                because a copy already happened. Disabled rather than hidden so
+                the form does not reshuffle under the cursor. */}
+            <div className="field">
               <label htmlFor="scenario-kind">{t('scenario.kind')}</label>
               <select
                 id="scenario-kind"
                 className="select"
                 value={kind}
+                disabled={editing !== null}
                 onChange={(e) => setKind(e.target.value as typeof kind)}
               >
                 <option value="scenario">{t('scenario.kind.scenario')}</option>
@@ -270,10 +335,11 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
                 id="scenario-copy"
                 className="select"
                 value={copyFrom}
+                disabled={editing !== null}
                 onChange={(e) => setCopyFrom(e.target.value)}
               >
                 <option value="">{t('scenario.copyNothing')}</option>
-                {copyable.map((v) => (
+                {list.versions.map((v) => (
                   <option key={v.key} value={v.key}>{v.label}</option>
                 ))}
               </select>
@@ -281,11 +347,16 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
             <button
               type="button"
               className="button button-primary"
-              onClick={() => void create()}
+              onClick={() => void (editing ? rename() : create())}
               disabled={busy || label.trim() === ''}
             >
-              {t('scenario.create')}
+              {t(editing ? 'scenario.save' : 'scenario.create')}
             </button>
+            {editing ? (
+              <button type="button" className="button" onClick={cancelEdit} disabled={busy}>
+                {t('scenario.cancel')}
+              </button>
+            ) : null}
           </div>
           <p className="footnote">{t('scenario.newHint')}</p>
         </section>
@@ -294,7 +365,29 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
       {comparison ? (
         <section className="panel">
           <div className="panel-header">
-            <h2>{t('scenario.comparison').replace('{against}', against)}</h2>
+            {/* Labels, not keys. The key is a slug for the URL and the
+                column; a heading that read "cost-freeze against growth-case"
+                made the reader translate it back. */}
+            <h2>
+              {t('scenario.comparison')
+                .replace('{base}', labelOf(comparison.base))
+                .replace('{against}', labelOf(comparison.against))}
+            </h2>
+          </div>
+          <div className="filters">
+            <div className="field">
+              <label htmlFor="scenario-base">{t('scenario.against')}</label>
+              <select
+                id="scenario-base"
+                className="select"
+                value={base}
+                onChange={(e) => { setBase(e.target.value); compare(against, e.target.value); }}
+              >
+                {list.versions.filter((v) => v.key !== against).map((v) => (
+                  <option key={v.key} value={v.key}>{v.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="table-scroll" tabIndex={0} role="group">
             <table>
@@ -302,8 +395,8 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
               <thead>
                 <tr>
                   <th scope="col">{t('scenario.category')}</th>
-                  <th scope="col" className="num">{t('scenario.working')}</th>
-                  <th scope="col" className="num">{t('scenario.thisVersion')}</th>
+                  <th scope="col" className="num">{labelOf(comparison.base)}</th>
+                  <th scope="col" className="num">{labelOf(comparison.against)}</th>
                   <th scope="col" className="num">{t('scenario.delta')}</th>
                 </tr>
               </thead>

@@ -69,6 +69,17 @@ async function loadAssets(): Promise<Map<string, Asset>> {
  * change to Vite's naming cannot silently produce a shell that references a
  * stylesheet which is not there.
  */
+/**
+ * A data-URI icon rather than a served file.
+ *
+ * Every page load was requesting /favicon.ico and getting a 404, because this
+ * route serves /assets/* by exact filename and nothing else. Inlining the icon
+ * keeps that property — no second file-serving path, no path joining — and
+ * `img-src 'self' data:` already permits it. It is an inline *image*, not an
+ * inline script or style, so SEC-032 is untouched.
+ */
+const FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6df6'/%3E%3Cpath d='M11 10h10M11 16h10M11 22h6' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E";
+
 function shellHtml(nonce: string, scripts: string[], stylesheets: string[]): string {
   const links = stylesheets
     .map((name) => `<link rel="stylesheet" href="/assets/${name}">`)
@@ -83,6 +94,7 @@ function shellHtml(nonce: string, scripts: string[], stylesheets: string[]): str
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spendifre</title>
+<link rel="icon" href="${FAVICON}">
 ${links}
 ${tags}
 </head>
