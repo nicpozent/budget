@@ -31,6 +31,9 @@ targetScope = 'resourceGroup'
 @allowed(['eu', 'ch', 'apac', 'cn'])
 param residency string
 
+@description('Regions whose entities this deployment serves. Must include `residency`. Widening this beyond the home region is a cross-border transfer — see CMP-140.')
+param servedRegions array = [residency]
+
 @description('Azure region. Must be inside the residency boundary above.')
 param location string
 
@@ -129,6 +132,16 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
           privateEndpointNetworkPolicies: 'Enabled'
         }
       }
+      {
+        // Private endpoints only. `data` is delegated to PostgreSQL flexible
+        // server and a delegated subnet cannot host one, so the file share
+        // needs its own.
+        name: 'links'
+        properties: {
+          addressPrefix: '10.20.3.0/24'
+          privateEndpointNetworkPolicies: 'Enabled'
+        }
+      }
     ]
   }
 }
@@ -207,9 +220,70 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
-resource backupContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+// An Azure Files share, not a blob container.
+//
+// The application writes archives with `fs.writeFile`, and Container Apps can
+// mount Files but not Blob. The alternative was to take the Azure Blob SDK as a
+// dependency, which ADR 0004 sets a high bar for — and the bar is not met here,
+// because a mount achieves the same result with no code, no credential handling
+// in the application, and nothing new to keep patched.
+//
+// What this does *not* provide is blob immutability. That was not configured on
+// the container it replaces either, so nothing is lost today; if a WORM
+// retention policy on backups becomes a requirement, that is the argument for
+// revisiting the SDK, and it should be made explicitly rather than discovered.
+resource backupShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = {
   name: '${storage.name}/default/backups'
-  properties: { publicAccess: 'None' }
+  properties: {
+    // Archives are ~10 MB compressed on the current dataset. 100 GiB is the
+    // smallest provisioned size that is not an obstacle.
+    shareQuota: 100
+    enabledProtocols: 'SMB'
+  }
+}
+
+// The storage account refuses public network access, so the mount has to arrive
+// over a private endpoint.
+resource backupLink 'Microsoft.Network/privateEndpoints@2023-11-01' = {
+  name: '${prefix}-files-pe'
+  location: location
+  properties: {
+    subnet: { id: vnet.properties.subnets[2].id }
+    privateLinkServiceConnections: [
+      {
+        name: 'files'
+        properties: {
+          privateLinkServiceId: storage.id
+          groupIds: ['file']
+        }
+      }
+    ]
+  }
+}
+
+resource filesDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.file.${environment().suffixes.storage}'
+  location: 'global'
+}
+
+resource filesDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: filesDnsZone
+  name: '${prefix}-files-dns'
+  location: 'global'
+  properties: {
+    virtualNetwork: { id: vnet.id }
+    registrationEnabled: false
+  }
+}
+
+resource filesDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {
+  parent: backupLink
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      { name: 'file', properties: { privateDnsZoneId: filesDnsZone.id } }
+    ]
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +340,25 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
+// Container Apps mounts Azure Files with the storage account key, not with a
+// managed identity — the platform does not support identity-based file mounts.
+// The key is read from the account at deployment time and never appears in a
+// parameter file or in the app's environment; the application still knows
+// nothing about storage credentials, it just writes to a path.
+resource backupStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
+  parent: environment
+  name: 'backups'
+  properties: {
+    azureFile: {
+      accountName: storage.name
+      accountKey: storage.listKeys().keys[0].value
+      shareName: 'backups'
+      accessMode: 'ReadWrite'
+    }
+  }
+  dependsOn: [backupShare]
+}
+
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: '${prefix}-api'
   location: location
@@ -316,6 +409,15 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'PORT', value: '8080' }
             { name: 'PUBLIC_ORIGIN', value: publicOrigin }
             { name: 'RESIDENCY_REGION', value: residency }
+            // Which regions this deployment serves, as opposed to where it
+            // runs. Defaults to its own region alone; widening it is a
+            // cross-border transfer and needs a lawful basis (CMP-140), which
+            // is why it is a deliberate parameter and not derived.
+            { name: 'SERVED_REGIONS', value: join(servedRegions, ',') }
+            // SEC-013: the limiter counts per process, so it has to know how
+            // many processes there are. minReplicas, not maxReplicas — the
+            // divisor that never over-restricts.
+            { name: 'REPLICA_COUNT', value: string(minReplicas) }
             { name: 'FISCAL_YEAR', value: string(fiscalYear) }
             // Passwordless: the token comes from the managed identity.
             {
@@ -359,7 +461,13 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
               periodSeconds: 10
             }
           ]
+          volumeMounts: [
+            { volumeName: 'backups', mountPath: '/var/backups' }
+          ]
         }
+      ]
+      volumes: [
+        { name: 'backups', storageType: 'AzureFile', storageName: backupStorage.name }
       ]
       scale: {
         minReplicas: minReplicas

@@ -502,8 +502,12 @@ multi-year capital planning beyond the depreciation schedule, and any AI-assiste
 
 ## 12. Open decisions
 
-1. **PIPL hosting topology** — blocks the deployment architecture. Needs Legal plus a decision
-   on whether mainland China entities are in scope at all. (`CMP-140`)
+1. **PIPL and cross-border transfer.** The *topology* is decided — one central deployment,
+   not one per region — which removes the architectural half of this question and sharpens the
+   legal half: a central deployment serving another jurisdiction's entities is a transfer, and
+   needs a lawful basis. Still needs Legal, plus a decision on whether mainland China entities
+   are in scope at all. Until then `SERVED_REGIONS` names only the jurisdictions that have one.
+   (`CMP-140`)
 2. **NIS2 applicability** — sector assessment plus supply-chain flow-down review. (`CMP-120`)
 3. **Ledger integration** for actuals: which system, what granularity, what cadence. (`FR-040`)
 4. **Entra group model** — one group per role, or role plus entity-scope groups.

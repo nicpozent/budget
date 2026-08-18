@@ -204,22 +204,42 @@ a plaintext `PUBLIC_ORIGIN`, `DB_SSL_MODE=disable`, a non-synthetic `SEED_MODE`,
 and absent Entra configuration. Each of those is a fail-closed cross-check with
 a test, not a deployment convention.
 
-### 7.1 Residency topology — the open decision
+### 7.1 Residency topology — one central deployment
 
-`SPEC.md` §12.1 and `CMP-140` are unresolved: a single global tenant is likely
-not lawful for mainland China. The code is ready for either answer — entities
-carry `residency`, the deployment carries `RESIDENCY_REGION`, and a mismatch
-404s even for an administrator. The **decision** is still Legal's.
+**The hosting decision is made: a single central deployment, not one per
+region.** What that decision does *not* do is answer `CMP-140`; it makes it
+sharper. The per-region topology was the arrangement in which no data crossed a
+border, so choosing against it means every non-EU jurisdiction's data now has to
+have a lawful basis for being processed centrally. `SPEC.md` §12.1 stays open,
+and it is now a question about transfers rather than about architecture.
+
+The code follows the decision without losing the control. Two settings, because
+there were always two questions inside the one they used to share:
+
+| Setting | Answers | Arity |
+|---|---|---|
+| `RESIDENCY_REGION` | Where this deployment *runs* | One value. A backup archive is bound to it by the AES-GCM AAD, so it cannot become a list without invalidating every archive |
+| `SERVED_REGIONS` | Whose entities it may *show* | A list, defaulting to the home region alone |
+
+Conflating them is what made a central deployment unimplementable: it served 14
+of the 21 entities and made the other 7 invisible to everyone including the
+administrator, because "where we run" was being used to answer "whose data may
+we show".
+
+`SERVED_REGIONS` is still an allow-list, still applied in the single scope
+resolver, and still defaults closed — adding a region is a deliberate,
+reviewable configuration change, and the runtime self-test reports both the
+served set and any entity stranded outside it.
 
 ```mermaid
 flowchart TB
-  EU["EU deployment<br/>Azure Sweden Central<br/>serves residency=eu"]
-  CH["CH deployment<br/>Azure Switzerland North<br/>serves residency=ch"]
-  AP["APAC deployment<br/>Azure Southeast Asia<br/>serves residency=apac"]
-  CN["CN — not provisioned<br/>blocks a single global tenant"]
-  EU -.->|no cross-region reads| CH
-  CH -.-> AP
-  AP -.-> CN
+  subgraph central["Central deployment — Azure Sweden Central"]
+    APP["Spendifre<br/>RESIDENCY_REGION=eu<br/>SERVED_REGIONS declared explicitly"]
+  end
+  EU["residency=eu · 14 entities"] --> APP
+  CH["residency=ch · 2 entities"] --> APP
+  AP["residency=apac · 4 entities"] --> APP
+  CN["residency=cn · 1 entity<br/>PIPL — needs a lawful basis<br/>before it is declared"] -.->|not served until Legal agrees| APP
 ```
 
 ## 8. Known gaps

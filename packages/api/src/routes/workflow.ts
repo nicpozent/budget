@@ -41,7 +41,7 @@ export async function registerWorkflowRoutes(
   app.post('/api/entities/:entityId/submit', { config: requires('budget.submit') }, async (request) => {
     const { entityId } = parse(z.object({ entityId: schemas.uuid }), request.params);
     const principal = requireWriteEntity(request, entityId);
-    await assertEntityEditable(db, { entityId, fiscalYear: year, region: config.RESIDENCY_REGION });
+    await assertEntityEditable(db, { entityId, fiscalYear: year, regions: config.servedRegions });
 
     // FR-057: a blocking rule prevents submission server-side, not merely in
     // the UI. This is the check that counts.
@@ -274,7 +274,7 @@ export async function registerWorkflowRoutes(
 
   /** FR-052 the CFO's queue, and the owner's view of their own submissions. */
   app.get('/api/submissions', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return [];
     return db.query(sql`
       select s.id, s.entity_id as "entityId", e.code as "entityCode", e.name as "entityName",
@@ -386,7 +386,7 @@ export async function registerWorkflowRoutes(
   });
 
   app.get('/api/cycle/exceptions', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return [];
     return db.query(sql`
       select ce.id, ce.entity_id as "entityId", e.code as "entityCode", ce.reason,
@@ -511,7 +511,7 @@ export async function registerWorkflowRoutes(
 
   /** FR-033 preview: what next year's opex would carry, without writing it. */
   app.get('/api/reports/depreciation-flow-through', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return { targetYear: year + 1, lines: [] };
     return {
       targetYear: year + 1,

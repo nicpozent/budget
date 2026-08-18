@@ -59,17 +59,17 @@ export const periodsIn = (granularity: string): number =>
 export async function assertEntityInRegion(
   db: Db,
   entityId: string,
-  region: string,
+  regions: readonly string[],
 ): Promise<void> {
   const row = await db.one(sql`
-    select 1 from entities where id = ${entityId} and residency = ${region}
+    select 1 from entities where id = ${entityId} and residency = any(${[...regions]}::text[])
   `);
   if (!row) throw notFound('entity is not served by this deployment');
 }
 
 /**
- * Entity IDs the caller may read (SEC-011), narrowed to this deployment's
- * region (SPEC §9.4).
+ * Entity IDs the caller may read (SEC-011), narrowed to the regions this
+ * deployment serves (SPEC §9.4).
  *
  * Both filters live here, in the one function every read path calls, rather
  * than being repeated per endpoint. An earlier arrangement applied residency
@@ -78,17 +78,23 @@ export async function assertEntityInRegion(
  * which is exactly the cross-border processing CMP-140 exists to prevent.
  * Scope rules belong in one place precisely because a second place will be
  * forgotten.
+ *
+ * `regions` is a list rather than a single value because the group chose one
+ * central deployment. It is still an allow-list, still defaults to the home
+ * region alone, and still filters here and nowhere else — what changed is its
+ * arity, not the control.
  */
 export async function visibleEntityIds(
   db: Db,
   request: Parameters<typeof principalOf>[0],
-  region: string,
+  regions: readonly string[],
 ): Promise<string[]> {
   const principal = principalOf(request);
+  const served = [...regions];
 
   if (readScope(principal.role) === 'all') {
     const rows = await db.query<{ id: string }>(sql`
-      select id from entities where residency = ${region} order by code
+      select id from entities where residency = any(${served}::text[]) order by code
     `);
     return rows.map((r) => r.id);
   }
@@ -97,7 +103,8 @@ export async function visibleEntityIds(
 
   const rows = await db.query<{ id: string }>(sql`
     select id from entities
-    where id = any(${[...principal.ownedEntityIds]}::uuid[]) and residency = ${region}
+    where id = any(${[...principal.ownedEntityIds]}::uuid[])
+      and residency = any(${served}::text[])
     order by code
   `);
   return rows.map((r) => r.id);
@@ -120,7 +127,7 @@ export async function registerMetaRoutes(
   );
 
   app.get('/api/entities', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return [];
     return db.query(sql`
       select e.id, e.code, e.name, e.currency, e.state, e.deadline::text as deadline,
@@ -157,7 +164,7 @@ export async function registerMetaRoutes(
   });
 
   app.get('/api/drivers', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return [];
     // FR-020: `derivedFrom` and `factor` are the definition, `value` is the
     // resolved figure. Both are returned so the view can show a derived driver
@@ -183,7 +190,7 @@ export async function registerMetaRoutes(
   app.get('/api/budget/:entityId', { config: authenticatedRoute }, async (request) => {
     const { entityId } = parse(z.object({ entityId: schemas.uuid }), request.params);
     requireReadEntity(request, entityId);
-    await assertEntityInRegion(db, entityId, config.RESIDENCY_REGION);
+    await assertEntityInRegion(db, entityId, config.servedRegions);
 
     const cycle = await loadCycle(db, config.FISCAL_YEAR);
     const periods = periodsIn(cycle.granularity);
@@ -273,7 +280,7 @@ export async function registerMetaRoutes(
     `);
     if (!line) throw notFound('line does not exist');
     requireReadEntity(request, line.entity_id);
-    await assertEntityInRegion(db, line.entity_id, config.RESIDENCY_REGION);
+    await assertEntityInRegion(db, line.entity_id, config.servedRegions);
 
     const cycle = await loadCycle(db, config.FISCAL_YEAR);
     const periods = periodsIn(cycle.granularity);

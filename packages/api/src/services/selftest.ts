@@ -302,23 +302,89 @@ const CHECKS: readonly Check[] = [
   // -------------------------------------------------------------------------
   {
     id: 'config.residency',
-    title: 'No entity outside this deployment’s region',
+    title: 'Every entity belongs to a region this deployment serves',
     requirement: 'CMP-140',
     async run(db, config) {
-      const foreign = await countOf(db, sql`
-        select count(*)::text as count from entities where residency <> ${config.RESIDENCY_REGION}
+      const served = [...config.servedRegions];
+      const rows = await db.query<{ residency: string; count: string }>(sql`
+        select residency, count(*)::text as count from entities
+        where not (residency = any(${served}::text[]))
+        group by residency order by residency
       `);
-      return foreign === 0
-        ? { status: 'pass', detail: `All entities are in region "${config.RESIDENCY_REGION}".` }
-        : {
-            status: 'warn',
-            // Not a failure: the scope resolver already refuses to serve them,
-            // so their presence is a data-placement question rather than a
-            // live exposure. It is still worth someone knowing.
-            detail:
-              `${foreign} entities belong to another region. They are unreachable through the ` +
-              'API by design, but they are stored here — which is the question CMP-140 asks.',
-          };
+      const stranded = rows.reduce((n, r) => n + Number(r.count), 0);
+      const list = served.join(', ');
+
+      if (stranded === 0) {
+        // Worth naming the served set even on a pass: "we serve eu, ch, apac"
+        // is the sentence someone needs when they are asked what this
+        // deployment holds, and it is the one the config makes true.
+        return { status: 'pass', detail: `Serving ${list}; every entity is in one of them.` };
+      }
+      return {
+        status: 'warn',
+        // Not a failure: the scope resolver refuses to serve them, so this is a
+        // data-placement question rather than a live exposure. But on a single
+        // central deployment it is also the shape of a configuration mistake —
+        // entities nobody can budget — so the detail names them.
+        detail:
+          `${stranded} entities are outside the served set (${list}): ` +
+          `${rows.map((r) => `${r.count} × ${r.residency}`).join(', ')}. ` +
+          'They are unreachable through the API, which is either correct or a ' +
+          'missing region in SERVED_REGIONS.',
+      };
+    },
+  },
+  {
+    id: 'config.backupStorage',
+    title: 'Backups are written to storage that outlives the container',
+    requirement: 'CMP-107',
+    async run(_db, config) {
+      // The check this deployment most needed and did not have.
+      //
+      // `BACKUP_DIR` defaulted to a path inside the container. With two
+      // replicas that made download and verify a coin flip — the manifest is in
+      // the database and shared, the ciphertext was on one replica's disk — and
+      // a restart destroyed the archive outright. Nothing caught it, because
+      // the readability check runs *inside* a replica and passes on whichever
+      // one happens to hold the file.
+      //
+      // Checked by asking the filesystem whether the directory is a mount
+      // point, which is the property that actually matters. A path that is a
+      // mount is backed by something outside the container; a path that is not
+      // is inside it, whatever it is called.
+      const { stat } = await import('node:fs/promises');
+      const path = await import('node:path');
+
+      if (!config.BACKUP_ENCRYPTION_KEY) {
+        return { status: 'skipped', detail: 'Backups are not configured on this deployment.' };
+      }
+
+      let here;
+      let parent;
+      try {
+        here = await stat(config.BACKUP_DIR);
+        parent = await stat(path.dirname(path.resolve(config.BACKUP_DIR)));
+      } catch {
+        return {
+          status: 'warn',
+          detail: `${config.BACKUP_DIR} does not exist yet; no backup has been taken.`,
+        };
+      }
+
+      // A mount point's device number differs from its parent's. This is how
+      // `mountpoint(1)` decides, and it needs no shell — which the distroless
+      // runtime does not have.
+      const mounted = here.dev !== parent.dev;
+      if (mounted) {
+        return { status: 'pass', detail: `${config.BACKUP_DIR} is a mounted volume.` };
+      }
+      return {
+        status: config.isProduction ? 'fail' : 'warn',
+        detail:
+          `${config.BACKUP_DIR} is inside the container filesystem. Archives will not ` +
+          'survive a restart and are invisible to other replicas — mount shared storage ' +
+          'there before relying on this for recovery (CMP-107).',
+      };
     },
   },
   {

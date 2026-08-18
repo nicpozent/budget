@@ -13,14 +13,14 @@ import { forbidden, notFound } from '../http/errors.ts';
 export interface EditabilityContext {
   entityId: string;
   fiscalYear: number;
-  /** SPEC §9.4 — the deployment's region. A write to an entity belonging to a
-   *  different region is refused, not merely hidden. */
-  region: string;
+  /** SPEC §9.4 — the regions this deployment serves. A write to an entity
+   *  outside them is refused, not merely hidden. */
+  regions: readonly string[];
 }
 
 export async function assertEntityEditable(
   db: Db,
-  { entityId, fiscalYear, region }: EditabilityContext,
+  { entityId, fiscalYear, regions }: EditabilityContext,
 ): Promise<void> {
   const row = await db.one<{
     state: string;
@@ -43,7 +43,7 @@ export async function assertEntityEditable(
     from entities e
     cross join cycles c
     where e.id = ${entityId} and c.fiscal_year = ${fiscalYear}
-      and e.residency = ${region}
+      and e.residency = any(${[...regions]}::text[])
   `);
 
   if (!row) throw notFound('entity or cycle does not exist in this region');

@@ -40,11 +40,30 @@ const envSchema = z.object({
   DB_CA_CERT: z.string().optional(),
 
   /**
-   * SPEC §9.4. The deployment's region. The application refuses to return a row
-   * whose residency does not match, so a misrouted replica or a mistaken
-   * connection string fails closed rather than exporting data across a border.
+   * SPEC §9.4. Where this deployment *lives*.
+   *
+   * A single value, and it stays single: a backup archive is bound to it by the
+   * AES-GCM additional-authenticated-data, so an archive taken in one region
+   * cannot be decrypted as though it belonged to another. Widening this would
+   * silently invalidate every existing archive.
    */
   RESIDENCY_REGION: z.enum(RESIDENCY_REGIONS).default('eu'),
+
+  /**
+   * Which regions' entities this deployment *serves* — a comma-separated list.
+   *
+   * These were one setting until the group chose a single central deployment,
+   * and conflating them made that choice unimplementable: a central EU
+   * deployment served 14 of 21 entities and made the other 7 invisible to
+   * everyone including the administrator, because "where we run" was being used
+   * to answer "whose data may we show".
+   *
+   * They are separate questions. This one is still an allow-list and still
+   * defaults to the home region alone, so nothing widens by accident — serving
+   * another jurisdiction's data is a deliberate, recorded configuration and a
+   * cross-border transfer someone has to have a lawful basis for (CMP-140).
+   */
+  SERVED_REGIONS: z.string().optional(),
 
   /** Origin used for absolute URLs and for the strict origin check (SEC-034). */
   PUBLIC_ORIGIN: z.string().url().default('http://localhost:8080'),
@@ -119,12 +138,33 @@ const envSchema = z.object({
   CSP_REPORT_URI: z.string().default('/api/security/csp-report'),
 
   FISCAL_YEAR: z.coerce.number().int().min(2000).max(2100).default(2026),
+
+  /**
+   * How many replicas of this image are running (SEC-013).
+   *
+   * The rate limiter keeps its counters in process memory, so a limit of 600 a
+   * minute is 600 *per replica*. The Bicep runs a minimum of two and scales to
+   * ten, which quietly made the real ceiling anywhere between 1,200 and 6,000 —
+   * a control that gets weaker exactly when load is highest.
+   *
+   * Dividing by the replica count is not as good as a shared store, and it is
+   * not pretending to be: with uneven load balancing a single caller can still
+   * exceed the intended rate on one replica. What it does is make the effective
+   * ceiling roughly what the number says instead of a multiple of it, and put
+   * the assumption somewhere a reader can see. Set it to the platform's
+   * `minReplicas`, because that is the divisor that never over-restricts.
+   */
+  REPLICA_COUNT: z.coerce.number().int().min(1).max(100).default(1),
 });
 
 export type AppConfig = Readonly<z.infer<typeof envSchema>> & {
   readonly isProduction: boolean;
   readonly cookieSecure: boolean;
+  /** Parsed `SERVED_REGIONS`, always including `RESIDENCY_REGION`. */
+  readonly servedRegions: readonly Region[];
 };
+
+export type Region = (typeof RESIDENCY_REGIONS)[number];
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.safeParse(env);
@@ -161,10 +201,42 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     }
   }
 
+  const servedRegions = parseServedRegions(cfg.SERVED_REGIONS, cfg.RESIDENCY_REGION);
+
   return Object.freeze({
     ...cfg,
     isProduction,
     // Host-prefixed cookies require Secure, so this also decides the cookie name.
     cookieSecure: isProduction || cfg.PUBLIC_ORIGIN.startsWith('https://'),
+    servedRegions,
   });
+}
+
+/**
+ * Unset means "this region only" — the conservative reading, and the one that
+ * matches how the setting behaved before it existed.
+ *
+ * A deployment must serve its own region. Not serving it would mean holding
+ * backups bound to a region whose rows it refuses to read, which is a
+ * configuration with no coherent meaning rather than a restrictive one.
+ */
+function parseServedRegions(raw: string | undefined, home: Region): readonly Region[] {
+  if (raw === undefined || raw.trim() === '') return Object.freeze([home]);
+
+  const named = raw.split(',').map((r) => r.trim().toLowerCase()).filter((r) => r !== '');
+  const unknown = named.filter((r) => !(RESIDENCY_REGIONS as readonly string[]).includes(r));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Invalid configuration:\n  SERVED_REGIONS: unknown region ${unknown.join(', ')} ` +
+        `(expected any of ${RESIDENCY_REGIONS.join(', ')})`,
+    );
+  }
+  if (!named.includes(home)) {
+    throw new Error(
+      `Invalid configuration:\n  SERVED_REGIONS must include RESIDENCY_REGION ("${home}")`,
+    );
+  }
+  // Deduplicated and ordered as declared, so the value that reaches a query is
+  // the value someone wrote.
+  return Object.freeze([...new Set(named)] as Region[]);
 }

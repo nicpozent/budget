@@ -18,7 +18,7 @@ docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              576 tests: authorisation matrix, security, invariants, a11y,
+test/              582 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -151,6 +151,16 @@ path" checkable rather than asserted.
 `CMP-107` still needs a published RTO/RPO. The mechanism works; the commitment
 is the organisation's.
 
+**Backups must be written to shared storage.** The Bicep runs a minimum of two
+replicas, and `BACKUP_DIR` used to point inside the container: the manifest is
+in the database and shared, the ciphertext was on one replica's disk, so
+download and verify were a coin flip and a restart destroyed the archive. The
+environment now mounts an Azure Files share at `/var/backups`, and the self-test
+refuses to call a path shared unless it is genuinely a mount point — a check
+that fails in production and warns elsewhere, because the previous
+`backup.readable` check ran *inside* a replica and passed on whichever one
+happened to hold the file.
+
 ## Scenarios and driver trees (ADR 0007)
 
 `FR-080` is built. `budget_version` was a free-text column from day one, exactly
@@ -182,7 +192,7 @@ and no review ever sees.
 
 ## Self-test (row 14)
 
-Sixteen read-only checks against the live database — audit chain and anchor,
+Eighteen read-only checks against the live database — audit chain and anchor,
 the financial invariants over real rows, whether the latest backup can still be
 read, whether the retention job is running. Three ways in:
 
@@ -226,13 +236,22 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
-**Residency is enforced in one place.** Every entity carries a region; the
-deployment carries its own. The single scope resolver applies both the caller's
-read scope and the region filter, so an EU deployment returns 404 for a
-mainland-China entity even to an administrator. That does not make the group
-PIPL-compliant — it makes the code ready for whichever topology Legal picks
-(`SPEC.md` §12.1), and removes the failure mode where a misrouted replica
-quietly serves data across a border.
+**Residency is enforced in one place, and it is two settings.**
+`RESIDENCY_REGION` is where the deployment runs — one value, because a backup
+archive is bound to it by the AES-GCM AAD. `SERVED_REGIONS` is whose entities it
+may show — a list, defaulting to the home region alone. The single scope
+resolver applies the caller's read scope and the served set together, so an
+entity outside the set returns 404 even to an administrator.
+
+They were one setting until the group chose a central deployment, and the
+conflation made that choice unimplementable: it served 14 of 21 entities and
+made the other 7 invisible to everyone, because "where we run" was answering
+"whose data may we show". Splitting them changed the control's arity, not the
+control — still an allow-list, still one place, still closed by default.
+
+None of that makes the group PIPL-compliant. Choosing central hosting *removes*
+the arrangement in which nothing crossed a border, so every non-EU jurisdiction
+now needs a lawful basis before its region is declared (`SPEC.md` §12.1).
 
 **Bugs the tests found while building.** Worth recording because they are the
 argument for the tests existing: the FX rate schema capped rates at 4 decimal

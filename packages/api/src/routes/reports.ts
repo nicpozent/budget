@@ -54,7 +54,7 @@ export async function registerReportRoutes(
 
   /** FR-060 consolidation: group total, per-entity status, category split. */
   app.get('/api/reports/consolidation', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return { total: '0.0000', entities: [], categories: [] };
 
     const cycle = await loadCycle(db, year);
@@ -111,7 +111,7 @@ export async function registerReportRoutes(
       request.query,
     );
 
-    const visible = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const visible = await visibleEntityIds(db, request, config.servedRegions);
     const ids = query.entityId
       ? visible.filter((id) => id === query.entityId)
       : visible;
@@ -184,7 +184,7 @@ export async function registerReportRoutes(
   /** FR-062 variance: this year against last, largest movements first. */
   app.get('/api/reports/variance', { config: authenticatedRoute }, async (request) => {
     const query = parse(z.object({ entityId: schemas.uuid.optional() }), request.query);
-    const visible = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const visible = await visibleEntityIds(db, request, config.servedRegions);
     const ids = query.entityId ? visible.filter((id) => id === query.entityId) : visible;
     if (ids.length === 0) return { lines: [], categories: [] };
 
@@ -245,7 +245,7 @@ export async function registerReportRoutes(
    */
   app.get('/api/reports/consumption', { config: authenticatedRoute }, async (request) => {
     const query = parse(schemas.consumptionFilterSchema, request.query);
-    const visible = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const visible = await visibleEntityIds(db, request, config.servedRegions);
     const ids = query.entityId ? visible.filter((id) => id === query.entityId) : visible;
     if (ids.length === 0) {
       return { kpis: null, lines: [], categories: [], showFilters: false };
@@ -299,7 +299,7 @@ export async function registerReportRoutes(
   /** FR-030..FR-032 capex depreciation schedules. */
   app.get('/api/reports/capex', { config: authenticatedRoute }, async (request) => {
     const query = parse(z.object({ entityId: schemas.uuid.optional() }), request.query);
-    const visible = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const visible = await visibleEntityIds(db, request, config.servedRegions);
     const ids = query.entityId ? visible.filter((id) => id === query.entityId) : visible;
     if (ids.length === 0) return { lines: [], yearTotals: {} };
 
@@ -364,7 +364,7 @@ export async function registerReportRoutes(
 
   /** FR-023 allocations: own vs charged vs total, read-only to the receiver. */
   app.get('/api/reports/allocations', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+    const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return { pools: [], entities: [] };
 
     const pools = await db.query<{ name: string; amount: string; currency: string; driver_key: string }>(sql`
@@ -445,7 +445,7 @@ export async function registerReportRoutes(
     },
     async (request, reply) => {
       const principal = principalOf(request);
-      const ids = await visibleEntityIds(db, request, config.RESIDENCY_REGION);
+      const ids = await visibleEntityIds(db, request, config.servedRegions);
 
       const cycle = await loadCycle(db, year);
       const periods = periodsIn(cycle.granularity);

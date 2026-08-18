@@ -315,6 +315,40 @@ describe('SEC-011 object-level authorisation', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('serves another region only when that region is declared', async () => {
+    // The central-deployment case (CMP-140). The mechanism is unchanged — one
+    // allow-list, applied in one resolver — but a central deployment has to be
+    // able to declare more than one entry, and this proves both directions:
+    // narrow by default, wide only when someone says so.
+    const wide = await createHarness({
+      rateLimit: 'off',
+      env: { RESIDENCY_REGION: 'eu', SERVED_REGIONS: 'eu,ch,apac,cn' },
+    });
+    try {
+      const admin = await wide.as('admin@birgma.test');
+      const cn = await wide.db.one<{ id: string }>(sql`
+        select id from entities where residency = 'cn' limit 1
+      `);
+
+      const list = await wide.app.inject({
+        method: 'GET', url: '/api/entities', headers: authed(admin, false),
+      });
+      const regions = new Set(
+        (list.json() as { residency: string }[]).map((e) => e.residency),
+      );
+      expect([...regions].sort()).toEqual(['apac', 'ch', 'cn', 'eu']);
+
+      // And the aggregate follows the same set, because it goes through the
+      // same resolver rather than filtering afterwards.
+      const grid = await wide.app.inject({
+        method: 'GET', url: `/api/budget/${cn!.id}`, headers: authed(admin, false),
+      });
+      expect(grid.statusCode).toBe(200);
+    } finally {
+      await wide.close();
+    }
+  });
+
   it('refuses an unauthenticated request', async () => {
     const response = await harness.app.inject({ method: 'GET', url: '/api/entities' });
     expect(response.statusCode).toBe(401);
@@ -532,6 +566,45 @@ describe('Configuration fails closed', () => {
     ENTRA_CLIENT_ID: 'c',
     ENTRA_CLIENT_SECRET: 's',
   };
+
+  // Region and replica parsing happens after the production cross-checks, so
+  // these use a base that satisfies them rather than tripping on DB_SSL_MODE.
+  const valid = { ...base, DB_SSL_MODE: 'verify-full' };
+
+  it('serves only its own region unless told otherwise', () => {
+    // The conservative default, and the behaviour the setting had before it
+    // existed. Nothing widens by upgrading.
+    expect(loadConfig({ ...valid, RESIDENCY_REGION: 'eu' }).servedRegions).toEqual(['eu']);
+    expect(loadConfig({ ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: '' }).servedRegions)
+      .toEqual(['eu']);
+  });
+
+  it('serves a declared list, in the order it was written, deduplicated', () => {
+    const config = loadConfig({
+      ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: ' eu, CH ,apac,eu ',
+    });
+    expect(config.servedRegions).toEqual(['eu', 'ch', 'apac']);
+    // Where it runs is still a single value — the backup AAD binds to it.
+    expect(config.RESIDENCY_REGION).toBe('eu');
+  });
+
+  it('refuses a region that does not exist', () => {
+    expect(() => loadConfig({ ...valid, SERVED_REGIONS: 'eu,atlantis' }))
+      .toThrow(/unknown region atlantis/);
+  });
+
+  it('refuses a served set that excludes the deployment’s own region', () => {
+    // A deployment holding backups bound to a region whose rows it refuses to
+    // read is not a restrictive configuration, it is an incoherent one.
+    expect(() => loadConfig({ ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: 'apac' }))
+      .toThrow(/must include RESIDENCY_REGION/);
+  });
+
+  it('divides the rate limit across replicas rather than multiplying it', () => {
+    // SEC-013's budget is per deployment; the limiter counts per process.
+    expect(loadConfig({ ...valid, REPLICA_COUNT: '4' }).REPLICA_COUNT).toBe(4);
+    expect(loadConfig(valid).REPLICA_COUNT).toBe(1);
+  });
 
   it('refuses dev auth in production', () => {
     expect(() => loadConfig({ ...base, DEV_AUTH: 'on' })).toThrow(/DEV_AUTH/);

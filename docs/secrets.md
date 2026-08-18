@@ -24,7 +24,7 @@ There is no credential, token or connection string anywhere in source. CI runs
 
 Not secrets, but security-relevant configuration with fail-closed behaviour in
 production: `DEV_AUTH`, `RATE_LIMIT`, `PUBLIC_ORIGIN`, `DB_SSL_MODE`,
-`SEED_MODE`, `RESIDENCY_REGION`.
+`SEED_MODE`, `RESIDENCY_REGION`, `SERVED_REGIONS`, `REPLICA_COUNT`.
 
 ## 2. Local development
 

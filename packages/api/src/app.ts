@@ -82,9 +82,14 @@ export async function buildApp({ db, config }: AppDeps): Promise<FastifyInstance
   // Registering the plugin is what activates per-route `rateLimit` config too,
   // so the switch skips registration entirely rather than raising the ceiling.
   if (config.RATE_LIMIT === 'on') {
+    // SEC-013's budget is 600 requests a minute *for the deployment*, and the
+    // limiter counts per process — see REPLICA_COUNT for why this division
+    // exists and what it does not fix. Floored at 1 so a mis-set replica count
+    // cannot produce a limit of zero and lock everyone out.
+    const perReplica = Math.max(1, Math.floor(600 / config.REPLICA_COUNT));
     await app.register(rateLimit, {
       global: true,
-      max: 600,
+      max: perReplica,
       timeWindow: '1 minute',
       // Per authenticated user where we know them, per address otherwise, so
       // one noisy tenant behind a shared egress cannot lock out the rest
