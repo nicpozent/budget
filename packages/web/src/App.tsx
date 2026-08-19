@@ -524,7 +524,7 @@ function BudgetWorkspace({ me }: { me: Me }): JSX.Element {
           it sits beside the grid rather than below it. `main` is a column, so
           this row lives inside it. */}
       <div className="workspace">
-      <div className="view" tabIndex={0} aria-label="Budget entry content">
+      <div className="view" tabIndex={0} aria-label={t('app.contentRegion', { view: t('nav.budget') })}>
         {message ? <p className="banner banner-error" role="alert">{message}</p> : null}
         <ValidationBanner violations={violations} />
 
@@ -601,7 +601,7 @@ function SignedOut(): JSX.Element {
 /** The Spitfire silhouette from the design bundle, authored for 22–36px. */
 function SpitfireMark(): JSX.Element {
   return (
-    <svg width="24" height="24" viewBox="0 0 64 64" fill="none" role="img" aria-label="Spendifre">
+    <svg width="24" height="24" viewBox="0 0 64 64" fill="none" role="img" aria-label={t('app.name')}>
       <g fill="currentColor" transform="translate(0,5)">
         <path d="M58.6 31.2c-1.6 1.9-4.6 3.4-8.8 4.4-3.6.9-7.9 1.5-12.4 1.8-4.7.3-9.6.3-14 .1l-11.8-.7v-6.9l11.8-1.2c2-.2 4.2-.4 6.5-.5 1.2-3.4 3.6-4.6 5.6-3.3 1 .7 1.8 1.9 2.3 3.4 4.6.5 8.9 1.5 12.4 2.9 3 1.2 5.4 2.6 7 4z" />
         <path d="M15.4 30.6 10.4 15.9c-.4-1.2-1.6-1.4-2.2-.2-.8 1.7-1.5 4.4-2 8l-1.3 9.3z" />

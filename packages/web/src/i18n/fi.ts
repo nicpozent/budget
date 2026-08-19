@@ -445,5 +445,13 @@ export const FI = {
   "template.published": "Julkaistiin versio {version}.",
   "template.publishedImmutable": "Tämä versio on julkaistu, joten sen kentät ovat vain luettavia. Avaa uusi luonnos muuttaaksesi mallipohjaa.",
 
+  "grid.selectAll": "Valitse kaikki rivit",
+  "grid.selectLine": "Valitse {name}",
+  "grid.bulkOperations": "Massatoiminnot",
+  "drawer.lineDetail": "Rivin tiedot",
+  "drawer.detailFor": "Rivin {name} tiedot",
+  "drawer.close": "Sulje rivin tiedot",
+  "audit.searchPlaceholder": "Toiminto tai kuvaus",
+
   'common.error': 'Jokin meni pieleen.',
 } satisfies Catalogue;

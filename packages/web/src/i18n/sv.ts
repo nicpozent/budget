@@ -444,5 +444,13 @@ export const SV = {
   "template.published": "Publicerade version {version}.",
   "template.publishedImmutable": "Den här versionen är publicerad, så dess fält är skrivskyddade. Öppna ett nytt utkast för att ändra mallen.",
 
+  "grid.selectAll": "Markera alla rader",
+  "grid.selectLine": "Markera {name}",
+  "grid.bulkOperations": "Massåtgärder",
+  "drawer.lineDetail": "Raddetaljer",
+  "drawer.detailFor": "Detaljer för {name}",
+  "drawer.close": "Stäng raddetaljer",
+  "audit.searchPlaceholder": "Åtgärd eller detalj",
+
   'common.error': 'Något gick fel.',
 } satisfies Catalogue;

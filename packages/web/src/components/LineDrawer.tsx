@@ -107,8 +107,8 @@ export function LineDrawer({
 
   if (!detail) {
     return (
-      <aside className="drawer" aria-label="Line detail">
-        <p className="empty">{error ?? 'Loading…'}</p>
+      <aside className="drawer" aria-label={t('drawer.lineDetail')}>
+        <p className="empty">{error ?? t('app.loading')}</p>
       </aside>
     );
   }
@@ -118,7 +118,7 @@ export function LineDrawer({
   const approvedCentres = costCentres.filter((c) => c.status === 'approved');
 
   return (
-    <aside className="drawer" aria-label={`Detail for ${line.name}`}>
+    <aside className="drawer" aria-label={t('drawer.detailFor', { name: line.name })}>
       <div className="drawer-header">
         <h2>{line.name}</h2>
         <button
@@ -126,7 +126,7 @@ export function LineDrawer({
           type="button"
           className="button"
           onClick={onClose}
-          aria-label="Close line detail"
+          aria-label={t('drawer.close')}
         >
           ✕
         </button>

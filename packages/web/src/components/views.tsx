@@ -393,7 +393,7 @@ export function AuditView(): JSX.Element {
             className="input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Action or detail"
+            placeholder={t('audit.searchPlaceholder')}
           />
         </div>
       </div>

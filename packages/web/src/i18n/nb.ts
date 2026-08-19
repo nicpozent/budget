@@ -441,5 +441,13 @@ export const NB = {
   "template.published": "Publiserte versjon {version}.",
   "template.publishedImmutable": "Denne versjonen er publisert, så feltene er skrivebeskyttet. Åpne et nytt utkast for å endre malen.",
 
+  "grid.selectAll": "Merk alle linjer",
+  "grid.selectLine": "Merk {name}",
+  "grid.bulkOperations": "Masseoperasjoner",
+  "drawer.lineDetail": "Linjedetaljer",
+  "drawer.detailFor": "Detaljer for {name}",
+  "drawer.close": "Lukk linjedetaljer",
+  "audit.searchPlaceholder": "Handling eller detalj",
+
   'common.error': 'Noe gikk galt.',
 } satisfies Catalogue;

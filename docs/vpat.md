@@ -16,6 +16,18 @@ Report date: **2026-08-16** · Version evaluated: `claude/file-review-8a42qx`
 > A VPAT that overstates conformance is worse than no VPAT, because a procurement
 > team relies on it. This one is written to be checkable.
 
+> **One finding from this revision, because it says what a self-assessment
+> misses.** Nine accessible names were hardcoded English in a six-locale
+> product — the grid's select-all and per-row checkboxes, the line drawer and
+> its close button, the audit search placeholder, the logo. A sighted Swedish
+> user never encountered them; a Swedish screen-reader user heard every one.
+> Neither existing gate could see it: axe checks that an accessible name
+> *exists*, not what language it is in, and the catalogue test matched text
+> between tags. They are now catalogue keys in all six locales, and a third
+> gate asserts that no `aria-label`, `title` or `placeholder` in the client is
+> a literal. The point is not the fix — it is that this was invisible to
+> everything automated for as long as it existed.
+
 ## 1. Evaluation methods
 
 | Method | Coverage | Where |
@@ -23,6 +35,7 @@ Report date: **2026-08-16** · Version evaluated: `claude/file-review-8a42qx`
 | axe-core, WCAG 2.2 A/AA rule set, in Chromium against the running application | All 15 views, each signed in as the role that sees it | `test/a11y.test.ts`, CI-gated |
 | Contrast computed arithmetically over both palettes | Every foreground/background token pair | `test/a11y.test.ts` |
 | Type-scale floor parsed from the CSS tokens | Every declared size | `test/a11y.test.ts` |
+| Accessible names asserted to come from the string catalogue | Every `aria-label`, `title` and `placeholder` in the client | `test/client.test.ts` |
 | Keyboard walkthrough | Manual, per release | [`accessibility.md`](./accessibility.md) §3 |
 | Screen reader (NVDA / VoiceOver) | **Not performed** | — |
 | Assistive-technology user testing | **Not performed** | — |

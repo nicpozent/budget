@@ -216,6 +216,39 @@ describe('NFR-010 string catalogue', () => {
 
     expect(offenders, `untranslated JSX text:\n${offenders.join('\n')}`).toEqual([]);
   });
+
+  /**
+   * The same rule for text a sighted user never sees.
+   *
+   * `aria-label`, `title` and `placeholder` are the accessible name of the
+   * control they sit on, and for a checkbox with no visible label they are the
+   * *only* name it has. Neither of the other two gates sees them: the test
+   * above matches text between tags, and axe checks that an accessible name
+   * exists rather than what language it is in. Seven of these were English in
+   * a six-locale application, so a Swedish screen-reader user heard "Select all
+   * lines" — the one class of untranslated string where the reader cannot see
+   * the surrounding page and work it out.
+   */
+  it('has no untranslated accessible names', async () => {
+    const offenders: string[] = [];
+    // A literal value: `aria-label="..."` or `aria-label={`...`}`. An
+    // expression (`aria-label={t('x')}`) is what this is asking for.
+    const LITERAL = /\b(aria-label|title|placeholder)=(?:"([^"]*)"|\{`([^`]*)`\})/g;
+
+    for await (const entry of glob('**/*.tsx', { cwd: WEB_SRC })) {
+      const source = await readFile(`${WEB_SRC}/${entry}`, 'utf8');
+      for (const [index, line] of source.split('\n').entries()) {
+        for (const match of line.matchAll(LITERAL)) {
+          const value = match[2] ?? match[3] ?? '';
+          // A template literal that is only an interpolation carries no words.
+          if (!/[A-Za-z]{2}/.test(value.replace(/\$\{[^}]*\}/g, ''))) continue;
+          offenders.push(`${entry}:${index + 1}  ${match[1]}="${value}"`);
+        }
+      }
+    }
+
+    expect(offenders, `untranslated accessible names:\n${offenders.join('\n')}`).toEqual([]);
+  });
 });
 
 describe('WCAG 4.1.3 status messages', () => {

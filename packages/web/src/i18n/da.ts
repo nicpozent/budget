@@ -441,5 +441,13 @@ export const DA = {
   "template.published": "Udgav version {version}.",
   "template.publishedImmutable": "Denne version er udgivet, så dens felter er skrivebeskyttede. Åbn et nyt udkast for at ændre skabelonen.",
 
+  "grid.selectAll": "Markér alle linjer",
+  "grid.selectLine": "Markér {name}",
+  "grid.bulkOperations": "Masseoperationer",
+  "drawer.lineDetail": "Linjedetaljer",
+  "drawer.detailFor": "Detaljer for {name}",
+  "drawer.close": "Luk linjedetaljer",
+  "audit.searchPlaceholder": "Handling eller detalje",
+
   'common.error': 'Noget gik galt.',
 } satisfies Catalogue;

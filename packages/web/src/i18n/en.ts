@@ -457,5 +457,13 @@ export const EN = {
   "template.published": "Published version {version}.",
   "template.publishedImmutable": "This version is published, so its fields are read-only. Open a new draft to change the template.",
 
+  "grid.selectAll": "Select all lines",
+  "grid.selectLine": "Select {name}",
+  "grid.bulkOperations": "Bulk operations",
+  "drawer.lineDetail": "Line detail",
+  "drawer.detailFor": "Detail for {name}",
+  "drawer.close": "Close line detail",
+  "audit.searchPlaceholder": "Action or detail",
+
   'common.error': 'Something went wrong.',
 } as const;

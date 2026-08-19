@@ -446,5 +446,13 @@ export const FR = {
   "template.published": "Version {version} publiée.",
   "template.publishedImmutable": "Cette version est publiée, ses champs sont donc en lecture seule. Ouvrez un nouveau brouillon pour modifier le modèle.",
 
+  "grid.selectAll": "Sélectionner toutes les lignes",
+  "grid.selectLine": "Sélectionner {name}",
+  "grid.bulkOperations": "Opérations groupées",
+  "drawer.lineDetail": "Détail de la ligne",
+  "drawer.detailFor": "Détail de {name}",
+  "drawer.close": "Fermer le détail de la ligne",
+  "audit.searchPlaceholder": "Action ou détail",
+
   'common.error': 'Une erreur est survenue.',
 } satisfies Catalogue;

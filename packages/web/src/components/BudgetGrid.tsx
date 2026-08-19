@@ -93,7 +93,7 @@ export function BudgetGrid({
                   type="checkbox"
                   checked={allSelected}
                   onChange={(e) => onSelectAll(allIds, e.target.checked)}
-                  aria-label="Select all lines"
+                  aria-label={t('grid.selectAll')}
                 />
               </th>
               <th scope="col">{t('grid.line')}</th>
@@ -200,7 +200,7 @@ function GridRow({
           type="checkbox"
           checked={selected}
           onChange={() => onToggleSelect(line.id)}
-          aria-label={`Select ${line.name}`}
+          aria-label={t('grid.selectLine', { name: line.name })}
         />
       </td>
 
@@ -295,7 +295,7 @@ export function BulkBar({
   if (count === 0) return null;
 
   return (
-    <div className="toolbar" role="region" aria-label="Bulk operations">
+    <div className="toolbar" role="region" aria-label={t('grid.bulkOperations')}>
       <strong>{count} selected</strong>
 
       <div className="field">
