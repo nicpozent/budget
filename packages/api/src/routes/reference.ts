@@ -20,11 +20,12 @@ import { badRequest, conflict, forbidden, notFound } from '../http/errors.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
 import { privilegeChanges } from '../observability/metrics.ts';
+import { isServed } from '../services/residency.ts';
 
 export async function registerReferenceRoutes(
   app: FastifyInstance,
   db: Db,
-  _config: AppConfig,
+  config: AppConfig,
 ): Promise<void> {
   // -------------------------------------------------------------------------
   // Cost centres (FR-013, SEC-012)
@@ -103,17 +104,32 @@ export async function registerReferenceRoutes(
         code: schemas.shortText(32),
         name: schemas.shortText(200),
         currency: schemas.currency,
-        residency: z.enum(['eu', 'ch', 'apac', 'cn']),
+        // The country, not the bucket. Residency follows from it (migration
+        // 011), so there is no way to file a Vietnamese entity under `eu` by
+        // picking the wrong item in a second dropdown.
+        country: z.string().regex(/^[A-Z]{2}$/, 'expected an ISO 3166-1 alpha-2 code'),
         ownerEmail: z.string().email().max(320).optional(),
       }),
       request.body,
     );
     const principal = principalOf(request);
 
+    const home = await db.one<{ residency: string }>(sql`
+      select residency from countries where code = ${body.country}
+    `);
+    if (!home) throw badRequest('unknown country');
+    // Creating an entity this deployment does not serve would produce a row
+    // that vanishes the moment it is committed — invisible to its own creator.
+    // Refusing says so; the scope filter alone would just make it disappear.
+    if (!isServed(config.served, { residency: home.residency, country: body.country })) {
+      throw badRequest('this deployment does not serve that country');
+    }
+
     const created = await db.transaction(async (tx) => {
       const row = await tx.one<{ id: string }>(sql`
-        insert into entities (code, name, currency, residency)
-        values (${body.code}, ${body.name}, ${body.currency}, ${body.residency})
+        insert into entities (code, name, currency, country, residency)
+        values (${body.code}, ${body.name}, ${body.currency}, ${body.country},
+                ${home.residency})
         returning id
       `);
       if (!row) throw conflict('entity code already exists');
@@ -137,7 +153,7 @@ export async function registerReferenceRoutes(
         targetType: 'entity',
         targetId: row.id,
         entityId: row.id,
-        detail: `Created entity ${body.code} in ${body.residency}`,
+        detail: `Created entity ${body.code} in ${body.country} (${home.residency})`,
         kind: 'governance',
         request,
       });

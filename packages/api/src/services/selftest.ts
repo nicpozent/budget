@@ -23,6 +23,7 @@ import type { AppConfig } from '../config.ts';
 import type { Db } from '../db/pool.ts';
 import { sql } from '../db/pool.ts';
 import { BACKUP_TABLES, EXCLUDED_FROM_BACKUP, listBackups, readBackup } from './backup.ts';
+import { servedEntityClause } from './residency.ts';
 import { parseArchive, verifyArchive } from './restore.ts';
 import { auditChainIntact } from '../observability/metrics.ts';
 
@@ -315,23 +316,48 @@ const CHECKS: readonly Check[] = [
   // -------------------------------------------------------------------------
   {
     id: 'config.residency',
-    title: 'Every entity belongs to a region this deployment serves',
+    title: 'Every entity is inside the scope this deployment serves',
     requirement: 'CMP-140',
     async run(db, config) {
-      const served = [...config.servedRegions];
-      const rows = await db.query<{ residency: string; count: string }>(sql`
-        select residency, count(*)::text as count from entities
-        where not (residency = any(${served}::text[]))
-        group by residency order by residency
+      const { regions, countries } = config.served;
+      const list =
+        countries === null
+          ? regions.join(', ')
+          : `${regions.join(', ')} limited to ${countries.join(', ')}`;
+
+      // A country code that matches no row in `countries` narrows the scope to
+      // nothing without saying so — SERVED_COUNTRIES=SG,VM serves Singapore and
+      // silently drops Vietnam. The shape check in `loadConfig` cannot catch
+      // that; only the reference table knows. Report it before the count,
+      // because it explains the count.
+      if (countries !== null) {
+        const known = await db.query<{ code: string }>(sql`
+          select code from countries where code = any(${[...countries]}::text[])
+        `);
+        const unknown = countries.filter((c) => !known.some((k) => k.code === c));
+        if (unknown.length > 0) {
+          return {
+            status: 'fail',
+            detail:
+              `SERVED_COUNTRIES names ${unknown.join(', ')}, which no country row ` +
+              'matches. Those codes serve nothing rather than being rejected.',
+          };
+        }
+      }
+
+      const rows = await db.query<{ bucket: string; count: string }>(sql`
+        select e.residency || '/' || e.country as bucket, count(*)::text as count
+        from entities e
+        where not (${servedEntityClause(config.served)})
+        group by bucket order by bucket
       `);
       const stranded = rows.reduce((n, r) => n + Number(r.count), 0);
-      const list = served.join(', ');
 
       if (stranded === 0) {
         // Worth naming the served set even on a pass: "we serve eu, ch, apac"
         // is the sentence someone needs when they are asked what this
         // deployment holds, and it is the one the config makes true.
-        return { status: 'pass', detail: `Serving ${list}; every entity is in one of them.` };
+        return { status: 'pass', detail: `Serving ${list}; every entity is inside it.` };
       }
       return {
         status: 'warn',
@@ -340,10 +366,10 @@ const CHECKS: readonly Check[] = [
         // central deployment it is also the shape of a configuration mistake —
         // entities nobody can budget — so the detail names them.
         detail:
-          `${stranded} entities are outside the served set (${list}): ` +
-          `${rows.map((r) => `${r.count} × ${r.residency}`).join(', ')}. ` +
+          `${stranded} entities are outside the served scope (${list}): ` +
+          `${rows.map((r) => `${r.count} × ${r.bucket}`).join(', ')}. ` +
           'They are unreachable through the API, which is either correct or a ' +
-          'missing region in SERVED_REGIONS.',
+          'missing entry in SERVED_REGIONS or SERVED_COUNTRIES.',
       };
     },
   },

@@ -219,27 +219,34 @@ there were always two questions inside the one they used to share:
 | Setting | Answers | Arity |
 |---|---|---|
 | `RESIDENCY_REGION` | Where this deployment *runs* | One value. A backup archive is bound to it by the AES-GCM AAD, so it cannot become a list without invalidating every archive |
-| `SERVED_REGIONS` | Whose entities it may *show* | A list, defaulting to the home region alone |
+| `SERVED_REGIONS` | Which residency buckets it may *show* | A list, defaulting to the home region alone |
+| `SERVED_COUNTRIES` | Which countries inside those buckets | A list, or unset for all of them |
 
 Conflating them is what made a central deployment unimplementable: it served 14
 of the 21 entities and made the other 7 invisible to everyone including the
 administrator, because "where we run" was being used to answer "whose data may
 we show".
 
-`SERVED_REGIONS` is still an allow-list, still applied in the single scope
-resolver, and still defaults closed — adding a region is a deliberate,
-reviewable configuration change, and the runtime self-test reports both the
-served set and any entity stranded outside it.
+Both are allow-lists, both are applied in the single scope resolver, and both
+default closed — adding a region or a country is a deliberate, reviewable
+configuration change, and the runtime self-test reports the served set, any
+entity stranded outside it, and any country code that matches no country at all.
+
+The second setting exists because a region is a storage bucket rather than a
+jurisdiction. `apac` is Singapore, India and Vietnam in one value, so region
+alone could say "serve APAC" and could not say "serve Singapore but not
+Vietnam". An entity now records a country and its bucket is derived from it
+through a composite foreign key, so the two cannot disagree.
 
 ```mermaid
 flowchart TB
   subgraph central["Central deployment — Azure Sweden Central"]
-    APP["Spendifre<br/>RESIDENCY_REGION=eu<br/>SERVED_REGIONS declared explicitly"]
+    APP["Spendifre<br/>RESIDENCY_REGION=eu<br/>SERVED_REGIONS + SERVED_COUNTRIES<br/>declared explicitly"]
   end
-  EU["residency=eu · 14 entities"] --> APP
-  CH["residency=ch · 2 entities"] --> APP
-  AP["residency=apac · 4 entities"] --> APP
-  CN["residency=cn · 1 entity<br/>PIPL — needs a lawful basis<br/>before it is declared"] -.->|not served until Legal agrees| APP
+  EU["eu · SE NO DK FI NL DE · 14 entities"] --> APP
+  CH["ch · CH · 2 entities"] --> APP
+  AP["apac · SG IN VN · 4 entities<br/>servable one country at a time"] --> APP
+  CN["cn · CN · 1 entity<br/>PIPL — needs a lawful basis<br/>before it is declared"] -.->|not served until Legal agrees| APP
 ```
 
 ## 8. Known gaps

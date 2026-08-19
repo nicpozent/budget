@@ -364,6 +364,45 @@ describe('SEC-011 object-level authorisation', () => {
     expect(response.body).toContain('DELETED-ENTITY-DETAIL');
   });
 
+  it('narrows a served region to named countries', async () => {
+    // The gap `SERVED_REGIONS` could not express. `apac` is one bucket holding
+    // Singapore, India and Vietnam, so before `entities.country` the answer to
+    // "serve Singapore but not Vietnam" was that the model could not say it.
+    const narrowed = await createHarness({
+      rateLimit: 'off',
+      env: {
+        RESIDENCY_REGION: 'eu',
+        SERVED_REGIONS: 'eu,apac',
+        SERVED_COUNTRIES: 'SE,NO,DK,FI,NL,DE,SG',
+      },
+    });
+    try {
+      const admin = await narrowed.as('admin@birgma.test');
+      const list = await narrowed.app.inject({
+        method: 'GET', url: '/api/entities', headers: authed(admin, false),
+      });
+      const served = list.json() as { country: string; residency: string }[];
+      const countries = new Set(served.map((e) => e.country));
+
+      expect(countries.has('SG')).toBe(true);
+      // Same bucket, same region list, excluded by name.
+      expect(countries.has('VN')).toBe(false);
+      expect(countries.has('IN')).toBe(false);
+
+      // And the narrowing reaches the read paths, not just the list — the
+      // point of resolving it in one clause.
+      const vn = await narrowed.db.one<{ id: string }>(sql`
+        select id from entities where country = 'VN' limit 1
+      `);
+      const grid = await narrowed.app.inject({
+        method: 'GET', url: `/api/budget/${vn!.id}`, headers: authed(admin, false),
+      });
+      expect(grid.statusCode).toBe(404);
+    } finally {
+      await narrowed.close();
+    }
+  });
+
   it('serves another region only when that region is declared', async () => {
     // The central-deployment case (CMP-140). The mechanism is unchanged — one
     // allow-list, applied in one resolver — but a central deployment has to be
@@ -623,8 +662,8 @@ describe('Configuration fails closed', () => {
   it('serves only its own region unless told otherwise', () => {
     // The conservative default, and the behaviour the setting had before it
     // existed. Nothing widens by upgrading.
-    expect(loadConfig({ ...valid, RESIDENCY_REGION: 'eu' }).servedRegions).toEqual(['eu']);
-    expect(loadConfig({ ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: '' }).servedRegions)
+    expect(loadConfig({ ...valid, RESIDENCY_REGION: 'eu' }).served.regions).toEqual(['eu']);
+    expect(loadConfig({ ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: '' }).served.regions)
       .toEqual(['eu']);
   });
 
@@ -632,7 +671,7 @@ describe('Configuration fails closed', () => {
     const config = loadConfig({
       ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: ' eu, CH ,apac,eu ',
     });
-    expect(config.servedRegions).toEqual(['eu', 'ch', 'apac']);
+    expect(config.served.regions).toEqual(['eu', 'ch', 'apac']);
     // Where it runs is still a single value — the backup AAD binds to it.
     expect(config.RESIDENCY_REGION).toBe('eu');
   });
@@ -647,6 +686,20 @@ describe('Configuration fails closed', () => {
     // read is not a restrictive configuration, it is an incoherent one.
     expect(() => loadConfig({ ...valid, RESIDENCY_REGION: 'eu', SERVED_REGIONS: 'apac' }))
       .toThrow(/must include RESIDENCY_REGION/);
+  });
+
+  it('serves every country in a region unless a country list narrows it', () => {
+    // Absent means all of them. This is the half that must never widen: a
+    // deployment that has not heard of the setting behaves as it always did.
+    expect(loadConfig(valid).served.countries).toBeNull();
+    expect(loadConfig({ ...valid, SERVED_COUNTRIES: '  ' }).served.countries).toBeNull();
+  });
+
+  it('normalises the country list and refuses anything that is not a code', () => {
+    const config = loadConfig({ ...valid, SERVED_COUNTRIES: ' se , NO ,se' });
+    expect(config.served.countries).toEqual(['SE', 'NO']);
+    expect(() => loadConfig({ ...valid, SERVED_COUNTRIES: 'SE,Sweden' }))
+      .toThrow(/is not an ISO 3166-1 alpha-2 code/);
   });
 
   it('divides the rate limit across replicas rather than multiplying it', () => {

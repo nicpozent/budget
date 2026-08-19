@@ -142,7 +142,7 @@ const PROBES: Record<Capability, Probe> = {
   'entity.manage': {
     method: 'POST',
     url: '/api/entities',
-    body: { code: 'PROBE', name: 'Probe', currency: 'EUR', residency: 'eu' },
+    body: { code: 'PROBE', name: 'Probe', currency: 'EUR', country: 'SE' },
   },
   'fx.edit': {
     method: 'PUT',

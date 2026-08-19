@@ -65,6 +65,18 @@ const envSchema = z.object({
    */
   SERVED_REGIONS: z.string().optional(),
 
+  /**
+   * Which countries inside those regions this deployment serves — a
+   * comma-separated list of ISO 3166-1 alpha-2 codes. Unset means all of them.
+   *
+   * A region is a storage bucket, not a jurisdiction: `apac` is Singapore,
+   * India and Vietnam at once, so `SERVED_REGIONS` alone can say "serve APAC"
+   * and cannot say "serve Singapore but not Vietnam". This says the second
+   * thing. It only ever narrows — an entity must clear the region list *and*
+   * this one — so leaving it unset cannot widen anything.
+   */
+  SERVED_COUNTRIES: z.string().optional(),
+
   /** Origin used for absolute URLs and for the strict origin check (SEC-034). */
   PUBLIC_ORIGIN: z.string().url().default('http://localhost:8080'),
 
@@ -157,11 +169,25 @@ const envSchema = z.object({
   REPLICA_COUNT: z.coerce.number().int().min(1).max(100).default(1),
 });
 
+/**
+ * The parsed answer to "whose data may this deployment show" (SPEC §9.4).
+ *
+ * It travels as one object rather than two arguments because it is one rule,
+ * and because the two halves are only ever applied together —
+ * `servedEntityClause` in `services/residency.ts` is the single place that
+ * turns it into SQL.
+ */
+export interface ServedScope {
+  /** Parsed `SERVED_REGIONS`, always including `RESIDENCY_REGION`. */
+  readonly regions: readonly Region[];
+  /** Parsed `SERVED_COUNTRIES`, or `null` when every country is served. */
+  readonly countries: readonly string[] | null;
+}
+
 export type AppConfig = Readonly<z.infer<typeof envSchema>> & {
   readonly isProduction: boolean;
   readonly cookieSecure: boolean;
-  /** Parsed `SERVED_REGIONS`, always including `RESIDENCY_REGION`. */
-  readonly servedRegions: readonly Region[];
+  readonly served: ServedScope;
 };
 
 export type Region = (typeof RESIDENCY_REGIONS)[number];
@@ -201,14 +227,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     }
   }
 
-  const servedRegions = parseServedRegions(cfg.SERVED_REGIONS, cfg.RESIDENCY_REGION);
+  const served = Object.freeze({
+    regions: parseServedRegions(cfg.SERVED_REGIONS, cfg.RESIDENCY_REGION),
+    countries: parseServedCountries(cfg.SERVED_COUNTRIES),
+  });
 
   return Object.freeze({
     ...cfg,
     isProduction,
     // Host-prefixed cookies require Secure, so this also decides the cookie name.
     cookieSecure: isProduction || cfg.PUBLIC_ORIGIN.startsWith('https://'),
-    servedRegions,
+    served,
   });
 }
 
@@ -239,4 +268,29 @@ function parseServedRegions(raw: string | undefined, home: Region): readonly Reg
   // Deduplicated and ordered as declared, so the value that reaches a query is
   // the value someone wrote.
   return Object.freeze([...new Set(named)] as Region[]);
+}
+
+/**
+ * Unset means "every country in the served regions", which is what the system
+ * did before this setting existed and is therefore the only safe default.
+ *
+ * Only the shape is checked here. Whether a code names a country the group
+ * actually operates in is a question about `countries`, which lives in the
+ * database; `loadConfig` is synchronous and is unit-tested without one. The
+ * runtime self-test asks that question instead, and reports a code that
+ * matches no row — a plausible way to silently serve nothing.
+ */
+function parseServedCountries(raw: string | undefined): readonly string[] | null {
+  if (raw === undefined || raw.trim() === '') return null;
+
+  const named = raw.split(',').map((c) => c.trim().toUpperCase()).filter((c) => c !== '');
+  const malformed = named.filter((c) => !/^[A-Z]{2}$/.test(c));
+  if (malformed.length > 0) {
+    throw new Error(
+      `Invalid configuration:\n  SERVED_COUNTRIES: ${malformed.join(', ')} ` +
+        'is not an ISO 3166-1 alpha-2 code',
+    );
+  }
+  if (named.length === 0) return null;
+  return Object.freeze([...new Set(named)]);
 }

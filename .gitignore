@@ -17,3 +17,6 @@ var/backups/
 sbom.cdx.json
 .DS_Store
 .shot.mjs
+
+# Output of `tsc --build`, which the typecheck script runs.
+*.tsbuildinfo

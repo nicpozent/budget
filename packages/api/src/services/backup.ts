@@ -107,6 +107,9 @@ export const EXCLUDED_FROM_BACKUP: Readonly<Record<string, string>> = Object.fre
   backups: 'the manifest of the archive being written; restoring it would be circular',
   audit_chain_anchor: 'rebuilt by the restore, not carried by it',
   schema_migrations: 'owned by the migration runner; a restore targets an already-migrated schema',
+  countries:
+    'reference data written by migration 011, so an already-migrated restore target ' +
+    'already has it — and carrying it would let an old archive delete a country added since',
 });
 
 export interface BackupManifest {

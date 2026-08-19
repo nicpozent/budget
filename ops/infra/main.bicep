@@ -34,6 +34,9 @@ param residency string
 @description('Regions whose entities this deployment serves. Must include `residency`. Widening this beyond the home region is a cross-border transfer — see CMP-140.')
 param servedRegions array = [residency]
 
+@description('Countries within those regions this deployment serves, as ISO 3166-1 alpha-2 codes. Empty means every country in the served regions. A region is a storage bucket, not a jurisdiction — `apac` is Singapore, India and Vietnam at once.')
+param servedCountries array = []
+
 @description('Azure region. Must be inside the residency boundary above.')
 param location string
 
@@ -414,6 +417,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             // cross-border transfer and needs a lawful basis (CMP-140), which
             // is why it is a deliberate parameter and not derived.
             { name: 'SERVED_REGIONS', value: join(servedRegions, ',') }
+            // Narrows within those buckets. Empty leaves the variable empty,
+            // which the application reads as "every country", the same as
+            // unset — so the default here cannot widen anything.
+            { name: 'SERVED_COUNTRIES', value: join(servedCountries, ',') }
             // SEC-013: the limiter counts per process, so it has to know how
             // many processes there are. minReplicas, not maxReplicas — the
             // divisor that never over-restricts.

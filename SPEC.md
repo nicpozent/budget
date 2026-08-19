@@ -459,6 +459,13 @@ Vendor names, contract values, justifications and attachments are at least `Conf
 | Singapore · APAC hub | PDPA | Azure Southeast Asia | SCCs for EU transfers |
 | Mainland China | PIPL | In-country, not provisioned | Blocks a single global tenant |
 
+An entity records a **country** (ISO 3166-1 alpha-2) and the region is derived from it, because
+a region is a storage bucket and not a jurisdiction — `apac` is Singapore, India and Vietnam at
+once. Two settings decide what a deployment serves, and both are allow-lists that default to the
+narrowest reading: `SERVED_REGIONS` names the buckets, `SERVED_COUNTRIES` names the countries
+inside them. They are applied together in a single clause (`servedEntityClause`), which every
+read and write resolves an entity through.
+
 ---
 
 ## 10. Non-functional requirements
@@ -508,11 +515,14 @@ multi-year capital planning beyond the depreciation schedule, and any AI-assiste
    transfer and needs a lawful basis. This is no longer only China. Serving `apac` means
    Singapore, Indian and Vietnamese data processed in the EU, so `CMP-141`, `CMP-143` and
    `CMP-145` join `CMP-140` as go-live blockers rather than later triage. Until each has an
-   answer, `SERVED_REGIONS` names only the regions that do.
+   answer, `SERVED_REGIONS` names only the regions that do, and `SERVED_COUNTRIES` narrows
+   within them.
    (`CMP-140`–`CMP-145`)
-   *Related model gap:* `entities.residency` has one `apac` value covering several regimes, and
-   records no country, so the control cannot yet express "serve Singapore but not Vietnam". The
-   fix is a country on the entity; it waits on Legal naming the buckets that matter.
+   *Model gap closed.* `entities.country` records the jurisdiction (ISO 3166-1 alpha-2) and
+   `residency` is now derived from it through a composite foreign key to `countries`, so the
+   bucket cannot disagree with the fact. `SERVED_COUNTRIES` applies alongside `SERVED_REGIONS`
+   in the one scope clause, which is what makes "serve Singapore but not Vietnam" expressible.
+   What remains open is the legal question — which jurisdictions have a basis — not the control.
 2. **NIS2 applicability** — sector assessment plus supply-chain flow-down review. (`CMP-120`)
 3. **Ledger integration** for actuals: which system, what granularity, what cadence. (`FR-040`)
 4. **Entra group model** — one group per role, or role plus entity-scope groups.

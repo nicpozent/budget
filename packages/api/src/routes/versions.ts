@@ -264,7 +264,7 @@ export async function registerVersionRoutes(
       if (!(await getVersion(db, year, key))) throw notFound('no such budget version');
     }
 
-    const ids = await visibleEntityIds(db, request, config.servedRegions);
+    const ids = await visibleEntityIds(db, request, config.served);
     if (ids.length === 0) {
       const zero = { key: 'total', label: 'Group total', base: '0.0000', against: '0.0000', delta: '0.0000' };
       return { base: query.base, against: query.against, total: zero, entities: [], categories: [] };

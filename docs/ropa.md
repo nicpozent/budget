@@ -115,7 +115,7 @@ same session" without being an address book.
 | --- | --- | --- |
 | EU (`eu`) | Majority | No transfer |
 | Switzerland (`ch`) | Swiss entities | **[org]** Adequacy covers EU→CH; CH→EU is governed by the Swiss FADP and needs its own analysis under a central deployment |
-| APAC (`apac`) | Singapore, India, Vietnam, and one entity of unrecorded country | **[org] Per jurisdiction, not per bucket** — `CMP-141`, `CMP-143`, `CMP-145`. The single `apac` value cannot express which regime applies to which entity |
+| APAC (`apac`) | Singapore, India, Vietnam | **[org] Per jurisdiction, not per bucket** — `CMP-141`, `CMP-143`, `CMP-145`. Each entity now records its country, so the control can follow a per-jurisdiction answer; the answers themselves are still owed |
 | Mainland China (`cn`) | Chinese entities | **[org] Unresolved — `CMP-140`.** PIPL requires a separate lawful basis and probably local storage. Central hosting makes this the go-live blocker rather than an architectural one |
 
 The application enforces residency in one place — the entity scope resolver —
@@ -123,13 +123,16 @@ and `SERVED_REGIONS` names the regions a deployment serves, defaulting to its
 own alone. That is a technical control supporting whatever decision Legal makes;
 it is not itself a transfer mechanism.
 
-**Its granularity is the buckets, though.** `SERVED_REGIONS` is all-or-nothing
-per bucket, and `entities` records a region but no country, so a deployment
-cannot serve Singapore while Legal is still working through India. If the answer
-turns out to differ by jurisdiction — which the list above suggests it will —
-the model needs a country on the entity before the control can express it. That
-is a small change and it is deliberately not made yet: guessing which country
-each entity sits in would be inventing a compliance fact.
+**Its granularity is now the jurisdiction.** `entities.country` records an ISO
+3166-1 alpha-2 code, `residency` is derived from it, and `SERVED_COUNTRIES`
+narrows within a served bucket — so a deployment can serve Singapore while Legal
+is still working through India. The control no longer constrains the answer.
+
+Two things follow. The country for a *real* entity is a fact someone has to
+supply, not one the migration guesses: migration 011 backfills only where the
+currency belongs to exactly one country the group operates in, and refuses,
+naming the rows, where it does not. And the synthetic fixture's countries are
+invented like everything else in it — they are not evidence about the group.
 
 ## 4. Security measures (Article 30(1)(g))
 

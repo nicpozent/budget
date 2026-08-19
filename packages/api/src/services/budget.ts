@@ -289,7 +289,8 @@ function foldCte(
     ),
     live as (
       select wanted.fiscal_year,
-             li.id, li.entity_id, e.code as entity_code, li.category_id,
+             li.id, li.entity_id, e.code as entity_code,
+             e.country, li.category_id,
              c.name as category_name, c.position as category_position,
              li.name, li.currency, li.cost_type,
              li.asset_life_years, li.asset_life_status,
@@ -424,14 +425,17 @@ export async function loadLineTotals(
 }
 
 /** What a grouped total is grouped by. */
-export type TotalsGroup = 'year' | 'entity' | 'category';
+export type TotalsGroup = 'year' | 'entity' | 'country' | 'category';
 
 export interface GroupedTotal {
   group: TotalsGroup;
   fiscalYear: number;
-  /** Entity or category id; the fiscal year as a string for a `year` group. */
+  /**
+   * Entity or category id, the country code, or the fiscal year as a string
+   * for a `year` group.
+   */
   key: string;
-  /** Entity code or category name; empty for a `year` group. */
+  /** Entity code, country or category name; empty for a `year` group. */
   label: string;
   /** Sort position within the group — category position, or 0. */
   position: number;
@@ -454,7 +458,7 @@ const GROUP_MEASURES = sql`
 
 /**
  * One literal fragment per grouping rather than a column name chosen at
- * runtime. There are three groupings, they are known here, and writing them out
+ * runtime. There are four groupings, they are known here, and writing them out
  * means no identifier reaches the statement from a variable at all — the
  * strongest form of the SEC-020 rule, rather than the allow-listed form.
  */
@@ -468,6 +472,20 @@ const GROUP_BRANCH: Record<TotalsGroup, SqlFragment> = {
     select 'entity'::text as grp, fiscal_year, entity_id::text as key,
            entity_code as label, 0 as position, ${GROUP_MEASURES}
     from folded group by fiscal_year, entity_id, entity_code
+  `,
+  // FR-060 by jurisdiction. An entity is one legal unit in one country, and a
+  // country usually has several — which is the cut a group IT budget is read
+  // along and the one `residency` could not express, since `apac` is three
+  // countries in a single bucket.
+  // The label is the code, not the country's name. Joining `countries` here
+  // would be eleven rows on a primary key and looks free; it is not. The join
+  // sits inside the shared fold, so every report pays it, and measuring said so
+  // — the worst route's p95 went from 149.6 ms to 202.3 ms for a display
+  // string. The caller resolves names from `countries` after aggregating.
+  country: sql`
+    select 'country'::text as grp, fiscal_year, country as key,
+           country as label, 0 as position, ${GROUP_MEASURES}
+    from folded group by fiscal_year, country
   `,
   category: sql`
     select 'category'::text as grp, fiscal_year, category_id::text as key,

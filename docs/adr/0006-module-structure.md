@@ -36,7 +36,7 @@ by layer.**
 routes/     auth  meta  lines  workflow  approvals  template  ledger  versions
             reference  drivers  governance  operations  reports  audit  shell
 services/   approval  audit  backup  budget  depreciation  drivers  editability
-            restore  selftest  versions  xlsx
+            residency  restore  selftest  versions  xlsx
 observability/  logging  metrics  tracing
 http/       guard  security  errors  validate
 db/         pool  migrate  seed  dataset

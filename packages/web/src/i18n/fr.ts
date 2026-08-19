@@ -173,6 +173,9 @@ export const FR = {
   'views.consumed': 'Consommé',
   'views.entitiesInScope': 'Entités du périmètre',
   'views.categorySplit': 'Répartition par catégorie',
+  'views.spendByCountry': 'Dépense par pays',
+  'views.country': 'Pays',
+  'views.everyEntityIsInOneCountry': 'Chaque entité appartient à exactement un pays ; les pays totalisent le total du groupe.',
   'views.submissionStatusByEntity': 'Statut des soumissions par entité',
   'views.everyFigureIsTheSumOfThatEntitysLines':
     'Chaque montant est la somme des lignes de l’entité.',

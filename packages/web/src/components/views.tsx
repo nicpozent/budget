@@ -106,6 +106,35 @@ export function ConsolidationView(): JSX.Element {
 
       <section className="panel">
         <div className="panel-header">
+          <h2>{t('views.spendByCountry')}</h2>
+        </div>
+        <div className="table-scroll" tabIndex={0} role="group">
+          <table>
+            <caption>{t('views.everyEntityIsInOneCountry')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('views.country')}</th>
+                <th scope="col" className="num">{t('views.planEur')}</th>
+                <th scope="col" className="num">{t('views.spend')}</th>
+                <th scope="col" className="num">{t('views.consumed')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.countries.map((c) => (
+                <tr key={c.code}>
+                  <th scope="row">{c.name}</th>
+                  <td className="num">{formatMoney(c.plan, 'EUR', { compact: true })}</td>
+                  <td className="num">{formatMoney(c.actual, 'EUR', { compact: true })}</td>
+                  <td className="num">{formatPercent(c.actual, c.plan)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
           <h2>{t('views.submissionStatusByEntity')}</h2>
         </div>
         <div className="table-scroll" tabIndex={0} role="group">

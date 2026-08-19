@@ -107,7 +107,7 @@ export interface AnonymisedFixture {
     /** Equivalence classes of size 1 — see route 4 above. */
     singletonClasses: string[];
   };
-  entities: { code: string; name: string; currency: string; residency: Residency }[];
+  entities: { code: string; name: string; currency: string; country: string }[];
   categories: { name: string; costType: 'opex' | 'capex' }[];
   lines: {
     entityCode: string;
@@ -135,6 +135,26 @@ const RESIDENCY_BY_CURRENCY: Record<string, Residency> = {
   THB: 'apac', MYR: 'apac', PHP: 'apac', SGD: 'apac', JPY: 'apac', KRW: 'apac',
   BDT: 'apac', LKR: 'apac', LAK: 'apac', AUD: 'apac', ILS: 'apac', TRY: 'eu',
 };
+
+/**
+ * Currency -> the group country that uses it, where exactly one does.
+ *
+ * The fixture needs a country per unit because `entities.country` is not
+ * nullable, and the source workbook records a currency rather than a country.
+ * Where the currency is unambiguous the mapping is a fact; where it is not —
+ * EUR, USD, and every currency belonging to a country the group has no entity
+ * in — the unit is placed at that bucket's principal seat. That is a placement
+ * choice for a synthetic fixture, not a claim about the real business unit,
+ * which is also why it is confined to this file.
+ */
+const COUNTRY_BY_CURRENCY: Record<string, string> = {
+  SEK: 'SE', NOK: 'NO', DKK: 'DK', CHF: 'CH', CNY: 'CN', INR: 'IN', VND: 'VN', SGD: 'SG',
+};
+
+const SEAT_OF: Record<Residency, string> = { eu: 'NL', ch: 'CH', apac: 'SG', cn: 'CN' };
+
+const countryFor = (currency: string): string =>
+  COUNTRY_BY_CURRENCY[currency] ?? SEAT_OF[RESIDENCY_BY_CURRENCY[currency] ?? 'apac'];
 
 /**
  * Generic line labels per category. The source names are discarded, not
@@ -280,7 +300,7 @@ export function anonymise(source: SourceData, options: AnonymiseOptions = {}): A
       // No relationship to the source title, which names real business units.
       name: `Business unit ${index + 1}`,
       currency,
-      residency: RESIDENCY_BY_CURRENCY[currency] ?? 'apac',
+      country: countryFor(currency),
     });
 
     for (const cat of unit.cats) {

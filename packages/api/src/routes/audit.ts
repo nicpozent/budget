@@ -28,7 +28,7 @@ export async function registerAuditRoutes(
     // to 'audit.viewOwn', which every role holds.
     const viewAll = can(principal.role, 'audit.viewAll');
 
-    const events = await readAudit(db, principal, viewAll, config.servedRegions, {
+    const events = await readAudit(db, principal, viewAll, config.served, {
       kind: query.kind,
       q: query.q,
       limit: query.limit,

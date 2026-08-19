@@ -6,21 +6,23 @@
  * one, because the client is not trusted to tell us the cycle phase.
  */
 
+import type { ServedScope } from '../config.ts';
 import type { Db } from '../db/pool.ts';
 import { sql } from '../db/pool.ts';
+import { servedEntityClause } from './residency.ts';
 import { forbidden, notFound } from '../http/errors.ts';
 
 export interface EditabilityContext {
   entityId: string;
   fiscalYear: number;
-  /** SPEC §9.4 — the regions this deployment serves. A write to an entity
-   *  outside them is refused, not merely hidden. */
-  regions: readonly string[];
+  /** SPEC §9.4 — what this deployment serves. A write to an entity outside
+   *  that scope is refused, not merely hidden. */
+  scope: ServedScope;
 }
 
 export async function assertEntityEditable(
   db: Db,
-  { entityId, fiscalYear, regions }: EditabilityContext,
+  { entityId, fiscalYear, scope }: EditabilityContext,
 ): Promise<void> {
   const row = await db.one<{
     state: string;
@@ -43,7 +45,7 @@ export async function assertEntityEditable(
     from entities e
     cross join cycles c
     where e.id = ${entityId} and c.fiscal_year = ${fiscalYear}
-      and e.residency = any(${[...regions]}::text[])
+      and ${servedEntityClause(scope)}
   `);
 
   if (!row) throw notFound('entity or cycle does not exist in this region');

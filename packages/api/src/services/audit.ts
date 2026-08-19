@@ -12,9 +12,11 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AuditKind, Principal } from '@spendifre/shared';
+import type { ServedScope } from '../config.ts';
 import type { Db } from '../db/pool.ts';
 import { identifier, join, sql, type SqlFragment } from '../db/pool.ts';
 import { auditFailures } from '../observability/metrics.ts';
+import { servedEntityClause } from './residency.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -122,7 +124,7 @@ export async function readAudit(
   db: Db,
   principal: Principal,
   viewAll: boolean,
-  servedRegions: readonly string[],
+  scope: ServedScope,
   query: AuditQuery,
 ): Promise<unknown[]> {
   const conditions: SqlFragment[] = [sql`true`];
@@ -147,7 +149,7 @@ export async function readAudit(
     not exists (
       select 1 from entities e
       where e.id = ae.entity_id
-        and not (e.residency = any(${[...servedRegions]}::text[]))
+        and not (${servedEntityClause(scope)})
     )
   `);
   if (query.kind) {

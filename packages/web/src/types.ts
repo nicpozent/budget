@@ -26,6 +26,9 @@ export interface Entity {
   state: string;
   deadline: string | null;
   residency: string;
+  /** ISO 3166-1 alpha-2. The bucket above is derived from it. */
+  country: string;
+  countryName: string;
   ownerName: string;
 }
 
@@ -126,6 +129,7 @@ export interface Consolidation {
   actual: string;
   entities: { id: string; code: string; name: string; state: string; plan: string; actual: string }[];
   categories: { id: string; name: string; plan: string }[];
+  countries: { code: string; name: string; plan: string; actual: string }[];
 }
 
 export interface Consumption {

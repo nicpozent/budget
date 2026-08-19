@@ -64,7 +64,7 @@ export async function registerLineRoutes(
   app.post('/api/lines', { config: requires('budget.line.edit.own') }, async (request, reply) => {
     const body = parse(schemas.createLineSchema, request.body);
     const principal = requireWriteEntity(request, body.entityId);
-    await assertEntityEditable(db, { entityId: body.entityId, fiscalYear: year, regions: config.servedRegions });
+    await assertEntityEditable(db, { entityId: body.entityId, fiscalYear: year, scope: config.served });
     await assertCostCentreApproved(db, body.costCentreId);
 
     const created = await db.transaction(async (tx) => {
@@ -104,7 +104,7 @@ export async function registerLineRoutes(
     const body = parse(schemas.updateLineSchema, request.body);
     const line = await loadLineForWrite(db, lineId);
     const principal = requireWriteEntity(request, line.entity_id);
-    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, regions: config.servedRegions });
+    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, scope: config.served });
     await assertCostCentreApproved(db, body.costCentreId);
 
     await db.transaction(async (tx) => {
@@ -146,7 +146,7 @@ export async function registerLineRoutes(
     const { lineId } = parse(z.object({ lineId: schemas.uuid }), request.params);
     const line = await loadLineForWrite(db, lineId);
     const principal = requireWriteEntity(request, line.entity_id);
-    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, regions: config.servedRegions });
+    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, scope: config.served });
 
     await db.transaction(async (tx) => {
       await tx.query(sql`
@@ -173,7 +173,7 @@ export async function registerLineRoutes(
     const body = parse(schemas.setAmountSchema, request.body);
     const line = await loadLineForWrite(db, lineId);
     const principal = requireWriteEntity(request, line.entity_id);
-    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, regions: config.servedRegions });
+    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, scope: config.served });
 
     // INV-3: a driver-linked amount is computed. Accepting a typed value here
     // would create a second source of truth that immediately disagrees.
@@ -227,7 +227,7 @@ export async function registerLineRoutes(
     const body = parse(schemas.linkDriverSchema, request.body);
     const line = await loadLineForWrite(db, lineId);
     const principal = requireWriteEntity(request, line.entity_id);
-    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, regions: config.servedRegions });
+    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, scope: config.served });
 
     await db.transaction(async (tx) => {
       await tx.query(sql`
@@ -256,7 +256,7 @@ export async function registerLineRoutes(
     const { lineId } = parse(z.object({ lineId: schemas.uuid }), request.params);
     const line = await loadLineForWrite(db, lineId);
     const principal = requireWriteEntity(request, line.entity_id);
-    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, regions: config.servedRegions });
+    await assertEntityEditable(db, { entityId: line.entity_id, fiscalYear: year, scope: config.served });
 
     await db.transaction(async (tx) => {
       await tx.query(sql`
@@ -307,7 +307,7 @@ export async function registerLineRoutes(
       const entityIds = [...new Set(lines.map((l) => l.entity_id))];
       for (const entityId of entityIds) {
         requireWriteEntity(request, entityId);
-        await assertEntityEditable(db, { entityId, fiscalYear: year, regions: config.servedRegions });
+        await assertEntityEditable(db, { entityId, fiscalYear: year, scope: config.served });
       }
 
       if (body.operation === 'reassign_cost_centre') {

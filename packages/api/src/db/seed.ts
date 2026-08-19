@@ -243,11 +243,15 @@ export async function seedFrom(
     // -- Entities, owners, drivers ------------------------------------------
     const entityIds = new Map<string, string>();
     for (const [index, entity] of dataset.entities.entries()) {
+      // Residency is read from `countries` rather than carried in the fixture:
+      // migration 011 makes the pair a foreign key, so deriving it here is the
+      // only way the two can never disagree.
       const row = await tx.one<{ id: string }>(sql`
         insert into entities
-          (code, name, currency, residency, deadline, state, template_version_id)
-        values (${entity.code}, ${entity.name}, ${entity.currency}, ${entity.residency},
-                ${`${fiscalYear - 1}-11-30`}, 'draft', ${templateVersion!.id})
+          (code, name, currency, country, residency, deadline, state, template_version_id)
+        select ${entity.code}, ${entity.name}, ${entity.currency}, c.code, c.residency,
+               ${`${fiscalYear - 1}-11-30`}, 'draft', ${templateVersion!.id}
+        from countries c where c.code = ${entity.country}
         on conflict (code) do update set name = excluded.name
         returning id
       `);

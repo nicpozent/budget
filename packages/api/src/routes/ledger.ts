@@ -31,6 +31,7 @@ import { authenticatedRoute, principalOf, requires } from '../http/guard.ts';
 import { badRequest } from '../http/errors.ts';
 import { parse } from '../http/validate.ts';
 import { writeAudit } from '../services/audit.ts';
+import { servedEntityClause } from '../services/residency.ts';
 
 interface Reject {
   rowIndex: number;
@@ -111,7 +112,7 @@ export async function registerLedgerRoutes(
         join entities e on e.id = li.entity_id
         where li.ledger_ref = any(${refs}::text[])
           and li.deleted_at is null
-          and e.residency = any(${[...config.servedRegions]}::text[])
+          and ${servedEntityClause(config.served)}
       `);
       const byRef = new Map(lines.map((l) => [l.ledger_ref, l]));
 

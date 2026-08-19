@@ -248,12 +248,24 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
-**Residency is enforced in one place, and it is two settings.**
+**Residency is enforced in one place, and it is three settings.**
 `RESIDENCY_REGION` is where the deployment runs — one value, because a backup
-archive is bound to it by the AES-GCM AAD. `SERVED_REGIONS` is whose entities it
-may show — a list, defaulting to the home region alone. The single scope
-resolver applies the caller's read scope and the served set together, so an
-entity outside the set returns 404 even to an administrator.
+archive is bound to it by the AES-GCM AAD. `SERVED_REGIONS` is which residency
+buckets it may show — a list, defaulting to the home region alone.
+`SERVED_COUNTRIES` narrows within those buckets and is unset by default. The
+single scope resolver applies the caller's read scope and the served scope
+together, so an entity outside it returns 404 even to an administrator.
+
+The third setting exists because a bucket is not a jurisdiction: `apac` covers
+Singapore, India and Vietnam, so the model could not express "serve Singapore
+but not Vietnam". `entities.country` records the fact and `residency` is derived
+from it by a composite foreign key to `countries`, which is what stops the two
+becoming independent opinions about the same entity. The bucket stays on the row
+because it is the hot predicate in the reporting fold; the foreign key is what
+makes keeping it safe. Both dimensions resolve through one fragment,
+`servedEntityClause`, rather than being written out per query — two conditions
+copied across twenty call sites is the omission that produced the
+consolidation-report leak, with more surface.
 
 They were one setting until the group chose a central deployment, and the
 conflation made that choice unimplementable: it served 14 of 21 entities and

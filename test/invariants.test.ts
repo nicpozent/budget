@@ -158,6 +158,26 @@ describe('NFR-003 FX applied at read time', () => {
     expect(toEur(Money.parse('42.5'), 'EUR', fx).toString()).toBe('42.5000');
   });
 
+  it('refuses an entity whose country and residency bucket disagree', async () => {
+    // Migration 011 makes `residency` derived rather than a second opinion. A
+    // Vietnamese entity filed under `eu` is the mistake this prevents, and it
+    // is prevented by the database rather than by a reviewer noticing.
+    await expect(
+      harness.db.query(sql`
+        insert into entities (code, name, currency, country, residency)
+        values ('MISMATCH', 'Mismatch', 'EUR', 'VN', 'eu')
+      `),
+    ).rejects.toThrow(/entities_country_residency_fk/);
+
+    // And the same pair, stated correctly, is accepted — so the constraint is
+    // rejecting the disagreement rather than the insert.
+    await harness.db.query(sql`
+      insert into entities (code, name, currency, country, residency)
+      values ('MISMATCH', 'Mismatch', 'EUR', 'VN', 'apac')
+    `);
+    await harness.db.query(sql`delete from entities where code = 'MISMATCH'`);
+  });
+
   it('refuses to guess a missing rate', async () => {
     const fx = await loadFxTable(harness.db, 2026);
     expect(() => toEur(Money.parse('1'), 'XXX', fx)).toThrow(/no FX rate/);

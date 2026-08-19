@@ -181,6 +181,9 @@ export const EN = {
   'views.consumed': 'Consumed',
   'views.entitiesInScope': 'Entities in scope',
   'views.categorySplit': 'Category split',
+  'views.spendByCountry': 'Spend by country',
+  'views.country': 'Country',
+  'views.everyEntityIsInOneCountry': 'Each entity belongs to exactly one country; the countries sum to the group total.',
   'views.submissionStatusByEntity': 'Submission status by entity',
   'views.everyFigureIsTheSumOfThatEntitysLines':
     'Every figure is the sum of that entity’s lines.',

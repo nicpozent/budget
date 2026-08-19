@@ -29,7 +29,13 @@ export interface DatasetEntity {
   code: string;
   name: string;
   currency: string;
-  residency: Residency;
+  /**
+   * ISO 3166-1 alpha-2. The residency bucket is *not* carried here: it follows
+   * from the country through `countries` (migration 011), and the seed reads it
+   * from there. One fact in the fixture means the fixture cannot contradict the
+   * reference table.
+   */
+  country: string;
 }
 
 export interface DatasetCategory {
@@ -75,29 +81,29 @@ const CATEGORIES: DatasetCategory[] = [
 ];
 
 const ENTITIES: DatasetEntity[] = [
-  { code: 'NORD-INF', name: 'Nordic Infrastructure', currency: 'EUR', residency: 'eu' },
-  { code: 'NORD-SEC', name: 'Nordic Security', currency: 'EUR', residency: 'eu' },
-  { code: 'NORD-DEV', name: 'Nordic Development', currency: 'EUR', residency: 'eu' },
-  { code: 'SE-RETAIL', name: 'Sweden Retail IT', currency: 'SEK', residency: 'eu' },
-  { code: 'SE-DEV', name: 'Sweden Development', currency: 'SEK', residency: 'eu' },
-  { code: 'SE-STORES', name: 'Sweden Store Systems', currency: 'SEK', residency: 'eu' },
-  { code: 'NO-RETAIL', name: 'Norway Retail IT', currency: 'NOK', residency: 'eu' },
-  { code: 'DK-RETAIL', name: 'Denmark Retail IT', currency: 'DKK', residency: 'eu' },
-  { code: 'FI-RETAIL', name: 'Finland Retail IT', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-LOG', name: 'European Logistics IT', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-ECOM', name: 'European E-commerce', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-DATA', name: 'European Data Platform', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-WORK', name: 'European Workplace', currency: 'EUR', residency: 'eu' },
-  { code: 'EU-NET', name: 'European Network', currency: 'EUR', residency: 'eu' },
-  { code: 'CH-GROUP', name: 'Switzerland Group IT', currency: 'CHF', residency: 'ch' },
-  { code: 'CH-SEC', name: 'Switzerland Security', currency: 'CHF', residency: 'ch' },
-  { code: 'APAC-HUB', name: 'APAC Hub IT', currency: 'SGD', residency: 'apac' },
-  { code: 'APAC-SRC', name: 'APAC Sourcing IT', currency: 'USD', residency: 'apac' },
-  { code: 'IN-DEV', name: 'India Development Centre', currency: 'INR', residency: 'apac' },
-  { code: 'VN-OPS', name: 'Vietnam Operations IT', currency: 'VND', residency: 'apac' },
+  { code: 'NORD-INF', name: 'Nordic Infrastructure', currency: 'EUR', country: 'SE' },
+  { code: 'NORD-SEC', name: 'Nordic Security', currency: 'EUR', country: 'SE' },
+  { code: 'NORD-DEV', name: 'Nordic Development', currency: 'EUR', country: 'SE' },
+  { code: 'SE-RETAIL', name: 'Sweden Retail IT', currency: 'SEK', country: 'SE' },
+  { code: 'SE-DEV', name: 'Sweden Development', currency: 'SEK', country: 'SE' },
+  { code: 'SE-STORES', name: 'Sweden Store Systems', currency: 'SEK', country: 'SE' },
+  { code: 'NO-RETAIL', name: 'Norway Retail IT', currency: 'NOK', country: 'NO' },
+  { code: 'DK-RETAIL', name: 'Denmark Retail IT', currency: 'DKK', country: 'DK' },
+  { code: 'FI-RETAIL', name: 'Finland Retail IT', currency: 'EUR', country: 'FI' },
+  { code: 'EU-LOG', name: 'European Logistics IT', currency: 'EUR', country: 'NL' },
+  { code: 'EU-ECOM', name: 'European E-commerce', currency: 'EUR', country: 'NL' },
+  { code: 'EU-DATA', name: 'European Data Platform', currency: 'EUR', country: 'DE' },
+  { code: 'EU-WORK', name: 'European Workplace', currency: 'EUR', country: 'DE' },
+  { code: 'EU-NET', name: 'European Network', currency: 'EUR', country: 'DE' },
+  { code: 'CH-GROUP', name: 'Switzerland Group IT', currency: 'CHF', country: 'CH' },
+  { code: 'CH-SEC', name: 'Switzerland Security', currency: 'CHF', country: 'CH' },
+  { code: 'APAC-HUB', name: 'APAC Hub IT', currency: 'SGD', country: 'SG' },
+  { code: 'APAC-SRC', name: 'APAC Sourcing IT', currency: 'USD', country: 'SG' },
+  { code: 'IN-DEV', name: 'India Development Centre', currency: 'INR', country: 'IN' },
+  { code: 'VN-OPS', name: 'Vietnam Operations IT', currency: 'VND', country: 'VN' },
   // CMP-140: mainland China cannot share the EU tenant. The row exists so the
   // residency guard is exercised; an EU deployment must never return it.
-  { code: 'CN-SRC', name: 'China Sourcing IT', currency: 'CNY', residency: 'cn' },
+  { code: 'CN-SRC', name: 'China Sourcing IT', currency: 'CNY', country: 'CN' },
 ];
 
 /** Indicative FY rates. Real rates are administered in-app (FR-014). */

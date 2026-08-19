@@ -9,7 +9,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { Money, schemas, WORKING_VERSION } from '@spendifre/shared';
-import type { AppConfig } from '../config.ts';
+import type { AppConfig, ServedScope } from '../config.ts';
 import type { Db } from '../db/pool.ts';
 import { sql } from '../db/pool.ts';
 import { authenticatedRoute, principalOf, requireReadEntity } from '../http/guard.ts';
@@ -26,6 +26,7 @@ import {
   toEur,
 } from '../services/budget.ts';
 import { readScope } from '@spendifre/shared';
+import { servedEntityClause } from '../services/residency.ts';
 
 export interface CycleRow {
   fiscal_year: number;
@@ -52,24 +53,25 @@ export const periodsIn = (granularity: string): number =>
   granularity === 'monthly' ? 12 : 4;
 
 /**
- * SPEC §9.4, single-entity form. A deployment serves only rows belonging to its
- * region; anything else resolves to "not found" rather than "forbidden", so the
+ * SPEC §9.4, single-entity form. A deployment serves only entities inside its
+ * scope; anything else resolves to "not found" rather than "forbidden", so the
  * response does not confirm that the entity exists elsewhere (SEC-011).
  */
-export async function assertEntityInRegion(
+export async function assertEntityServed(
   db: Db,
   entityId: string,
-  regions: readonly string[],
+  scope: ServedScope,
 ): Promise<void> {
   const row = await db.one(sql`
-    select 1 from entities where id = ${entityId} and residency = any(${[...regions]}::text[])
+    select 1 from entities e
+    where e.id = ${entityId} and ${servedEntityClause(scope)}
   `);
   if (!row) throw notFound('entity is not served by this deployment');
 }
 
 /**
- * Entity IDs the caller may read (SEC-011), narrowed to the regions this
- * deployment serves (SPEC §9.4).
+ * Entity IDs the caller may read (SEC-011), narrowed to what this deployment
+ * serves (SPEC §9.4).
  *
  * Both filters live here, in the one function every read path calls, rather
  * than being repeated per endpoint. An earlier arrangement applied residency
@@ -79,22 +81,21 @@ export async function assertEntityInRegion(
  * Scope rules belong in one place precisely because a second place will be
  * forgotten.
  *
- * `regions` is a list rather than a single value because the group chose one
- * central deployment. It is still an allow-list, still defaults to the home
- * region alone, and still filters here and nowhere else — what changed is its
- * arity, not the control.
+ * The residency half of that rule now lives one level further down again, in
+ * `servedEntityClause`, because it grew a second dimension: a bucket and a
+ * country. Two conditions written out at each call site is the same mistake
+ * with more surface.
  */
 export async function visibleEntityIds(
   db: Db,
   request: Parameters<typeof principalOf>[0],
-  regions: readonly string[],
+  scope: ServedScope,
 ): Promise<string[]> {
   const principal = principalOf(request);
-  const served = [...regions];
 
   if (readScope(principal.role) === 'all') {
     const rows = await db.query<{ id: string }>(sql`
-      select id from entities where residency = any(${served}::text[]) order by code
+      select e.id from entities e where ${servedEntityClause(scope)} order by e.code
     `);
     return rows.map((r) => r.id);
   }
@@ -102,10 +103,10 @@ export async function visibleEntityIds(
   if (principal.ownedEntityIds.length === 0) return [];
 
   const rows = await db.query<{ id: string }>(sql`
-    select id from entities
-    where id = any(${[...principal.ownedEntityIds]}::uuid[])
-      and residency = any(${served}::text[])
-    order by code
+    select e.id from entities e
+    where e.id = any(${[...principal.ownedEntityIds]}::uuid[])
+      and ${servedEntityClause(scope)}
+    order by e.code
   `);
   return rows.map((r) => r.id);
 }
@@ -127,19 +128,35 @@ export async function registerMetaRoutes(
   );
 
   app.get('/api/entities', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.servedRegions);
+    const ids = await visibleEntityIds(db, request, config.served);
     if (ids.length === 0) return [];
     return db.query(sql`
       select e.id, e.code, e.name, e.currency, e.state, e.deadline::text as deadline,
-             e.residency,
+             e.residency, e.country, co.name as "countryName",
              coalesce(u.display_name, '') as "ownerName"
       from entities e
+      join countries co on co.code = e.country
       left join entity_owners eo on eo.entity_id = e.id
       left join users u on u.id = eo.user_id
       -- visibleEntityIds has already applied both the caller's read scope
       -- and this deployment's region.
       where e.id = any(${ids}::uuid[])
       order by e.code
+    `);
+  });
+
+  /**
+   * The countries an entity may be filed under here — the served ones, not all
+   * eleven. Listing a country this deployment refuses to create an entity in
+   * would put a choice on the form whose only outcome is an error.
+   */
+  app.get('/api/countries', { config: authenticatedRoute }, async () => {
+    const { regions, countries } = config.served;
+    const limit = countries === null ? sql`true` : sql`code = any(${[...countries]}::text[])`;
+    return db.query(sql`
+      select code, name, residency from countries
+      where residency = any(${[...regions]}::text[]) and ${limit}
+      order by name
     `);
   });
 
@@ -164,7 +181,7 @@ export async function registerMetaRoutes(
   });
 
   app.get('/api/drivers', { config: authenticatedRoute }, async (request) => {
-    const ids = await visibleEntityIds(db, request, config.servedRegions);
+    const ids = await visibleEntityIds(db, request, config.served);
     if (ids.length === 0) return [];
     // FR-020: `terms` is the definition and `value` is the resolved figure.
     // Both are returned so the view can show a derived driver as read-only
@@ -200,7 +217,7 @@ export async function registerMetaRoutes(
   app.get('/api/budget/:entityId', { config: authenticatedRoute }, async (request) => {
     const { entityId } = parse(z.object({ entityId: schemas.uuid }), request.params);
     requireReadEntity(request, entityId);
-    await assertEntityInRegion(db, entityId, config.servedRegions);
+    await assertEntityServed(db, entityId, config.served);
 
     const cycle = await loadCycle(db, config.FISCAL_YEAR);
     const periods = periodsIn(cycle.granularity);
@@ -290,7 +307,7 @@ export async function registerMetaRoutes(
     `);
     if (!line) throw notFound('line does not exist');
     requireReadEntity(request, line.entity_id);
-    await assertEntityInRegion(db, line.entity_id, config.servedRegions);
+    await assertEntityServed(db, line.entity_id, config.served);
 
     const cycle = await loadCycle(db, config.FISCAL_YEAR);
     const periods = periodsIn(cycle.granularity);
