@@ -109,11 +109,20 @@ export interface AuditQuery {
  * FR-071. Scoping is applied in the WHERE clause, not by filtering rows after
  * the fact — a role that may only see its own events never has the others in
  * memory. `viewAll` is decided by the caller from the capability matrix.
+ *
+ * Residency is applied here too, and was missing. `viewAll` means every actor's
+ * events, not every *region's*: an administrator could read the detail of an
+ * event about an entity the consolidation report correctly refuses to show, and
+ * those details carry entity codes, line names and amounts. It is the same
+ * failure the comment on `visibleEntityIds` records — residency applied in one
+ * read path and forgotten in another — in the one place where "forgotten" is
+ * hardest to notice, because an audit list looks complete whatever it omits.
  */
 export async function readAudit(
   db: Db,
   principal: Principal,
   viewAll: boolean,
+  servedRegions: readonly string[],
   query: AuditQuery,
 ): Promise<unknown[]> {
   const conditions: SqlFragment[] = [sql`true`];
@@ -121,6 +130,26 @@ export async function readAudit(
   if (!viewAll) {
     conditions.push(sql`ae.actor_user_id = ${principal.userId}`);
   }
+
+  // Read as: there is no *existing* entity for this event that lies outside the
+  // served set. That phrasing covers all four cases in one clause, and the last
+  // one is why it is phrased this way rather than as an `exists`:
+  //
+  //   no entity        a governance, backup or version event — always visible
+  //   entity served    visible
+  //   entity elsewhere hidden
+  //   entity deleted   visible, because `audit_events.entity_id` deliberately
+  //                    has no foreign key so the trail outlives the row. An
+  //                    `exists` test would hide the `entity.delete` event
+  //                    itself, and an audit trail that cannot show a deletion
+  //                    is not one.
+  conditions.push(sql`
+    not exists (
+      select 1 from entities e
+      where e.id = ae.entity_id
+        and not (e.residency = any(${[...servedRegions]}::text[]))
+    )
+  `);
   if (query.kind) {
     conditions.push(sql`ae.kind = ${query.kind}`);
   }

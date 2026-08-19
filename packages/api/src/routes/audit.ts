@@ -18,7 +18,7 @@ import { readAudit } from '../services/audit.ts';
 export async function registerAuditRoutes(
   app: FastifyInstance,
   db: Db,
-  _config: AppConfig,
+  config: AppConfig,
 ): Promise<void> {
   app.get('/api/audit', { config: authenticatedRoute }, async (request) => {
     const principal = principalOf(request);
@@ -28,7 +28,7 @@ export async function registerAuditRoutes(
     // to 'audit.viewOwn', which every role holds.
     const viewAll = can(principal.role, 'audit.viewAll');
 
-    const events = await readAudit(db, principal, viewAll, {
+    const events = await readAudit(db, principal, viewAll, config.servedRegions, {
       kind: query.kind,
       q: query.q,
       limit: query.limit,

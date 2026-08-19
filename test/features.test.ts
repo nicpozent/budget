@@ -731,4 +731,42 @@ describe('FR-040 ledger ingestion', () => {
     });
     expect(response.json()).toMatchObject({ accepted: 0, rejected: 1 });
   });
+
+  it('addresses a line in another region once that region is declared', async () => {
+    // The other half of the residency rule, and the half that was broken. A
+    // repository-wide refactor moved every route from the single-region setting
+    // to the served-regions list except this one, because a NUL byte in the
+    // source made the file binary and grep skipped it. Nothing failed: the
+    // ingest simply kept refusing entities the rest of the application served.
+    const wide = await createHarness({
+      rateLimit: 'off',
+      env: { RESIDENCY_REGION: 'eu', SERVED_REGIONS: 'eu,ch,apac,cn' },
+    });
+    try {
+      const admin = await wide.as('admin@birgma.test');
+      const foreign = await wide.db.one<{ ledger_ref: string }>(sql`
+        select li.ledger_ref from line_items li
+        join entities e on e.id = li.entity_id
+        where e.residency <> 'eu' and li.ledger_ref is not null and li.deleted_at is null
+        limit 1
+      `);
+      if (!foreign) return;
+
+      const response = await wide.app.inject({
+        method: 'POST',
+        url: '/api/ledger/actuals',
+        headers: json(admin, {}),
+        payload: {
+          externalRef: 'batch-cross-region',
+          fiscalYear: 2026,
+          sourceSystem: 'test-erp',
+          rows: [{ lineRef: foreign.ledger_ref, period: 1, amount: '1.0000' }],
+        },
+      });
+      expect(response.statusCode, response.body).toBe(201);
+      expect(response.json()).toMatchObject({ accepted: 1, rejected: 0 });
+    } finally {
+      await wide.close();
+    }
+  });
 });

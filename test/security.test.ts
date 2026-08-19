@@ -315,6 +315,55 @@ describe('SEC-011 object-level authorisation', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('does not leak another region through the audit trail', async () => {
+    // FR-071 + CMP-140. `audit.viewAll` means every actor's events, not every
+    // region's — and an audit detail carries entity codes, line names and
+    // amounts, so an unscoped list is the same disclosure the consolidation
+    // report refuses to make.
+    const cn = await harness.db.one<{ id: string; code: string }>(sql`
+      select id, code from entities where residency = 'cn' limit 1
+    `);
+    const admin = await harness.as('admin@birgma.test');
+
+    await harness.db.query(sql`
+      insert into audit_events
+        (actor_user_id, actor_role, action, target_type, target_id, entity_id, detail, kind)
+      values (${admin.userId}, 'admin', 'line.update', 'line', null, ${cn!.id},
+              'SECRET-CN-DETAIL', 'change')
+    `);
+    // A governance event with no entity must stay visible whatever the region.
+    await harness.db.query(sql`
+      insert into audit_events
+        (actor_user_id, actor_role, action, target_type, target_id, entity_id, detail, kind)
+      values (${admin.userId}, 'admin', 'backup.run', 'backup', null, null,
+              'GROUP-WIDE-DETAIL', 'governance')
+    `);
+
+    const response = await harness.app.inject({
+      method: 'GET', url: '/api/audit?limit=200', headers: authed(admin, false),
+    });
+    const body = response.body;
+    expect(body).not.toContain('SECRET-CN-DETAIL');
+    expect(body).toContain('GROUP-WIDE-DETAIL');
+  });
+
+  it('shows an audit event whose entity has since been deleted', async () => {
+    // `audit_events.entity_id` deliberately has no foreign key so the trail
+    // outlives the row. A residency filter written as `exists` would hide the
+    // entity.delete event itself.
+    const admin = await harness.as('admin@birgma.test');
+    await harness.db.query(sql`
+      insert into audit_events
+        (actor_user_id, actor_role, action, target_type, target_id, entity_id, detail, kind)
+      values (${admin.userId}, 'admin', 'entity.delete', 'entity', null,
+              '00000000-0000-4000-8000-0000000000ff', 'DELETED-ENTITY-DETAIL', 'governance')
+    `);
+    const response = await harness.app.inject({
+      method: 'GET', url: '/api/audit?limit=200', headers: authed(admin, false),
+    });
+    expect(response.body).toContain('DELETED-ENTITY-DETAIL');
+  });
+
   it('serves another region only when that region is declared', async () => {
     // The central-deployment case (CMP-140). The mechanism is unchanged — one
     // allow-list, applied in one resolver — but a central deployment has to be

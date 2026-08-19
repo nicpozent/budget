@@ -18,7 +18,7 @@ docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              582 tests: authorisation matrix, security, invariants, a11y,
+test/              585 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -260,6 +260,24 @@ unadministrable — and it did so by *throwing inside a Zod refine*, turning a
 422 into a 500. The residency filter was initially applied only to the entity
 list, so the consolidation report summed Swiss and Chinese entities into a EUR
 total. Framework-level 4xx errors were being reported as 500.
+
+**A NUL byte in a source file** made `routes/ledger.ts` binary. It worked — NUL
+is a fine map-key separator and no `ledger_ref` can contain one — and it made
+the file invisible to `grep`, to `git diff` and to every review tool. That is
+not hypothetical harm: a repository-wide refactor of the residency filter
+skipped that one file silently, and the ledger ingest went on filtering by the
+old setting while every other route moved. It is an escape now, CI refuses
+control characters in source, and the gate is enforced with Perl because GNU
+`grep -P` cannot match a NUL and the obvious version of the check passed on the
+very file it was written for.
+
+**The audit trail was not scoped by residency.** `audit.viewAll` means every
+actor's events, not every region's — but the query had no region filter, so an
+administrator could read the detail of an event about an entity the
+consolidation report correctly refuses to show, and those details carry entity
+codes, line names and amounts. Same failure as the original consolidation bug,
+in the one place it is hardest to notice, because an audit list looks complete
+whatever it omits.
 
 The most recent came from the NFR-001 work: **the seed was drifting the EUR
 rate**, writing 0.94 EUR per EUR for FY2022 so that FR-063's volatility chart

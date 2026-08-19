@@ -102,6 +102,37 @@ jobs:
   # Reminder gate. `budget-data.js` is the real FY2026 workbook extract and is
   # classified Confidential (PRIV-010). Seeds must stay synthetic; this fails
   # the build if application code starts importing it.
+  # Source must be greppable. A control nobody can grep for is a control
+  # nobody reviews — see the job body for what this actually caught.
+  greppable-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse a control character in source
+        run: |
+          # `routes/ledger.ts` carried a literal NUL as a composite-key
+          # separator. It worked, and it made the file binary to grep, to
+          # `git diff` and to every review tool — which is not hypothetical
+          # harm: a repository-wide `sed` refactor of the residency filter
+          # skipped that file silently, and the ledger ingest kept filtering by
+          # the old setting while every other route moved.
+          #
+          # Perl, not grep. GNU grep -P cannot match a NUL byte at all, so the
+          # obvious version of this gate silently passed on the exact file it
+          # was written for — checked, rather than assumed, before committing.
+          #
+          # Tabs, newlines and carriage returns are fine. Nothing else below
+          # 0x20 belongs in a source file; write it as an escape.
+          hits=$(find packages test tools db \
+                   \( -name '*.ts' -o -name '*.tsx' -o -name '*.sql' \) -type f -print0 \
+                 | xargs -0 perl -0777 -ne 'print "$ARGV\n" if /[\x00-\x08\x0b\x0c\x0e-\x1f]/')
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::Control characters in source. Use an escape (\\u0000) so the file stays text."
+            exit 1
+          fi
+          echo "No control characters in source."
+
   confidential-data:
     runs-on: ubuntu-latest
     steps:
