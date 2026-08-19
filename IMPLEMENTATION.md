@@ -248,6 +248,21 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
+**A published template version is immutable in the database now, not only in
+the route.** Migration 005's header said a CHECK enforced it. It did not: the
+CHECK constrains the publisher and timestamp columns, and the two guards in
+`routes/template.ts` were the whole mechanism. Those guards are correct and
+tested, but `spendifre_app` holds UPDATE and DELETE on `template_fields`, so a
+future code path that forgot one would rewrite a frozen template — the template
+an already-approved budget was filled in against — with nothing objecting.
+Migration 012 adds statement-level triggers refusing writes to a published
+version's fields and any change to the version row itself, including
+unpublishing it. 005 cannot be edited, because the runner records its checksum
+and refuses a changed file, so the correction is a mechanism rather than a
+comment. The seed now creates the version as a draft, adds the fields, and
+publishes it — the route an administrator takes, rather than a shortcut only
+the seed can use.
+
 **Residency is enforced in one place, and it is three settings.**
 `RESIDENCY_REGION` is where the deployment runs — one value, because a backup
 archive is bound to it by the AES-GCM AAD. `SERVED_REGIONS` is which residency

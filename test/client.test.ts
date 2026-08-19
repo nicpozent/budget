@@ -49,6 +49,14 @@ const ALLOWED_IDENTICAL = new Set([
   // in French; "Per" in Swedish, Norwegian and Finnish; "Definition" in Danish.
   'drivers.driver', 'drivers.actions', 'drivers.key.sites', 'drivers.perSource',
   'drivers.definition',
+  // "Status" is the same word in Swedish, Norwegian and Danish. In French,
+  // "Actions", "Position", "Type" and "Visible" are spelled as in English, and
+  // "Versions" and "Version" likewise; "Version" is also the Swedish and Danish
+  // spelling, "Type" the Norwegian and Danish one, and "Note" the Danish and
+  // French one.
+  'stages.status', 'stages.actions',
+  'template.version', 'template.versionsTitle', 'template.note', 'template.type',
+  'template.actions', 'template.position', 'template.visible',
 ]);
 
 describe('NFR-010 catalogues', () => {

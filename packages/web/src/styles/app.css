@@ -706,6 +706,12 @@ a.button-primary:hover {
   border-color: var(--line);
 }
 
+.hint {
+  font-size: var(--text-sm);
+  color: var(--dim);
+  margin-top: var(--gap-sm);
+}
+
 .empty {
   padding: 32px;
   text-align: center;

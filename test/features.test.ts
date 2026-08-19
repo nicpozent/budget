@@ -74,6 +74,47 @@ describe('FR-005 template versioning', () => {
     expect(response.json().error.fields.version).toMatch(/published and immutable/);
   });
 
+  it('refuses the same edit at the database, not only at the route', async () => {
+    // The route guard is the one users meet, and it was the only thing there.
+    // Migration 005's header claimed a CHECK enforced immutability; it did not
+    // — it constrains the publisher and timestamp columns and says nothing
+    // about the fields. `spendifre_app` holds UPDATE and DELETE on
+    // `template_fields`, so any future code path that forgets the guard would
+    // rewrite a frozen template silently. Migration 012 makes the claim true,
+    // and this asserts the mechanism rather than the comment.
+    const field = await harness.db.one<{ id: string }>(sql`
+      select tf.id from template_fields tf
+      join template_versions tv on tv.id = tf.template_version_id
+      where tv.state = 'published' limit 1
+    `);
+
+    await expect(
+      harness.db.query(sql`
+        update template_fields set label = 'Renamed out of band' where id = ${field!.id}
+      `),
+    ).rejects.toThrow(/published and immutable/);
+
+    await expect(
+      harness.db.query(sql`delete from template_fields where id = ${field!.id}`),
+    ).rejects.toThrow(/published and immutable/);
+  });
+
+  it('refuses to unpublish a version', async () => {
+    // The screen tells an administrator that publishing cannot be undone. That
+    // has to be true of the database too, or the sentence is a convention.
+    const version = await harness.db.one<{ id: string }>(sql`
+      select id from template_versions where state = 'published' limit 1
+    `);
+
+    await expect(
+      harness.db.query(sql`
+        update template_versions
+        set state = 'draft', published_by = null, published_at = null
+        where id = ${version!.id}
+      `),
+    ).rejects.toThrow(/cannot be changed or removed/);
+  });
+
   it('copies the previous version\'s fields into a new draft', async () => {
     const before = await harness.db.one<{ count: string }>(sql`
       select count(*)::text as count from template_fields tf
@@ -135,14 +176,37 @@ describe('FR-005 template versioning', () => {
   });
 
   it('serves an entity its own version\'s fields, not the newest', async () => {
-    // Rename a field in the newly published v2 so the two versions differ.
-    const v2 = await harness.db.one<{ id: string }>(sql`
-      select id from template_versions where version = 2
+    // A third version, renamed and published through the API rather than by
+    // updating the published v2 directly — which migration 012 now refuses, and
+    // which was never a route anyone had. Draft, edit, publish is the sequence
+    // an administrator follows, so it is the sequence the test follows.
+    const created = await harness.app.inject({
+      method: 'POST',
+      url: '/api/template/versions',
+      headers: json(admin, {}),
+      payload: { note: 'Renames the first field' },
+    });
+    expect(created.statusCode).toBe(201);
+    const v3 = created.json().id as string;
+
+    const field = await harness.db.one<{ id: string }>(sql`
+      select id from template_fields
+      where template_version_id = ${v3} order by position limit 1
     `);
-    await harness.db.query(sql`
-      update template_fields set label = 'V2 LABEL'
-      where template_version_id = ${v2!.id} and position = 0
-    `);
+    const renamed = await harness.app.inject({
+      method: 'PATCH',
+      url: `/api/template/fields/${field!.id}`,
+      headers: json(admin, {}),
+      payload: { label: 'V3 LABEL' },
+    });
+    expect(renamed.statusCode).toBe(200);
+
+    const published = await harness.app.inject({
+      method: 'POST',
+      url: `/api/template/versions/${v3}/publish`,
+      headers: json(admin),
+    });
+    expect(published.statusCode).toBe(200);
 
     const forEntity = await harness.app.inject({
       method: 'GET',
@@ -150,14 +214,14 @@ describe('FR-005 template versioning', () => {
       headers: json(finance),
     });
     const labels = forEntity.json().map((f: { label: string }) => f.label);
-    expect(labels).not.toContain('V2 LABEL');
+    expect(labels).not.toContain('V3 LABEL');
 
     const latest = await harness.app.inject({
       method: 'GET',
       url: '/api/template/fields',
       headers: json(finance),
     });
-    expect(latest.json().map((f: { label: string }) => f.label)).toContain('V2 LABEL');
+    expect(latest.json().map((f: { label: string }) => f.label)).toContain('V3 LABEL');
   });
 
   it('records the retained count in the audit trail', async () => {

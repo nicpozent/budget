@@ -61,6 +61,10 @@ const ScenariosView = lazy(() =>
   import('./components/ScenariosView.tsx').then((m) => ({ default: m.ScenariosView })));
 const DriversView = lazy(() =>
   import('./components/DriversView.tsx').then((m) => ({ default: m.DriversView })));
+const StagesView = lazy(() =>
+  import('./components/StagesView.tsx').then((m) => ({ default: m.StagesView })));
+const TemplateView = lazy(() =>
+  import('./components/TemplateView.tsx').then((m) => ({ default: m.TemplateView })));
 
 type ViewKey =
   | 'budget'
@@ -73,7 +77,9 @@ type ViewKey =
   | 'drivers'
   | 'fxHistory'
   | 'submissions'
+  | 'stages'
   | 'costCentres'
+  | 'template'
   | 'audit'
   | 'governance'
   | 'operations';
@@ -136,11 +142,31 @@ const NAV: NavEntry[] = [
     visible: () => true,
   },
   {
+    key: 'stages',
+    label: 'nav.stages',
+    glyph: '⇥',
+    group: 'nav.group.approve',
+    // FR-051. Readable by anyone who decides a stage, because knowing which
+    // stage is next is part of deciding one; only `approval.configure` edits.
+    visible: (me) =>
+      can(me.user.role, 'approval.configure') || can(me.user.role, 'submission.decideStage'),
+  },
+  {
     key: 'costCentres',
     label: 'nav.costCentres',
     glyph: '⊞',
     group: 'nav.group.approve',
     visible: () => true,
+  },
+  {
+    key: 'template',
+    label: 'nav.template',
+    glyph: '▤',
+    group: 'nav.group.govern',
+    // FR-005. Publishing is a separate capability from defining, and the screen
+    // shows both states to whoever holds either.
+    visible: (me) =>
+      can(me.user.role, 'template.define') || can(me.user.role, 'template.publish'),
   },
   { key: 'audit', label: 'nav.audit', glyph: '☰', group: 'nav.group.govern', visible: () => true },
   {
@@ -327,6 +353,15 @@ function ReportPane({ me, view }: { me: Me; view: ViewKey }): JSX.Element {
           {view === 'drivers' ? <DriversView entities={entities} /> : null}
           {view === 'submissions' ? (
             <SubmissionsView canDecide={can(me.user.role, 'submission.decide')} />
+          ) : null}
+          {view === 'stages' ? (
+            <StagesView canConfigure={can(me.user.role, 'approval.configure')} />
+          ) : null}
+          {view === 'template' ? (
+            <TemplateView
+              canDefine={can(me.user.role, 'template.define')}
+              canPublish={can(me.user.role, 'template.publish')}
+            />
           ) : null}
           {view === 'costCentres' ? (
             <CostCentreView canApprove={can(me.user.role, 'costCentre.approve')} />

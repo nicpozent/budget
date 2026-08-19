@@ -274,3 +274,38 @@ export interface Driver {
   value: number;
   terms: DriverTermInput[];
 }
+
+/** FR-051. `position` is the order in the chain; the list arrives sorted by it. */
+export interface ApprovalStage {
+  id: string;
+  position: number;
+  name: string;
+  requiredRole: string;
+  minAmountEur: string;
+  enabled: boolean;
+}
+
+/**
+ * FR-005. `entityCount` is how many budgets started on this version and stay
+ * pinned to it — the promise publishing makes, as a number.
+ */
+export interface TemplateVersion {
+  id: string;
+  version: number;
+  state: 'draft' | 'published';
+  note: string | null;
+  publishedAt: string | null;
+  publishedBy: string | null;
+  fieldCount: string;
+  entityCount: string;
+}
+
+export interface TemplateField {
+  id: string;
+  fieldKey: string;
+  label: string;
+  fieldType: string;
+  required: boolean;
+  visible: boolean;
+  position: number;
+}

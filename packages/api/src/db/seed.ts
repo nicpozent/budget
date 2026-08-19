@@ -193,12 +193,18 @@ export async function seedFrom(
       `);
     }
     // -- Template version 1 (FR-005). Fields belong to a version, so the
-    //    version has to exist before any field does.
+    //    version has to exist before any field does — and it is created as a
+    //    draft and published afterwards, in that order, because migration 012
+    //    means a published version genuinely refuses new fields. The seed takes
+    //    the same route an administrator does rather than a shortcut only the
+    //    seed can use.
+    await tx.query(sql`
+      insert into template_versions (fiscal_year, version, state, note)
+      values (${fiscalYear}, 1, 'draft', 'Initial template')
+      on conflict (fiscal_year, version) do nothing
+    `);
     const templateVersion = await tx.one<{ id: string }>(sql`
-      insert into template_versions (fiscal_year, version, state, note, published_by, published_at)
-      values (${fiscalYear}, 1, 'published', 'Initial template', ${adminId}, now())
-      on conflict (fiscal_year, version) do update set note = excluded.note
-      returning id
+      select id from template_versions where fiscal_year = ${fiscalYear} and version = 1
     `);
     for (const [i, field] of TEMPLATE_FIELDS.entries()) {
       await tx.query(sql`
@@ -209,6 +215,13 @@ export async function seedFrom(
         on conflict (template_version_id, field_key) do nothing
       `);
     }
+    // Only the draft is published, so re-seeding an existing database updates
+    // nothing here and the trigger sees an empty statement.
+    await tx.query(sql`
+      update template_versions
+      set state = 'published', published_by = ${adminId}, published_at = now()
+      where fiscal_year = ${fiscalYear} and version = 1 and state = 'draft'
+    `);
 
     // -- Approval stages (FR-051). Two stages so the threshold condition is
     //    exercised by the fixture rather than only by tests: everything passes
