@@ -9,7 +9,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Money, MoneyError } from '@spendifre/shared';
+import { Money } from '@spendifre/shared';
 import { sql } from '../packages/api/src/db/pool.ts';
 import {
   computeLineTotals,
@@ -59,58 +59,10 @@ const authed = (h: AuthHeaders, json = true) => ({
 
 // ---------------------------------------------------------------------------
 
-describe('NFR-002 fixed-precision money', () => {
-  it('rejects everything that is not a plain decimal', () => {
-    for (const bad of [
-      'NaN', 'Infinity', '-Infinity', '1e5', '1E5', '0x10', '1_000',
-      '1,5', ' ', '', '.5', '1.', '--1', '+1', '1.23456',
-    ]) {
-      expect(() => Money.parse(bad), `should reject ${JSON.stringify(bad)}`).toThrow(MoneyError);
-    }
-  });
-
-  it('rejects a JS number outright', () => {
-    // @ts-expect-error deliberately wrong type
-    expect(() => Money.parse(1.5)).toThrow(MoneyError);
-  });
-
-  it('round-trips through the canonical string form', () => {
-    for (const value of ['0', '1', '-1', '0.0001', '-0.0001', '123456789.1234']) {
-      expect(Money.parse(Money.parse(value).toString()).toString())
-        .toBe(Money.parse(value).toString());
-    }
-  });
-
-  it('adds without float error', () => {
-    // 0.1 + 0.2 is the canonical float failure; here it is exact.
-    const sum = Money.parse('0.1').add(Money.parse('0.2'));
-    expect(sum.toString()).toBe('0.3000');
-    expect(sum.equals(Money.parse('0.3'))).toBe(true);
-  });
-
-  it('sums a large series exactly', () => {
-    const values = Array.from({ length: 1000 }, () => Money.parse('0.0001'));
-    expect(Money.sum(values).toString()).toBe('0.1000');
-  });
-
-  it('rounds half away from zero on rate multiplication', () => {
-    expect(Money.parse('1').multiplyByRate('0.00005').toString()).toBe('0.0001');
-    expect(Money.parse('-1').multiplyByRate('0.00005').toString()).toBe('-0.0001');
-  });
-
-  it('applies an uplift consistently', () => {
-    expect(Money.parse('100').upliftByPercent('3').toString()).toBe('103.0000');
-    expect(Money.parse('100').upliftByPercent('-10').toString()).toBe('90.0000');
-  });
-
-  it('refuses division by a zero rate rather than producing infinity', () => {
-    expect(() => Money.parse('1').divideByRate('0')).toThrow(MoneyError);
-  });
-
-  it('rejects an amount beyond numeric(18,4)', () => {
-    expect(() => Money.parse('99999999999999999')).toThrow(MoneyError);
-  });
-});
+// NFR-002 fixed-precision money is asserted in `shared.test.ts`, which needs no
+// database. It lived here behind this file's fixture without ever using it, and
+// `tools/mutate.ts` re-runs the shared suite once per mutant — a ten-second
+// database fixture in that loop would cost hours.
 
 describe('NFR-003 FX applied at read time', () => {
   it('converts to EUR and back within one minor unit of the local currency', async () => {

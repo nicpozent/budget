@@ -1,0 +1,56 @@
+# Mutation testing for `packages/shared` (row 14).
+#
+# Nightly rather than per push. It re-runs the shared suite once per mutant, so
+# it is minutes rather than seconds, and what it measures does not change
+# between two commits that touch neither the shared package nor its tests.
+#
+# Separate from `ci.yml` on purpose: this needs no PostgreSQL, no browser and no
+# build, and a gate that fails for reasons unrelated to what it measures is a
+# gate people learn to re-run rather than read.
+
+name: mutation
+
+on:
+  schedule:
+    # 02:20 UTC. Not on the hour, so it is not queued behind everyone else's
+    # midnight jobs.
+    - cron: '20 2 * * *'
+  workflow_dispatch:
+  # Opt in from a pull request by labelling it, for a change to `packages/shared`
+  # where waiting until tomorrow to find out is the wrong order.
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutate:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.label.name == 'mutation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The threshold is 90, not the 85 first proposed. The suite kills every
+      # mutant today, so 85 would permit a fifteen-point regression without
+      # anyone hearing about it — a gate set below the current state is a
+      # record of the past rather than a limit on the future. Survivors are
+      # printed whether or not the run fails, so a single new one is visible
+      # before it becomes a trend.
+      - name: Mutation score (packages/shared)
+        run: npm run mutate -- --threshold 90

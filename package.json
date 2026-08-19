@@ -26,6 +26,7 @@
     "screenshots": "node tools/capture-screens.mjs",
     "docs:html": "node tools/render-docs.mjs",
     "loadtest": "node --experimental-strip-types tools/loadtest.ts",
+    "mutate": "node --experimental-strip-types tools/mutate.ts",
     "restore": "node --experimental-strip-types tools/restore.ts",
     "selftest": "node --experimental-strip-types tools/selftest-cli.ts"
   },

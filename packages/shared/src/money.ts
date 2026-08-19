@@ -173,8 +173,14 @@ function parseDecimalToUnits(input: string): { units: bigint; scale: number } {
  * expects, and the one that keeps `sum(children)` stable under restatement.
  */
 function divideRoundHalfAway(numerator: bigint, denominator: bigint): bigint {
+  // The three `< 0n` tests below cannot be widened to `<= 0n` observably: at
+  // zero the only difference is the sign of a zero, and -0n is 0n. Marked so
+  // the survivor list stays a list of real gaps.
+  // mutate-ignore: < -> <= — at zero the sign flips onto a zero result
   const negative = numerator < 0n !== denominator < 0n;
+  // mutate-ignore: < -> <= — negating zero yields zero
   const absN = numerator < 0n ? -numerator : numerator;
+  // mutate-ignore: < -> <= — negating zero yields zero, and a zero divisor is refused above
   const absD = denominator < 0n ? -denominator : denominator;
   const quotient = absN / absD;
   const remainder = absN % absD;

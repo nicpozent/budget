@@ -248,6 +248,31 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
+**Mutation testing, and it found six real gaps.** Line coverage says a line
+ran; it does not say an assertion depended on it. `npm run mutate` changes one
+operator at a time in `packages/shared` — a `<` to a `<=`, an `&&` to an `||`,
+a `true` to a `false` — and re-runs the shared suite against each. On the first
+pass 17 mutants survived, across six validators: the `Money` range boundary,
+the control-character guards in `shortText` and `longText`, the decimal-scale
+bound, the negative-rate refusal, the percentage limits and the driver-factor
+limits. Every one was a line the suite executed and nothing asserted about.
+All are now covered, and the score is 100% of 73 mutants.
+
+It is not Stryker, for the reason `tools/loadtest.ts` is not k6 (ADR-0004). The
+hard part is a TypeScript parser, and `typescript` is already a dev dependency;
+the loop around it is a hundred lines. The trade is real — no incremental mode,
+no coverage-based test selection — and it is why the run is nightly and why
+`test/shared.test.ts` has no database fixture: the suite runs once per mutant,
+so a ten-second fixture would have cost hours. The money assertions moved there
+out of `invariants.test.ts`, where they sat behind a fixture they never used.
+
+Four mutants cannot change behaviour — widening `numerator < 0n` to `<= 0n`
+flips the sign of a zero — and are marked in the source with the operator and
+the reason. They are reported every run and excluded from the score rather than
+folded into it, and a marker that stops matching a live mutant fails the run:
+the same treatment `EXCLUDED_FROM_BACKUP` gets, because a stale exemption is
+how a real gap gets silenced later.
+
 **A published template version is immutable in the database now, not only in
 the route.** Migration 005's header said a CHECK enforced it. It did not: the
 CHECK constrains the publisher and timestamp columns, and the two guards in
