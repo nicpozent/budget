@@ -20,7 +20,7 @@ Report date: **2026-08-16** · Version evaluated: `claude/file-review-8a42qx`
 
 | Method | Coverage | Where |
 | --- | --- | --- |
-| axe-core, WCAG 2.2 A/AA rule set, in Chromium against the running application | All 12 views, each signed in as the role that sees it | `test/a11y.test.ts`, CI-gated |
+| axe-core, WCAG 2.2 A/AA rule set, in Chromium against the running application | All 13 views, each signed in as the role that sees it | `test/a11y.test.ts`, CI-gated |
 | Contrast computed arithmetically over both palettes | Every foreground/background token pair | `test/a11y.test.ts` |
 | Type-scale floor parsed from the CSS tokens | Every declared size | `test/a11y.test.ts` |
 | Keyboard walkthrough | Manual, per release | [`accessibility.md`](./accessibility.md) §3 |

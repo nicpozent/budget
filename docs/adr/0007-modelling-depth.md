@@ -20,8 +20,11 @@ and the one item that was not.
 `services/versions.ts`). `budget_version` stopped being a free-text column and
 became a table with a key, a kind, a lock and a foreign key from every amount.
 
-**Driver trees are built** (`services/drivers.ts`). A driver may be defined as a
-multiple of another driver for the same entity and year.
+**Driver trees are built** (`services/drivers.ts`, migration 010). A driver may
+be defined as a sum of terms over other drivers for the same entity and year —
+`devices = 1.5 per head + 2 per site`. A term is a row, `{ source, factor }`, so
+addition and multiplication by a constant are structure rather than syntax and
+nothing is parsed.
 
 **A free-text formula engine is not built, and is not a gap to close later.**
 
@@ -107,6 +110,16 @@ answered no question anyone had asked.
 That is also why `version.manage` is held by the Administrator and the CFO and
 not by the entity managers. A manager creating a group-wide scenario over
 everyone else's budget is not a permission anyone asked for.
+
+## Why the sum is rounded once
+
+A derived count is a count, so the result rounds. Rounding *each term* and then
+adding would accumulate up to half a unit of error per term: three terms of 0.5
+would give 3 where the arithmetic gives 1.5, which rounds to 2. The figure a
+finance manager computes by hand is the one the tool has to agree with, so the
+terms are summed at full precision and the total is rounded once, half away from
+zero, matching `Money`. The self-test repeats that arithmetic in SQL rather than
+trusting it.
 
 ## What this does not do
 

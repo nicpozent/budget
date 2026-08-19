@@ -482,25 +482,55 @@ describe('FR-080 comparison respects read scope', () => {
 
 describe('FR-020 driver trees', () => {
   const node = (over: Partial<DriverNode> & { driverKey: string }): DriverNode => ({
-    unit: over.driverKey, value: 0, derivedFrom: null, factor: null, ...over,
+    unit: over.driverKey, value: 0, terms: [], ...over,
   });
+  const term = (sourceKey: string, factor: string) => ({ sourceKey, factor });
 
   it('resolves a chain, not just one level', () => {
     const resolved = resolveDriverTree([
       node({ driverKey: 'headcount', value: 200 }),
-      node({ driverKey: 'devices', derivedFrom: 'headcount', factor: '1.5' }),
-      node({ driverKey: 'sites', derivedFrom: 'devices', factor: '0.02' }),
+      node({ driverKey: 'devices', terms: [term('headcount', '1.5')] }),
+      node({ driverKey: 'sites', terms: [term('devices', '0.02')] }),
     ]);
     expect(resolved.get('headcount')).toBe(200);
     expect(resolved.get('devices')).toBe(300);
     expect(resolved.get('sites')).toBe(6);
   });
 
+  it('combines several sources, which is the point of a tree', () => {
+    // devices = 1.5 per head + 2 per site. The shape a single-parent
+    // definition could not express.
+    const resolved = resolveDriverTree([
+      node({ driverKey: 'headcount', value: 200 }),
+      node({ driverKey: 'sites', value: 12 }),
+      node({ driverKey: 'devices', terms: [term('headcount', '1.5'), term('sites', '2')] }),
+    ]);
+    expect(resolved.get('devices')).toBe(300 + 24);
+  });
+
+  it('rounds the sum once, not each term', () => {
+    // Three terms of 0.5 each. Rounded per term that is 1+1+1 = 3; rounded
+    // once over the sum it is 2 — and 2 is what someone computing
+    // 0.5+0.5+0.5 by hand gets. Per-term rounding would accumulate half a
+    // unit of error per term, which is how a driver tree stops matching the
+    // arithmetic a finance manager can check.
+    const resolved = resolveDriverTree([
+      node({ driverKey: 'headcount', value: 1 }),
+      node({ driverKey: 'sites', value: 1 }),
+      node({ driverKey: 'stores', value: 1 }),
+      node({
+        driverKey: 'devices',
+        terms: [term('headcount', '0.5'), term('sites', '0.5'), term('stores', '0.5')],
+      }),
+    ]);
+    expect(resolved.get('devices')).toBe(2);
+  });
+
   it('rounds half away from zero, like Money', () => {
     const resolved = resolveDriverTree([
       node({ driverKey: 'headcount', value: 5 }),
-      node({ driverKey: 'devices', derivedFrom: 'headcount', factor: '1.5' }),
-      node({ driverKey: 'sites', derivedFrom: 'headcount', factor: '1.1' }),
+      node({ driverKey: 'devices', terms: [term('headcount', '1.5')] }),
+      node({ driverKey: 'sites', terms: [term('headcount', '1.1')] }),
     ]);
     // 7.5 → 8, not 7.
     expect(resolved.get('devices')).toBe(8);
@@ -511,9 +541,9 @@ describe('FR-020 driver trees', () => {
     let thrown: unknown;
     try {
       resolveDriverTree([
-        node({ driverKey: 'headcount', derivedFrom: 'sites', factor: '2' }),
-        node({ driverKey: 'sites', derivedFrom: 'devices', factor: '2' }),
-        node({ driverKey: 'devices', derivedFrom: 'headcount', factor: '2' }),
+        node({ driverKey: 'headcount', terms: [term('sites', '2')] }),
+        node({ driverKey: 'sites', terms: [term('devices', '2')] }),
+        node({ driverKey: 'devices', terms: [term('headcount', '2')] }),
       ]);
     } catch (err) {
       thrown = err;
@@ -524,7 +554,7 @@ describe('FR-020 driver trees', () => {
 
   it('refuses a definition pointing at a driver the entity has not set', () => {
     expect(() => resolveDriverTree([
-      node({ driverKey: 'devices', derivedFrom: 'stores', factor: '3' }),
+      node({ driverKey: 'devices', terms: [term('stores', '3')] }),
     ])).toThrow();
   });
 
@@ -536,7 +566,7 @@ describe('FR-020 driver trees', () => {
 
     expect((await put({ driverKey: 'headcount', unit: 'people', value: 100 })).statusCode).toBe(200);
     expect((await put({
-      driverKey: 'devices', unit: 'devices', derivedFrom: 'headcount', factor: '2',
+      driverKey: 'devices', unit: 'devices', terms: [{ derivedFrom: 'headcount', factor: '2' }],
     })).statusCode).toBe(200);
 
     const after = await harness.db.one<{ value: number }>(sql`
@@ -564,39 +594,82 @@ describe('FR-020 driver trees', () => {
       payload: { entityId, ...body },
     });
     await put({ driverKey: 'headcount', unit: 'people', value: 100 });
-    await put({ driverKey: 'devices', unit: 'devices', derivedFrom: 'headcount', factor: '2' });
+    await put({
+      driverKey: 'devices', unit: 'devices', terms: [{ derivedFrom: 'headcount', factor: '2' }],
+    });
 
     // headcount ← devices closes the loop headcount → devices → headcount.
     const response = await put({
-      driverKey: 'headcount', unit: 'people', derivedFrom: 'devices', factor: '0.5',
+      driverKey: 'headcount', unit: 'people', terms: [{ derivedFrom: 'devices', factor: '0.5' }],
     });
     expect(response.statusCode).toBeGreaterThanOrEqual(400);
 
-    // The transaction rolled back, so headcount is still a root driver.
-    const headcount = await harness.db.one<{ derived_from: string | null }>(sql`
-      select derived_from from drivers
+    // The transaction rolled back, so headcount has no definition. The delete
+    // of the old terms and the insert of the new ones are in that transaction
+    // too, so a refused cycle must not leave the driver defined *or* stripped.
+    const terms = await harness.db.query<{ source_key: string }>(sql`
+      select source_key from driver_terms
       where entity_id = ${entityId} and driver_key = 'headcount' and fiscal_year = 2026
     `);
-    expect(headcount!.derived_from).toBeNull();
+    expect(terms).toHaveLength(0);
+  });
+
+  it('replaces a definition wholesale rather than merging into it', async () => {
+    const put = (body: Record<string, unknown>) => harness.app.inject({
+      method: 'PUT', url: '/api/drivers', headers: json(finance),
+      payload: { entityId, ...body },
+    });
+    await put({ driverKey: 'headcount', unit: 'people', value: 100 });
+    await put({ driverKey: 'sites', unit: 'sites', value: 10 });
+    await put({
+      driverKey: 'devices',
+      unit: 'devices',
+      terms: [{ derivedFrom: 'headcount', factor: '2' }, { derivedFrom: 'sites', factor: '3' }],
+    });
+    const both = await harness.db.one<{ value: number }>(sql`
+      select value from drivers
+      where entity_id = ${entityId} and driver_key = 'devices' and fiscal_year = 2026
+    `);
+    expect(both!.value).toBe(230);
+
+    // Sending one term where there were two means one. A merge would leave the
+    // dropped term in place, silently, because nothing in the request names it.
+    await put({
+      driverKey: 'devices', unit: 'devices', terms: [{ derivedFrom: 'headcount', factor: '2' }],
+    });
+    const one = await harness.db.one<{ value: number }>(sql`
+      select value from drivers
+      where entity_id = ${entityId} and driver_key = 'devices' and fiscal_year = 2026
+    `);
+    expect(one!.value).toBe(200);
+
+    // And a plain value clears the definition entirely.
+    await put({ driverKey: 'devices', unit: 'devices', value: 7 });
+    const cleared = await harness.db.query(sql`
+      select 1 from driver_terms
+      where entity_id = ${entityId} and driver_key = 'devices' and fiscal_year = 2026
+    `);
+    expect(cleared).toHaveLength(0);
   });
 
   it('refuses self-reference in the schema, not only in the resolver', async () => {
     await expect(harness.db.query(sql`
-      update drivers set derived_from = 'headcount', factor = 2
-      where entity_id = ${entityId} and driver_key = 'headcount' and fiscal_year = 2026
+      insert into driver_terms (entity_id, fiscal_year, driver_key, source_key, factor)
+      values (${entityId}, 2026, 'headcount', 'headcount', 2)
     `)).rejects.toThrow();
   });
 
-  it('refuses a definition with a parent and no factor', async () => {
-    // `stores` carries no factor, so naming a parent alone leaves the row half
-    // defined — which is exactly what the CHECK refuses.
+  it('refuses a factor outside its bounds, and a term for a driver that is absent', async () => {
+    for (const bad of ['0', '-1', '1001']) {
+      await expect(harness.db.query(sql`
+        insert into driver_terms (entity_id, fiscal_year, driver_key, source_key, factor)
+        values (${entityId}, 2026, 'devices', 'sites', ${bad})
+      `), `factor ${bad}`).rejects.toThrow();
+    }
+    // The foreign key: a term belongs to a driver the entity actually has.
     await expect(harness.db.query(sql`
-      update drivers set derived_from = 'headcount'
-      where entity_id = ${entityId} and driver_key = 'stores' and fiscal_year = 2026
-    `)).rejects.toThrow();
-    await expect(harness.db.query(sql`
-      update drivers set factor = 2
-      where entity_id = ${entityId} and driver_key = 'stores' and fiscal_year = 2026
+      insert into driver_terms (entity_id, fiscal_year, driver_key, source_key, factor)
+      values (${entityId}, 2099, 'devices', 'sites', 2)
     `)).rejects.toThrow();
   });
 });

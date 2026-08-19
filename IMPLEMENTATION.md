@@ -18,7 +18,7 @@ docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              585 tests: authorisation matrix, security, invariants, a11y,
+test/              589 tests: authorisation matrix, security, invariants, a11y,
                    operations, feature semantics, client catalogue
 ```
 
@@ -178,10 +178,22 @@ the CFO. Reading is open to anyone who can already read across entities; the
 figures inside a scenario go through the same scope resolver as every other
 report, so a manager sees their own entities in both sides of a comparison.
 
-`FR-020` driver trees: a driver may be defined as a multiple of another driver
-for the same entity and year. The resolved figure is stored, so every read path
-is unchanged; the resolver refuses a cycle before the transaction commits, and
-the self-test re-derives every derived driver against its definition.
+`FR-020` driver trees: a driver is either typed in or defined as a **sum of
+terms** over other drivers — `devices = 1.5 per head + 2 per site`. The resolved
+figure is stored, so every read path is unchanged; the resolver refuses a cycle
+before the transaction commits, and the self-test re-derives every derived
+driver against its definition.
+
+The sum is rounded **once**, not per term. Rounding each term would accumulate
+half a unit of error per term, so a three-term definition could land a unit away
+from the figure a finance manager computes by hand — and that figure is the one
+this has to match.
+
+A term is a row, not an expression: `{ source, factor }`. Nothing is parsed and
+nothing user-supplied is interpreted, so this does not reopen ADR 0007's
+argument against a formula engine. The **Drivers** view edits them, shows a
+derived driver read-only beside its definition, and reports what a change moved
+downstream (FR-021's blast radius, stated rather than implied).
 
 **There is no formula engine, and that is a decision rather than a backlog
 item** — [ADR 0007](docs/adr/0007-modelling-depth.md) sets out why. Short
@@ -307,13 +319,11 @@ Stated plainly rather than left to be discovered.
   truncates `audit_events`, and an endpoint would mean granting the running
   service the right to erase its own audit trail. What is still missing is the
   published RTO/RPO backed by a timed drill (`CMP-107`).
-- **Screens for the FR-051 stage configuration, FR-005 template versions and
-  FR-020 driver definitions.** All three are complete APIs with tests; an
-  administrator drives them over HTTP today. Stage progress is readable per
-  submission; there is no drag-to-reorder UI, and the reorder endpoint takes a
-  whole list precisely so there need not be. A driver tree is visible wherever a
-  driver is — the grid shows a driver-linked line's formula — but defining one
-  is a `PUT /api/drivers` away, not a form.
+- **Screens for the FR-051 stage configuration and FR-005 template versions.**
+  Both are complete APIs with tests; an administrator drives them over HTTP
+  today. Stage progress is readable per submission; there is no drag-to-reorder
+  UI, and the reorder endpoint takes a whole list precisely so there need not
+  be. FR-020 driver definitions had the same gap and now have a screen.
 - **Entra ID against a live tenant.** The OIDC client is written to spec —
   authorisation code with PKCE S256, server-side single-use `state` and `nonce`
   held in `auth_transactions`, discovery-driven metadata, and signature, issuer,

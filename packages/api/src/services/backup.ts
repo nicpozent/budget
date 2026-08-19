@@ -75,6 +75,8 @@ export const BACKUP_TABLES = [
   'line_comments',
   'fx_rates',
   'drivers',
+  // After `drivers`: a term references one by (entity, key, year).
+  'driver_terms',
   'allocation_pools',
   'template_fields',
   'cycles',

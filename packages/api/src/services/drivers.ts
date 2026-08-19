@@ -1,10 +1,15 @@
 /**
  * Driver trees (FR-020).
  *
- * A driver could always be typed in. It can now also be *defined* as a multiple
- * of another driver for the same entity and year — devices per head, sites per
- * store — so that changing headcount moves everything downstream of it in one
- * edit instead of several that can disagree.
+ * A driver is either typed in or *defined* as a sum of terms over other drivers
+ * for the same entity and year — `devices = 1.5 per head + 2 per site` — so that
+ * changing headcount moves everything downstream of it in one edit instead of
+ * several that can disagree.
+ *
+ * A term is a row, not an expression. Nothing is parsed and nothing
+ * user-supplied is interpreted; addition and multiplication by a constant are
+ * structure rather than syntax, which is why this does not reopen ADR 0007's
+ * argument against a formula engine.
  *
  * Two decisions worth stating, because both were choices and not defaults:
  *
@@ -31,14 +36,19 @@ import type { Db } from '../db/pool.ts';
 import { sql } from '../db/pool.ts';
 import { validationFailed } from '../http/errors.ts';
 
+/** One term of a definition: this much of that driver. */
+export interface DriverTerm {
+  sourceKey: string;
+  factor: string;
+}
+
 export interface DriverNode {
   driverKey: string;
   unit: string;
-  /** The typed-in figure for a root driver; ignored for a derived one. */
+  /** The typed-in figure for a root driver; ignored when `terms` is non-empty. */
   value: number;
-  derivedFrom: string | null;
-  /** Multiplier applied to the parent's resolved value. */
-  factor: string | null;
+  /** Empty for a driver that is typed in rather than derived. */
+  terms: readonly DriverTerm[];
 }
 
 export class DriverCycleError extends Error {
@@ -55,6 +65,9 @@ export class DriverCycleError extends Error {
 function roundHalfUp(value: number): number {
   return Math.floor(value + 0.5);
 }
+
+/** A node is derived when it has terms, and typed in when it does not. */
+export const isDerived = (node: DriverNode): boolean => node.terms.length > 0;
 
 /**
  * Resolve every driver's value from the tree, returning the resolved figure per
@@ -93,9 +106,16 @@ export function resolveDriverTree(nodes: readonly DriverNode[]): Map<string, num
 
     resolving.add(key);
     path.push(key);
-    const value = node.derivedFrom === null || node.factor === null
-      ? node.value
-      : roundHalfUp(resolve(node.derivedFrom) * Number(node.factor));
+    // Rounded once, over the whole sum, rather than per term. Rounding each
+    // term would accumulate up to half a unit of error for every term, so a
+    // three-term definition could land a unit away from the figure a reader
+    // computes by hand — and the figure a reader computes by hand is the one
+    // this has to match.
+    const value = isDerived(node)
+      ? roundHalfUp(
+          node.terms.reduce((sum, t) => sum + resolve(t.sourceKey) * Number(t.factor), 0),
+        )
+      : node.value;
     path.pop();
     resolving.delete(key);
 
@@ -107,7 +127,7 @@ export function resolveDriverTree(nodes: readonly DriverNode[]): Map<string, num
   return resolved;
 }
 
-/** Every driver row for one entity and year, in key order. */
+/** Every driver row for one entity and year, with its terms, in key order. */
 export async function loadDriverTree(
   db: Db,
   entityId: string,
@@ -117,20 +137,28 @@ export async function loadDriverTree(
     driver_key: string;
     unit: string;
     value: number;
-    derived_from: string | null;
-    factor: string | null;
+    terms: { sourceKey: string; factor: string }[] | null;
   }>(sql`
-    select driver_key, unit, value, derived_from, factor::text as factor
-    from drivers
-    where entity_id = ${entityId} and fiscal_year = ${fiscalYear}
-    order by driver_key
+    select d.driver_key, d.unit, d.value,
+           (
+             select coalesce(json_agg(
+               json_build_object('sourceKey', t.source_key, 'factor', t.factor::text)
+               order by t.source_key
+             ), '[]'::json)
+             from driver_terms t
+             where t.entity_id = d.entity_id
+               and t.fiscal_year = d.fiscal_year
+               and t.driver_key = d.driver_key
+           ) as terms
+    from drivers d
+    where d.entity_id = ${entityId} and d.fiscal_year = ${fiscalYear}
+    order by d.driver_key
   `);
   return rows.map((r) => ({
     driverKey: r.driver_key,
     unit: r.unit,
     value: r.value,
-    derivedFrom: r.derived_from,
-    factor: r.factor,
+    terms: r.terms ?? [],
   }));
 }
 
@@ -152,7 +180,7 @@ export async function recomputeDriverTree(
 
   const changed: { key: string; from: number; to: number }[] = [];
   for (const node of nodes) {
-    if (node.derivedFrom === null) continue;
+    if (!isDerived(node)) continue;
     const to = resolved.get(node.driverKey)!;
     if (to === node.value) continue;
     changed.push({ key: node.driverKey, from: node.value, to });

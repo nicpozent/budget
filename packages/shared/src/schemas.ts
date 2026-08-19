@@ -383,16 +383,29 @@ export const createVersionSchema = z.object({
   copyFrom: versionKey.nullish(),
 });
 
-/**
- * FR-020 driver trees. A driver is either typed in or derived from another;
- * the union makes the two states exclusive rather than leaving a row that
- * carries both a value and a definition and no rule about which wins.
- */
 /** Only the caption moves. The key is what every amount references and the
  *  kind is what the migration-008 trigger refuses to change. */
 export const renameVersionSchema = z.object({
   label: shortText(120),
   description: longText(500).nullish(),
+});
+
+/**
+ * FR-020 driver trees. A driver is either typed in or defined as a sum of
+ * terms; the union makes those exclusive rather than leaving a row that carries
+ * both and no rule about which wins.
+ *
+ * A term is `{ derivedFrom, factor }` — structure, not an expression. There is
+ * nothing here to parse, which is the property ADR 0007 is protecting.
+ */
+export const driverTermSchema = z.object({
+  derivedFrom: driverKey,
+  // Bounded above so a tree cannot produce an absurd headcount, and strictly
+  // positive because a zero-factor term is a term that does nothing.
+  factor: rateString.refine(
+    (v) => Number(v) > 0 && Number(v) <= 1000,
+    'factor must be greater than zero and at most 1000',
+  ),
 });
 
 export const driverInputSchema = z.object({
@@ -403,18 +416,13 @@ export const driverInputSchema = z.object({
   z.union([
     z.object({
       value: z.number().int().min(0).max(10_000_000),
-      derivedFrom: z.null().optional(),
-      factor: z.null().optional(),
+      terms: z.array(driverTermSchema).max(0).optional(),
     }),
     z.object({
       value: z.number().int().min(0).max(10_000_000).optional(),
-      derivedFrom: driverKey,
-      // Bounded above so a tree cannot be used to produce an absurd headcount,
-      // and allowed below one so "sites per store" can be a fraction.
-      factor: rateString.refine(
-        (v) => Number(v) > 0 && Number(v) <= 1000,
-        'factor must be greater than zero and at most 1000',
-      ),
+      // Bounded by the number of driver keys that exist: a definition cannot
+      // name more sources than there are drivers, and each at most once.
+      terms: z.array(driverTermSchema).min(1).max(DRIVER_KEYS.length),
     }),
   ]),
 );

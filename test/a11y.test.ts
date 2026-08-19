@@ -135,6 +135,7 @@ const VIEWS: [string, string | null][] = [
   ['allocations', 'Allocations'],
   ['FX history', 'FX history'],
   ['scenarios', 'Scenarios'],
+  ['drivers', 'Drivers'],
 ];
 
 describe('A11Y-002 axe', () => {

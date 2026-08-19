@@ -59,6 +59,8 @@ const AllocationsView = lazy(() =>
   import('./components/reports.tsx').then((m) => ({ default: m.AllocationsView })));
 const ScenariosView = lazy(() =>
   import('./components/ScenariosView.tsx').then((m) => ({ default: m.ScenariosView })));
+const DriversView = lazy(() =>
+  import('./components/DriversView.tsx').then((m) => ({ default: m.DriversView })));
 
 type ViewKey =
   | 'budget'
@@ -68,6 +70,7 @@ type ViewKey =
   | 'consolidation'
   | 'allocations'
   | 'scenarios'
+  | 'drivers'
   | 'fxHistory'
   | 'submissions'
   | 'costCentres'
@@ -88,6 +91,15 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   { key: 'budget', label: 'nav.budget', glyph: '▦', group: 'nav.group.plan', visible: () => true },
   { key: 'consumption', label: 'nav.consumption', glyph: '◑', group: 'nav.group.plan', visible: () => true },
+  {
+    key: 'drivers',
+    label: 'nav.drivers',
+    glyph: '⚙',
+    group: 'nav.group.plan',
+    // FR-020. Anyone who can edit a line can set the drivers those lines are
+    // computed from; the write is refused server-side for anyone who cannot.
+    visible: (me) => can(me.user.role, 'budget.line.edit.own'),
+  },
   { key: 'variance', label: 'nav.variance', glyph: '⇅', group: 'nav.group.analyse', visible: () => true },
   { key: 'trend', label: 'nav.trend', glyph: '◺', group: 'nav.group.analyse', visible: () => true },
   {
@@ -312,6 +324,7 @@ function ReportPane({ me, view }: { me: Me; view: ViewKey }): JSX.Element {
           {view === 'allocations' ? <AllocationsView /> : null}
           {view === 'fxHistory' ? <FxHistoryView /> : null}
           {view === 'scenarios' ? <ScenariosView me={me} /> : null}
+          {view === 'drivers' ? <DriversView entities={entities} /> : null}
           {view === 'submissions' ? (
             <SubmissionsView canDecide={can(me.user.role, 'submission.decide')} />
           ) : null}

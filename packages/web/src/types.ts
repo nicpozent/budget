@@ -255,3 +255,18 @@ export interface VersionComparison {
   entities: ComparisonRow[];
   categories: ComparisonRow[];
 }
+
+/** FR-020 driver definitions. `value` is resolved; `terms` is the definition. */
+export interface DriverTermInput {
+  derivedFrom: string;
+  factor: string;
+}
+
+export interface Driver {
+  id: string;
+  entityId: string;
+  driverKey: string;
+  unit: string;
+  value: number;
+  terms: DriverTermInput[];
+}

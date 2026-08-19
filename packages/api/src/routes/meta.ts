@@ -166,16 +166,26 @@ export async function registerMetaRoutes(
   app.get('/api/drivers', { config: authenticatedRoute }, async (request) => {
     const ids = await visibleEntityIds(db, request, config.servedRegions);
     if (ids.length === 0) return [];
-    // FR-020: `derivedFrom` and `factor` are the definition, `value` is the
-    // resolved figure. Both are returned so the view can show a derived driver
-    // as read-only with its formula rather than as a number someone might type
-    // over and lose.
+    // FR-020: `terms` is the definition and `value` is the resolved figure.
+    // Both are returned so the view can show a derived driver as read-only
+    // beside its definition, rather than as a number someone might type over
+    // and lose.
     return db.query(sql`
-      select id, entity_id as "entityId", driver_key as "driverKey", unit, value,
-             derived_from as "derivedFrom", factor::text as factor
-      from drivers
-      where entity_id = any(${ids}::uuid[]) and fiscal_year = ${config.FISCAL_YEAR}
-      order by driver_key
+      select d.id, d.entity_id as "entityId", d.driver_key as "driverKey",
+             d.unit, d.value,
+             (
+               select coalesce(json_agg(
+                 json_build_object('derivedFrom', t.source_key, 'factor', t.factor::text)
+                 order by t.source_key
+               ), '[]'::json)
+               from driver_terms t
+               where t.entity_id = d.entity_id
+                 and t.fiscal_year = d.fiscal_year
+                 and t.driver_key = d.driver_key
+             ) as terms
+      from drivers d
+      where d.entity_id = any(${ids}::uuid[]) and d.fiscal_year = ${config.FISCAL_YEAR}
+      order by d.driver_key
     `);
   });
 

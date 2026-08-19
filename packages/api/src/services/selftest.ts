@@ -226,39 +226,52 @@ const CHECKS: readonly Check[] = [
       // which is the same reason the audit chain is re-walked rather than
       // assumed intact.
       //
-      // Half away from zero, matching `resolveDriverTree` and `Money`.
+      // Summed first, rounded once, half away from zero — matching
+      // `resolveDriverTree`. Rounding per term here would make the check
+      // disagree with the resolver on multi-term definitions, which is the
+      // failure mode a check like this exists to catch.
       const stale = await countOf(db, sql`
+        with defined as (
+          select t.entity_id, t.fiscal_year, t.driver_key,
+                 sum(t.factor * source.value) as expected,
+                 count(*) filter (where source.driver_key is null) as missing
+          from driver_terms t
+          left join drivers source
+            on source.entity_id = t.entity_id
+           and source.fiscal_year = t.fiscal_year
+           and source.driver_key = t.source_key
+          group by t.entity_id, t.fiscal_year, t.driver_key
+        )
         select count(*)::text as count
-        from drivers d
-        join drivers parent
-          on parent.entity_id = d.entity_id
-         and parent.fiscal_year = d.fiscal_year
-         and parent.driver_key = d.derived_from
-        where d.derived_from is not null
-          and d.value <> floor(parent.value * d.factor + 0.5)
+        from defined d
+        join drivers target
+          on target.entity_id = d.entity_id
+         and target.fiscal_year = d.fiscal_year
+         and target.driver_key = d.driver_key
+        where d.missing = 0 and target.value <> floor(d.expected + 0.5)
       `);
       const orphans = await countOf(db, sql`
-        select count(*)::text as count from drivers d
-        where d.derived_from is not null
-          and not exists (
-            select 1 from drivers p
-            where p.entity_id = d.entity_id and p.fiscal_year = d.fiscal_year
-              and p.driver_key = d.derived_from
-          )
+        select count(*)::text as count from driver_terms t
+        where not exists (
+          select 1 from drivers source
+          where source.entity_id = t.entity_id
+            and source.fiscal_year = t.fiscal_year
+            and source.driver_key = t.source_key
+        )
       `);
       if (orphans > 0) {
         return {
           status: 'fail',
-          detail: `${orphans} derived drivers point at a driver the entity does not have.`,
+          detail: `${orphans} driver terms reference a driver the entity does not have.`,
         };
       }
       return stale === 0
-        ? { status: 'pass', detail: 'Every derived driver matches its parent times its factor.' }
+        ? { status: 'pass', detail: 'Every derived driver matches the sum of its terms.' }
         : {
             status: 'fail',
             detail:
               `${stale} derived drivers no longer equal their definition. ` +
-              'Re-save the parent driver to recompute the tree.',
+              'Re-save a source driver to recompute the tree.',
           };
     },
   },

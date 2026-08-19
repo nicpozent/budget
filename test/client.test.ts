@@ -45,6 +45,10 @@ const ALLOWED_IDENTICAL = new Set([
   // "Scenario" is the same word in Swedish and Norwegian; "Versions",
   // "Actions" and "Note" are spelled the same in French, and "Note" in Danish.
   'scenario.kind.scenario', 'scenario.versions', 'scenario.actions', 'scenario.note',
+  // "Driver" is the same word in Norwegian and Danish; "Actions" and "Sites"
+  // in French; "Per" in Swedish, Norwegian and Finnish; "Definition" in Danish.
+  'drivers.driver', 'drivers.actions', 'drivers.key.sites', 'drivers.perSource',
+  'drivers.definition',
 ]);
 
 describe('NFR-010 catalogues', () => {

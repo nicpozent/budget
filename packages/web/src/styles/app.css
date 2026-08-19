@@ -520,6 +520,17 @@ button {
    smaller size keeps a row a row. Padding, not font-size: A11Y-001's 4.5:1 is
    about contrast and WCAG 2.5.8's 24px is about target size, and shrinking the
    text would trade against the first to satisfy neither. */
+/* A radio and its label as one target. WCAG 2.5.8 wants 24px; the label makes
+   the whole phrase clickable rather than just the 13px control. */
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
 .button-small {
   padding: 4px 9px;
   min-height: 24px;
