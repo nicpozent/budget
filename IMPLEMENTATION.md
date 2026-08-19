@@ -248,6 +248,31 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
+**An automated attack suite, and it is not a penetration test.** `SEC-041` asks
+for one and a script cannot be one: a pen test is a person chaining small
+oddities nobody wrote a rule for. What `test/pentest.test.ts` does is the part
+that *is* mechanical, and the reason it exists is the sweep rather than any
+individual case. `security.test.ts` proves each control works on the endpoint it
+was written for. The sweep reads the route table off the running instance — the
+`onRoute` hook that refuses an undeclared route now records the declared ones —
+and asserts that every non-public route refuses an anonymous request, that every
+capability-gated route refuses a role that lacks it, and that the public surface
+is exactly seven routes named in a list a reviewer has to edit deliberately.
+That is the endpoint added next month by someone who did not read the control
+tests.
+
+Around it: prototype pollution, a body past the 512 KB limit, path traversal on
+the asset route, `X-HTTP-Method-Override`, CRLF in a request header, a session
+token in a query string or an `Authorization` header, a token reused after
+sign-out, a role and an entity id smuggled into a request body, and four checks
+that a failure discloses no stack trace, no filesystem path, no SQL and no
+server banner — plus that "not yours" and "does not exist" answer identically,
+because the difference is an oracle.
+
+The gate was verified by planting a hole: marking `/api/entities` public fails
+it. That habit has now found three real defects in this codebase, including a
+CI rule that could not match the byte it was written for.
+
 **Mutation testing, and it found six real gaps.** Line coverage says a line
 ran; it does not say an assertion depended on it. `npm run mutate` changes one
 operator at a time in `packages/shared` — a `<` to a `<=`, an `&&` to an `||`,

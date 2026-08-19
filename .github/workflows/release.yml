@@ -174,7 +174,11 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # DAST (SEC-041). Row 9's gap was "no penetration test, no DAST". A pen test
-  # needs people; this is the half that does not.
+  # needs people; this is one of the two halves that do not. The other is
+  # `test/pentest.test.ts`, which runs in `ci.yml` on every push: ZAP probes the
+  # running application from outside and knows nothing about it, the attack
+  # suite knows the route table and sweeps every endpoint. Neither is the
+  # engagement, and both exist so the engagement is not spent on this.
   # ---------------------------------------------------------------------------
   dast:
     runs-on: ubuntu-latest
