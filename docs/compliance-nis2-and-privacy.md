@@ -134,6 +134,15 @@ This does not make the group PIPL-compliant. It makes the code ready for
 whichever topology Legal chooses, and it removes the failure mode where a
 deployment quietly serves data it should not.
 
+**The central-deployment decision promoted these from "later" to "before
+go-live".** Under one deployment per region an APAC entity's data never left its
+jurisdiction, so `CMP-141`–`CMP-145` were a triage exercise. Under a single
+central deployment, serving `apac` means Singapore, Indian and Vietnamese
+personal data is processed in the EU — an export under each of those laws, each
+with its own mechanism. `CMP-142`, `CMP-143` and `CMP-144` are referenced
+nowhere in this repository outside `SPEC.md`, which is accurate about the state
+of the analysis rather than an oversight in the writing.
+
 Remaining APAC items (`CMP-141`–`CMP-145`: Singapore PDPA, Japan APPI, India
 DPDPA, Australia APPs, and the HK/KR/TW/ID/TH/VN/PH/LK/BD set) need the same
 triage: confirm which entities process personal data, then map obligations. The

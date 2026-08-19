@@ -502,12 +502,17 @@ multi-year capital planning beyond the depreciation schedule, and any AI-assiste
 
 ## 12. Open decisions
 
-1. **PIPL and cross-border transfer.** The *topology* is decided — one central deployment,
-   not one per region — which removes the architectural half of this question and sharpens the
-   legal half: a central deployment serving another jurisdiction's entities is a transfer, and
-   needs a lawful basis. Still needs Legal, plus a decision on whether mainland China entities
-   are in scope at all. Until then `SERVED_REGIONS` names only the jurisdictions that have one.
-   (`CMP-140`)
+1. **Cross-border transfer, per jurisdiction.** The *topology* is decided — one central
+   deployment, not one per region — which removes the architectural half of this question and
+   sharpens the legal half: a central deployment serving another jurisdiction's entities is a
+   transfer and needs a lawful basis. This is no longer only China. Serving `apac` means
+   Singapore, Indian and Vietnamese data processed in the EU, so `CMP-141`, `CMP-143` and
+   `CMP-145` join `CMP-140` as go-live blockers rather than later triage. Until each has an
+   answer, `SERVED_REGIONS` names only the regions that do.
+   (`CMP-140`–`CMP-145`)
+   *Related model gap:* `entities.residency` has one `apac` value covering several regimes, and
+   records no country, so the control cannot yet express "serve Singapore but not Vietnam". The
+   fix is a country on the entity; it waits on Legal naming the buckets that matter.
 2. **NIS2 applicability** — sector assessment plus supply-chain flow-down review. (`CMP-120`)
 3. **Ledger integration** for actuals: which system, what granularity, what cadence. (`FR-040`)
 4. **Entra group model** — one group per role, or role plus entity-scope groups.

@@ -92,17 +92,44 @@ same session" without being an address book.
 
 ## 3. Transfers to third countries
 
+> **This section was written for a per-region topology and the topology has
+> changed.** The group has chosen a single central deployment, which removes the
+> arrangement in which no personal data crossed a border and inverts the
+> direction of every row below. It needs redoing by Legal before go-live, and
+> the table is left in place only so the delta is visible.
+>
+> Two things change, and neither is paperwork:
+>
+> **The direction.** These rows describe transfers *out of* the EU. A central EU
+> deployment receiving APAC and Swiss data is an *import*, governed by each
+> source jurisdiction's export rules rather than by EU standard contractual
+> clauses alone.
+>
+> **The granularity.** `apac` is one bucket in the schema and several regimes in
+> law. The entities in it today are Singapore, India, Vietnam and one entity
+> whose country the model does not record — so `CMP-141` (Singapore PDPA),
+> `CMP-143` (India DPDPA) and `CMP-145` (Vietnam PDPD) all apply and none of
+> them is "APAC".
+
 | Region | Entities | Basis |
 | --- | --- | --- |
 | EU (`eu`) | Majority | No transfer |
-| Switzerland (`ch`) | Swiss entities | Adequacy decision |
-| APAC (`apac`) | Regional entities | **[org]** SCCs plus a transfer impact assessment |
-| Mainland China (`cn`) | Chinese entities | **[org] Unresolved — `CMP-140`.** PIPL requires a separate lawful basis and probably local storage. This blocks the hosting topology, not just the paperwork |
+| Switzerland (`ch`) | Swiss entities | **[org]** Adequacy covers EU→CH; CH→EU is governed by the Swiss FADP and needs its own analysis under a central deployment |
+| APAC (`apac`) | Singapore, India, Vietnam, and one entity of unrecorded country | **[org] Per jurisdiction, not per bucket** — `CMP-141`, `CMP-143`, `CMP-145`. The single `apac` value cannot express which regime applies to which entity |
+| Mainland China (`cn`) | Chinese entities | **[org] Unresolved — `CMP-140`.** PIPL requires a separate lawful basis and probably local storage. Central hosting makes this the go-live blocker rather than an architectural one |
 
 The application enforces residency in one place — the entity scope resolver —
-so an EU deployment returns 404 for a `cn` entity even to an administrator. That
-is a technical control supporting whatever decision Legal makes; it is not
-itself a transfer mechanism.
+and `SERVED_REGIONS` names the regions a deployment serves, defaulting to its
+own alone. That is a technical control supporting whatever decision Legal makes;
+it is not itself a transfer mechanism.
+
+**Its granularity is the buckets, though.** `SERVED_REGIONS` is all-or-nothing
+per bucket, and `entities` records a region but no country, so a deployment
+cannot serve Singapore while Legal is still working through India. If the answer
+turns out to differ by jurisdiction — which the list above suggests it will —
+the model needs a country on the entity before the control can express it. That
+is a small change and it is deliberately not made yet: guessing which country
+each entity sits in would be inventing a compliance fact.
 
 ## 4. Security measures (Article 30(1)(g))
 
