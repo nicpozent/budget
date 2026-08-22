@@ -248,6 +248,21 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
+**`SEED_MODE=anonymised` was broken and nothing said so.** Migration 011
+replaced a dataset entity's `residency` with a `country`, and the anonymiser and
+the seed loader are two halves of one contract living in different packages. A
+fixture generated before that change parses cleanly, satisfies the loader's
+`meta.method` check, and then fails deep inside the seed on a null dereference
+naming nothing. Nobody noticed because the test harness always seeds
+synthetically, so the mode CI exercises is not the mode that broke.
+
+The loader now checks the shape and says what to do about it. The test is a
+round trip — generate a fixture, load it, assert every country resolves — rather
+than a read of `db/fixtures/anonymised.json`, which is gitignored because it is
+derived from Confidential data (PRIV-010) and would not exist in CI. The
+companion test plants the old shape and asserts the guard fires, because a guard
+nobody has seen fail is a guard nobody knows is reachable.
+
 **An automated attack suite, and it is not a penetration test.** `SEC-041` asks
 for one and a script cannot be one: a pen test is a person chaining small
 oddities nobody wrote a rule for. What `test/pentest.test.ts` does is the part

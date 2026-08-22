@@ -7,10 +7,11 @@
  * than on the intent.
  */
 
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { anonymise } from '../tools/anonymise.ts';
-import { syntheticDataset } from '../packages/api/src/db/dataset.ts';
+import { loadDataset, syntheticDataset } from '../packages/api/src/db/dataset.ts';
 import { sql } from '../packages/api/src/db/pool.ts';
 import { createBackup, listBackups, readBackup } from '../packages/api/src/services/backup.ts';
 import { createHarness, type AuthHeaders, type Harness } from './harness.ts';
@@ -62,6 +63,61 @@ const IDENTIFYING = [
   'Be-Terna', 'Advania', 'Anita', 'Marianna', 'Citrix',
   'BMI Infra', 'BTS', 'Biltema', 'BMI - Infra EUR', 'Biltema Sweden SEK',
 ];
+
+/**
+ * The anonymiser and the seed loader, checked against each other.
+ *
+ * They are two halves of one contract and they live in different packages, so
+ * the schema can move under one of them silently. Migration 011 replaced a
+ * dataset entity's `residency` with a `country`; a fixture generated before it
+ * parses cleanly, satisfies the `meta.method` check, and then fails deep inside
+ * the seed on a null dereference that names nothing. `SEED_MODE=anonymised` is
+ * a supported mode that CI never exercises, so nothing would have said so.
+ *
+ * The artefact itself is gitignored — it is derived from Confidential data
+ * (PRIV-010) and is regenerated rather than committed — so this generates one
+ * and loads it, which is the round trip that matters. It does not read whatever
+ * happens to be on the developer's disk.
+ */
+describe('the anonymiser output still loads into the current schema', () => {
+  const fixturePath = `${tmpdir()}/spendifre-roundtrip-fixture.json`;
+
+  afterAll(async () => {
+    await rm(fixturePath, { force: true });
+  });
+
+  it('gives every entity a country the database knows', async () => {
+    await writeFile(fixturePath, JSON.stringify(anonymise(SOURCE, { key: 'ef'.repeat(32) })));
+    const dataset = await loadDataset('anonymised', fixturePath);
+
+    expect(dataset.entities.length).toBeGreaterThan(0);
+    const known = new Set(
+      (await harness.db.query<{ code: string }>(sql`select code from countries`)).map((r) => r.code),
+    );
+    const unknown = dataset.entities
+      .filter((e) => !known.has(e.country))
+      .map((e) => `${e.code} -> ${String(e.country)}`);
+
+    expect(unknown, `no countries row matches:\n${unknown.join('\n')}`).toEqual([]);
+  });
+
+  it('refuses a fixture generated before the country column, by name', async () => {
+    // The guard that makes the failure legible, verified by planting the old
+    // shape rather than trusting that it is reachable.
+    const stale = anonymise(SOURCE, { key: 'ef'.repeat(32) }) as unknown as {
+      entities: Record<string, unknown>[];
+    };
+    for (const entity of stale.entities) {
+      delete entity.country;
+      entity.residency = 'eu';
+    }
+    const stalePath = `${tmpdir()}/spendifre-stale-fixture.json`;
+    await writeFile(stalePath, JSON.stringify(stale));
+
+    await expect(loadDataset('anonymised', stalePath)).rejects.toThrow(/predates migration 011/);
+    await rm(stalePath, { force: true });
+  });
+});
 
 describe('Anonymisation — direct identifiers (route 1)', () => {
   const fixture = anonymise(SOURCE, { key: 'ab'.repeat(32) });

@@ -214,6 +214,21 @@ export async function anonymisedDataset(file: string): Promise<Dataset> {
     throw new Error(`${file} is not an anonymiser output (meta.method missing)`);
   }
 
+  // The artefact is committed and the schema is not frozen, so the two drift:
+  // migration 011 replaced `residency` with `country` on a dataset entity, and
+  // a fixture generated before it parses cleanly, satisfies `meta.method`, and
+  // then fails deep inside the seed with a null dereference naming nothing.
+  // Checking the shape here turns that into a sentence with the remedy in it.
+  const stale = parsed.entities.filter((e) => typeof e.country !== 'string');
+  if (stale.length > 0) {
+    throw new Error(
+      `${file} predates migration 011: ${stale.length} of ${parsed.entities.length} ` +
+        'entities have no country. Regenerate it with:\n' +
+        '  node --experimental-strip-types tools/anonymise.ts --in design/budget-data.js --out ' +
+        file,
+    );
+  }
+
   return {
     provenance:
       `anonymised (jitter ±${parsed.meta.jitterPercent}%, rounded to ${parsed.meta.roundingUnit}, ` +
