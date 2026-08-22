@@ -248,6 +248,47 @@ the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
 
+**Reading the accessibility tree found four defects axe could not see.**
+Neither of the two open rows — no penetration test, no assistive-technology
+user testing — can be closed by code, and neither is. What was missing between
+them was the part that *is* mechanical, and for accessibility that turned out
+to be four real defects.
+
+`test/screenreader.test.ts` asks the browser for the tree a screen reader
+consumes, rather than checking rules against the DOM. It asserts that every
+region and control announces a name, that each view has one `h1`, one `main`
+and no skipped heading level, and that focus moves into the line drawer when it
+opens and returns to the opener when it closes. Written probe-first: every
+assertion exists because the probe found something.
+
+- **Twenty-five scroll containers were `role="group"` with no name.** One per
+  table, on every view. A screen reader announced "group" and stopped. Valid
+  ARIA, so axe passes it. Fixed by a `TableScroll` component that names the
+  region from the table's own caption by id — the same argument as
+  `servedEntityClause`: twenty-five copies of a rule all forgot the same part
+  of it.
+- **The line drawer's focus call had never once executed.** It sat beside
+  `load()` in an effect keyed on `lineId`; on that render `detail` is null, the
+  component returns the loading branch, and the close button does not exist, so
+  the ref was null and the call did nothing. By the time the button rendered
+  the effect's dependencies had not changed. It read as correct for as long as
+  it existed. A screen-reader user opened the panel and stayed in the table
+  behind it, with no announcement that anything had happened. Focus now moves
+  in when the button exists and returns to the opener on close.
+- **Nine empty `<th>` elements** — spacers in the grid's category rows —
+  announced a blank column header above every cell beneath them. They are
+  `<td>` now.
+- **Five table captions were still in English**, one of them a sentence that
+  switched language mid-clause: five locales rendered "Befintliga hänvisningar
+  till ett rejected or pending centre are surfaced as exceptions". Captions are
+  what a screen reader reads on entering a table, which is why an AT pass
+  surfaced an i18n bug.
+
+The gate that should have caught the captions was one character class too
+narrow: `OWN_LINE` excluded parentheses and digits, and every caption here ends
+in a requirement ID in brackets. Widened — and it immediately found a sixth,
+an untranslated form label.
+
 **`SEED_MODE=anonymised` was broken and nothing said so.** Migration 011
 replaced a dataset entity's `residency` with a `country`, and the anonymiser and
 the seed loader are two halves of one contract living in different packages. A

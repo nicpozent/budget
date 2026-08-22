@@ -228,7 +228,7 @@ export const EN = {
   'views.reject': 'Reject',
   'views.costCentreRegistry': 'Cost centre registry',
   'views.managersMayOnlyBookLinesToApprovedCentre':
-    'Managers may only book lines to approved centres. Existing references to a',
+    'Managers may only book lines to approved centres. Existing references to a rejected or pending centre are surfaced as exceptions, never cleared (INV-2).',
   'views.code': 'Code',
   'views.description': 'Description',
   'views.status': 'Status',
@@ -245,7 +245,7 @@ export const EN = {
   'views.confidential': 'Confidential',
   'views.retention': 'Retention',
   'views.enforcedByAScheduledJobThatWritesAnAudit':
-    'Enforced by a scheduled job that writes an audit event per run, including the',
+    "Enforced by a scheduled job that writes an audit event per run, including the count purged. Retention that is documented but not executed is a finding (PRIV-001).",
   'views.dataset': 'Dataset',
   'views.months': 'Months',
 
@@ -464,6 +464,16 @@ export const EN = {
   "drawer.detailFor": "Detail for {name}",
   "drawer.close": "Close line detail",
   "audit.searchPlaceholder": "Action or detail",
+
+  'views.consumptionCaption': "Lines consuming faster than time elapsed are flagged (FR-042).",
+
+  "drawer.amountsIn": "Amounts in {currency}.",
+  "drawer.driverLinkedReadOnly": "Driver-linked, so these are computed and read-only (INV-3).",
+  "ops.backupsCaption": "Retained for 24 months by the retention policy, like any other dataset. The integrity column is the audit chain state captured at backup time, not a check of the archive itself.",
+
+  'views.largestMovementsCaption': "The largest year-on-year movements, ranked by absolute change.",
+
+  'views.decisionCommentLabel': "Comment — returned to the budget owner with your decision (FR-052)",
 
   'common.error': 'Something went wrong.',
 } as const;

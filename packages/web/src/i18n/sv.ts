@@ -219,7 +219,7 @@ export const SV = {
   'views.reject': 'Avslå',
   'views.costCentreRegistry': 'Register över kostnadsställen',
   'views.managersMayOnlyBookLinesToApprovedCentre':
-    'Chefer får endast bokföra poster på godkända kostnadsställen. Befintliga hänvisningar till ett',
+    'Chefer får endast bokföra poster på godkända kostnadsställen. Befintliga hänvisningar till ett avvisat eller väntande kostnadsställe visas som avvikelser och rensas aldrig (INV-2).',
   'views.code': 'Kod',
   'views.description': 'Beskrivning',
   'views.status': 'Status',
@@ -236,7 +236,7 @@ export const SV = {
   'views.confidential': 'Konfidentiellt',
   'views.retention': 'Gallring',
   'views.enforcedByAScheduledJobThatWritesAnAudit':
-    'Tillämpas av ett schemalagt jobb som skriver en granskningshändelse per körning, inklusive',
+    "Genomdrivs av ett schemalagt jobb som skriver en revisionshändelse per körning, inklusive antalet gallrade poster. Lagring som är dokumenterad men inte utförd är en avvikelse (PRIV-001).",
   'views.dataset': 'Datamängd',
   'views.months': 'Månader',
 
@@ -451,6 +451,16 @@ export const SV = {
   "drawer.detailFor": "Detaljer för {name}",
   "drawer.close": "Stäng raddetaljer",
   "audit.searchPlaceholder": "Åtgärd eller detalj",
+
+  'views.consumptionCaption': "Rader som förbrukar snabbare än den tid som gått är markerade (FR-042).",
+
+  "drawer.amountsIn": "Belopp i {currency}.",
+  "drawer.driverLinkedReadOnly": "Drivarkopplad, så dessa beräknas och är skrivskyddade (INV-3).",
+  "ops.backupsCaption": "Sparas i 24 månader enligt lagringspolicyn, som alla andra dataset. Integritetskolumnen visar revisionskedjans tillstånd vid säkerhetskopieringen, inte en kontroll av själva arkivet.",
+
+  'views.largestMovementsCaption': "De största förändringarna jämfört med föregående år, rangordnade efter absolut förändring.",
+
+  'views.decisionCommentLabel': "Kommentar — skickas till budgetägaren tillsammans med ditt beslut (FR-052)",
 
   'common.error': 'Något gick fel.',
 } satisfies Catalogue;

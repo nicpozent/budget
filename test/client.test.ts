@@ -178,8 +178,16 @@ describe('NFR-010 string catalogue', () => {
     const offenders: string[] = [];
     /** Between tags: `>Some text<`. Rejects anything containing a brace. */
     const INLINE = />([A-Z][A-Za-z][^<>{}]*[a-z][^<>{}]*)</g;
-    /** Prose on its own line. */
-    const OWN_LINE = /^[A-Z][A-Za-z][A-Za-z ’'.,—-]{3,}$/;
+    /**
+     * Prose on its own line.
+     *
+     * The character class used to exclude parentheses and digits, which let a
+     * whole caption through: "Lines consuming faster than time elapsed are
+     * flagged (FR-042)." matched nothing and stayed English in six locales.
+     * Requirement IDs in parentheses are exactly how this codebase writes
+     * captions, so the one shape the class excluded was the shape it needed.
+     */
+    const OWN_LINE = /^[A-Z][A-Za-z][A-Za-z0-9 ’'.,()—-]{3,}$/;
 
     for await (const entry of glob('**/*.tsx', { cwd: WEB_SRC })) {
       const source = await readFile(`${WEB_SRC}/${entry}`, 'utf8');

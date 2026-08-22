@@ -22,6 +22,7 @@ import { STAGE_APPROVER_ROLES } from '@spendifre/shared';
 import type { ApprovalStage } from '../types.ts';
 import { formatMoney } from '../format.ts';
 import { t } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 interface Draft {
   name: string;
@@ -143,65 +144,62 @@ export function StagesView({ canConfigure }: { canConfigure: boolean }): JSX.Ele
           ) : null}
         </div>
 
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('stages.caption')}</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="num">{t('stages.order')}</th>
-                <th scope="col">{t('stages.name')}</th>
-                <th scope="col">{t('stages.decidedBy')}</th>
-                <th scope="col" className="num">{t('stages.appliesAtOrAbove')}</th>
-                <th scope="col">{t('stages.status')}</th>
-                {canConfigure ? <th scope="col">{t('stages.actions')}</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {stages.map((stage, index) => (
-                <tr key={stage.id}>
-                  <td className="num">{stage.position}</td>
-                  <th scope="row">{stage.name}</th>
-                  <td>{stage.requiredRole}</td>
-                  <td className="num">{formatMoney(stage.minAmountEur, 'EUR')}</td>
-                  <td>
-                    {/* Text, not a colour or an icon alone (A11Y-001). */}
-                    {stage.enabled ? t('stages.enabled') : t('stages.disabled')}
+        <TableScroll caption={t('stages.caption')}>
+          <thead>
+            <tr>
+              <th scope="col" className="num">{t('stages.order')}</th>
+              <th scope="col">{t('stages.name')}</th>
+              <th scope="col">{t('stages.decidedBy')}</th>
+              <th scope="col" className="num">{t('stages.appliesAtOrAbove')}</th>
+              <th scope="col">{t('stages.status')}</th>
+              {canConfigure ? <th scope="col">{t('stages.actions')}</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {stages.map((stage, index) => (
+              <tr key={stage.id}>
+                <td className="num">{stage.position}</td>
+                <th scope="row">{stage.name}</th>
+                <td>{stage.requiredRole}</td>
+                <td className="num">{formatMoney(stage.minAmountEur, 'EUR')}</td>
+                <td>
+                  {/* Text, not a colour or an icon alone (A11Y-001). */}
+                  {stage.enabled ? t('stages.enabled') : t('stages.disabled')}
+                </td>
+                {canConfigure ? (
+                  <td className="button-row">
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => startEdit(stage)}
+                      disabled={busy}
+                    >
+                      {t('stages.edit')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => move(index, -1)}
+                      disabled={busy || index === 0}
+                      aria-label={t('stages.moveUpOf').replace('{name}', stage.name)}
+                    >
+                      {t('stages.moveUp')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => move(index, 1)}
+                      disabled={busy || index === stages.length - 1}
+                      aria-label={t('stages.moveDownOf').replace('{name}', stage.name)}
+                    >
+                      {t('stages.moveDown')}
+                    </button>
                   </td>
-                  {canConfigure ? (
-                    <td className="button-row">
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => startEdit(stage)}
-                        disabled={busy}
-                      >
-                        {t('stages.edit')}
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => move(index, -1)}
-                        disabled={busy || index === 0}
-                        aria-label={t('stages.moveUpOf').replace('{name}', stage.name)}
-                      >
-                        {t('stages.moveUp')}
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => move(index, 1)}
-                        disabled={busy || index === stages.length - 1}
-                        aria-label={t('stages.moveDownOf').replace('{name}', stage.name)}
-                      >
-                        {t('stages.moveDown')}
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
 
       {editing ? (

@@ -16,6 +16,7 @@ import { api, type ApiError } from '../api.ts';
 import type { Driver, DriverTermInput, Entity } from '../types.ts';
 import { formatNumber } from '../format.ts';
 import { t } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 const DRIVER_KEYS = ['headcount', 'sites', 'devices', 'stores'] as const;
 type DriverKey = (typeof DRIVER_KEYS)[number];
@@ -126,57 +127,54 @@ export function DriversView({ entities }: { entities: Entity[] }): JSX.Element {
           </div>
         </div>
 
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('drivers.caption')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('drivers.driver')}</th>
-                <th scope="col">{t('drivers.unit')}</th>
-                <th scope="col" className="num">{t('drivers.value')}</th>
-                <th scope="col">{t('drivers.definition')}</th>
-                <th scope="col">{t('drivers.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DRIVER_KEYS.map((key) => {
-                const driver = byKey.get(key);
-                const derived = (driver?.terms.length ?? 0) > 0;
-                return (
-                  <tr key={key}>
-                    <th scope="row">{t(`drivers.key.${key}` as never)}</th>
-                    <td>{driver?.unit ?? '—'}</td>
-                    <td className="num">
-                      {driver ? formatNumber(String(driver.value)) : '—'}
-                      {/* A non-colour cue that this figure is computed and not
-                          typed, as elsewhere (A11Y-001). */}
-                      {derived ? (
-                        <span className="lock-cue" title={t('drivers.isDerived')}> 🔒</span>
-                      ) : null}
-                    </td>
-                    <td>
-                      {derived
-                        ? driver!.terms
-                            .map((term) => `${term.factor} × ${term.derivedFrom}`)
-                            .join('  +  ')
-                        : t('drivers.typedIn')}
-                    </td>
-                    <td className="button-row">
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => startEdit(key)}
-                        disabled={busy}
-                      >
-                        {t('drivers.edit')}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TableScroll caption={t('drivers.caption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('drivers.driver')}</th>
+              <th scope="col">{t('drivers.unit')}</th>
+              <th scope="col" className="num">{t('drivers.value')}</th>
+              <th scope="col">{t('drivers.definition')}</th>
+              <th scope="col">{t('drivers.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DRIVER_KEYS.map((key) => {
+              const driver = byKey.get(key);
+              const derived = (driver?.terms.length ?? 0) > 0;
+              return (
+                <tr key={key}>
+                  <th scope="row">{t(`drivers.key.${key}` as never)}</th>
+                  <td>{driver?.unit ?? '—'}</td>
+                  <td className="num">
+                    {driver ? formatNumber(String(driver.value)) : '—'}
+                    {/* A non-colour cue that this figure is computed and not
+                        typed, as elsewhere (A11Y-001). */}
+                    {derived ? (
+                      <span className="lock-cue" title={t('drivers.isDerived')}> 🔒</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    {derived
+                      ? driver!.terms
+                          .map((term) => `${term.factor} × ${term.derivedFrom}`)
+                          .join('  +  ')
+                      : t('drivers.typedIn')}
+                  </td>
+                  <td className="button-row">
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => startEdit(key)}
+                      disabled={busy}
+                    >
+                      {t('drivers.edit')}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </TableScroll>
       </section>
 
       {editing ? (
@@ -242,61 +240,58 @@ export function DriversView({ entities }: { entities: Entity[] }): JSX.Element {
           </div>
 
           {mode === 'derived' ? (
-            <div className="table-scroll" tabIndex={0} role="group">
-              <table>
-                <caption>{t('drivers.termsCaption')}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{t('drivers.factor')}</th>
-                    <th scope="col">{t('drivers.perSource')}</th>
-                    <th scope="col">{t('drivers.actions')}</th>
+            <TableScroll caption={t('drivers.termsCaption')}>
+              <thead>
+                <tr>
+                  <th scope="col">{t('drivers.factor')}</th>
+                  <th scope="col">{t('drivers.perSource')}</th>
+                  <th scope="col">{t('drivers.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {terms.map((term, index) => (
+                  <tr key={term.derivedFrom}>
+                    <td>
+                      <label className="visually-hidden" htmlFor={`factor-${index}`}>
+                        {t('drivers.factor')}
+                      </label>
+                      <input
+                        id={`factor-${index}`}
+                        className="input num"
+                        type="text"
+                        inputMode="decimal"
+                        value={term.factor}
+                        onChange={(e) => setTerm(index, { factor: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <label className="visually-hidden" htmlFor={`source-${index}`}>
+                        {t('drivers.perSource')}
+                      </label>
+                      <select
+                        id={`source-${index}`}
+                        className="select"
+                        value={term.derivedFrom}
+                        onChange={(e) => setTerm(index, { derivedFrom: e.target.value })}
+                      >
+                        {sourceOptions.map((k) => (
+                          <option key={k} value={k}>{t(`drivers.key.${k}` as never)}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="button button-small button-danger"
+                        onClick={() => setTerms(terms.filter((_, i) => i !== index))}
+                      >
+                        {t('drivers.removeTerm')}
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {terms.map((term, index) => (
-                    <tr key={term.derivedFrom}>
-                      <td>
-                        <label className="visually-hidden" htmlFor={`factor-${index}`}>
-                          {t('drivers.factor')}
-                        </label>
-                        <input
-                          id={`factor-${index}`}
-                          className="input num"
-                          type="text"
-                          inputMode="decimal"
-                          value={term.factor}
-                          onChange={(e) => setTerm(index, { factor: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <label className="visually-hidden" htmlFor={`source-${index}`}>
-                          {t('drivers.perSource')}
-                        </label>
-                        <select
-                          id={`source-${index}`}
-                          className="select"
-                          value={term.derivedFrom}
-                          onChange={(e) => setTerm(index, { derivedFrom: e.target.value })}
-                        >
-                          {sourceOptions.map((k) => (
-                            <option key={k} value={k}>{t(`drivers.key.${k}` as never)}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-small button-danger"
-                          onClick={() => setTerms(terms.filter((_, i) => i !== index))}
-                        >
-                          {t('drivers.removeTerm')}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </TableScroll>
           ) : null}
 
           <div className="button-row">

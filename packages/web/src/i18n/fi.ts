@@ -220,7 +220,7 @@ export const FI = {
   'views.reject': 'Hylkää',
   'views.costCentreRegistry': 'Kustannuspaikkarekisteri',
   'views.managersMayOnlyBookLinesToApprovedCentre':
-    'Esihenkilöt voivat kirjata rivejä vain hyväksytyille kustannuspaikoille. Olemassa olevat viittaukset',
+    'Esihenkilöt voivat kirjata rivejä vain hyväksytyille kustannuspaikoille. Olemassa olevat viittaukset hylättyyn tai odottavaan kustannuspaikkaan näytetään poikkeuksina, eikä niitä koskaan poisteta (INV-2).',
   'views.code': 'Koodi',
   'views.description': 'Kuvaus',
   'views.status': 'Tila',
@@ -237,7 +237,7 @@ export const FI = {
   'views.confidential': 'Luottamuksellinen',
   'views.retention': 'Säilytys',
   'views.enforcedByAScheduledJobThatWritesAnAudit':
-    'Toteutetaan ajastetulla työllä, joka kirjaa auditointitapahtuman jokaisesta ajosta, mukaan lukien',
+    "Toteutetaan ajastetulla työllä, joka kirjoittaa tarkastustapahtuman jokaisesta ajosta, mukaan lukien poistettujen määrä. Säilytys, joka on dokumentoitu mutta jota ei suoriteta, on havainto (PRIV-001).",
   'views.dataset': 'Tietojoukko',
   'views.months': 'Kuukautta',
 
@@ -452,6 +452,16 @@ export const FI = {
   "drawer.detailFor": "Rivin {name} tiedot",
   "drawer.close": "Sulje rivin tiedot",
   "audit.searchPlaceholder": "Toiminto tai kuvaus",
+
+  'views.consumptionCaption': "Rivit, jotka kuluttavat kulunutta aikaa nopeammin, on merkitty (FR-042).",
+
+  "drawer.amountsIn": "Summat valuutassa {currency}.",
+  "drawer.driverLinkedReadOnly": "Ajuriin kytketty, joten nämä lasketaan ja ovat vain luettavia (INV-3).",
+  "ops.backupsCaption": "Säilytetään 24 kuukautta säilytyskäytännön mukaisesti, kuten mikä tahansa muu tietojoukko. Eheyssarake näyttää tarkastusketjun tilan varmuuskopiointihetkellä, ei arkiston omaa tarkistusta.",
+
+  'views.largestMovementsCaption': "Suurimmat vuosimuutokset, järjestettynä absoluuttisen muutoksen mukaan.",
+
+  'views.decisionCommentLabel': "Kommentti — lähetetään budjetin omistajalle päätöksesi mukana (FR-052)",
 
   'common.error': 'Jokin meni pieleen.',
 } satisfies Catalogue;

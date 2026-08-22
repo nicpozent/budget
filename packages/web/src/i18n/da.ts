@@ -216,7 +216,7 @@ export const DA = {
   'views.reject': 'Afvis',
   'views.costCentreRegistry': 'Register over omkostningssteder',
   'views.managersMayOnlyBookLinesToApprovedCentre':
-    'Ledere må kun bogføre linjer på godkendte omkostningssteder. Eksisterende henvisninger til et',
+    'Ledere må kun bogføre linjer på godkendte omkostningssteder. Eksisterende henvisninger til et afvist eller afventende omkostningssted vises som undtagelser og ryddes aldrig (INV-2).',
   'views.code': 'Kode',
   'views.description': 'Beskrivelse',
   'views.status': 'Status',
@@ -233,7 +233,7 @@ export const DA = {
   'views.confidential': 'Fortroligt',
   'views.retention': 'Opbevaring',
   'views.enforcedByAScheduledJobThatWritesAnAudit':
-    'Håndhæves af et planlagt job, der skriver en revisionshændelse pr. kørsel, inklusive',
+    "Håndhæves af et planlagt job, der skriver en revisionshændelse pr. kørsel, inklusive antallet af slettede poster. Opbevaring, der er dokumenteret, men ikke udført, er et fund (PRIV-001).",
   'views.dataset': 'Datasæt',
   'views.months': 'Måneder',
 
@@ -448,6 +448,16 @@ export const DA = {
   "drawer.detailFor": "Detaljer for {name}",
   "drawer.close": "Luk linjedetaljer",
   "audit.searchPlaceholder": "Handling eller detalje",
+
+  'views.consumptionCaption': "Linjer der forbruger hurtigere end den forløbne tid, er markeret (FR-042).",
+
+  "drawer.amountsIn": "Beløb i {currency}.",
+  "drawer.driverLinkedReadOnly": "Driverforbundet, så disse beregnes og er skrivebeskyttede (INV-3).",
+  "ops.backupsCaption": "Opbevares i 24 måneder efter opbevaringspolitikken, som ethvert andet datasæt. Integritetskolonnen viser revisionskædens tilstand, da sikkerhedskopien blev taget, ikke en kontrol af selve arkivet.",
+
+  'views.largestMovementsCaption': "De største ændringer fra år til år, rangeret efter absolut ændring.",
+
+  'views.decisionCommentLabel': "Kommentar — sendes til budgetejeren sammen med din afgørelse (FR-052)",
 
   'common.error': 'Noget gik galt.',
 } satisfies Catalogue;

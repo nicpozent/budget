@@ -27,6 +27,7 @@ import {
 } from '../format.ts';
 import { BudgetStateChip, Status } from './Status.tsx';
 import { t } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 /**
  * A labelled horizontal bar.
@@ -108,60 +109,54 @@ export function ConsolidationView(): JSX.Element {
         <div className="panel-header">
           <h2>{t('views.spendByCountry')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('views.everyEntityIsInOneCountry')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('views.country')}</th>
-                <th scope="col" className="num">{t('views.planEur')}</th>
-                <th scope="col" className="num">{t('views.spend')}</th>
-                <th scope="col" className="num">{t('views.consumed')}</th>
+        <TableScroll caption={t('views.everyEntityIsInOneCountry')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('views.country')}</th>
+              <th scope="col" className="num">{t('views.planEur')}</th>
+              <th scope="col" className="num">{t('views.spend')}</th>
+              <th scope="col" className="num">{t('views.consumed')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.countries.map((c) => (
+              <tr key={c.code}>
+                <th scope="row">{c.name}</th>
+                <td className="num">{formatMoney(c.plan, 'EUR', { compact: true })}</td>
+                <td className="num">{formatMoney(c.actual, 'EUR', { compact: true })}</td>
+                <td className="num">{formatPercent(c.actual, c.plan)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {data.countries.map((c) => (
-                <tr key={c.code}>
-                  <th scope="row">{c.name}</th>
-                  <td className="num">{formatMoney(c.plan, 'EUR', { compact: true })}</td>
-                  <td className="num">{formatMoney(c.actual, 'EUR', { compact: true })}</td>
-                  <td className="num">{formatPercent(c.actual, c.plan)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
 
       <section className="panel">
         <div className="panel-header">
           <h2>{t('views.submissionStatusByEntity')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('views.everyFigureIsTheSumOfThatEntitysLines')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('views.entity')}</th>
-                <th scope="col">{t('views.name')}</th>
-                <th scope="col">{t('views.state')}</th>
-                <th scope="col" className="num">{t('views.planEur')}</th>
-                <th scope="col" className="num">{t('views.spend')}</th>
+        <TableScroll caption={t('views.everyFigureIsTheSumOfThatEntitysLines')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('views.entity')}</th>
+              <th scope="col">{t('views.name')}</th>
+              <th scope="col">{t('views.state')}</th>
+              <th scope="col" className="num">{t('views.planEur')}</th>
+              <th scope="col" className="num">{t('views.spend')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.entities.map((e) => (
+              <tr key={e.id}>
+                <th scope="row" className="currency-code">{e.code}</th>
+                <td>{e.name}</td>
+                <td><BudgetStateChip state={e.state} /></td>
+                <td className="num">{formatMoney(e.plan, 'EUR', { compact: true })}</td>
+                <td className="num">{formatMoney(e.actual, 'EUR', { compact: true })}</td>
               </tr>
-            </thead>
-            <tbody>
-              {data.entities.map((e) => (
-                <tr key={e.id}>
-                  <th scope="row" className="currency-code">{e.code}</th>
-                  <td>{e.name}</td>
-                  <td><BudgetStateChip state={e.state} /></td>
-                  <td className="num">{formatMoney(e.plan, 'EUR', { compact: true })}</td>
-                  <td className="num">{formatMoney(e.actual, 'EUR', { compact: true })}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
     </>
   );
@@ -228,41 +223,36 @@ export function ConsumptionView({ entities }: { entities: Entity[] }): JSX.Eleme
 
       <section className="panel">
         <div className="panel-header"><h2>{t('views.consumptionByLine')}</h2></div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>
-              Lines consuming faster than time elapsed are flagged (FR-042).
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('views.line')}</th>
-                <th scope="col">{t('views.entity')}</th>
-                <th scope="col">{t('views.category')}</th>
-                <th scope="col" className="num">{t('views.plan')}</th>
-                <th scope="col" className="num">{t('views.spend')}</th>
-                <th scope="col" className="num">{t('views.consumed')}</th>
-                <th scope="col">{t('views.pace')}</th>
+        <TableScroll caption={t('views.consumptionCaption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('views.line')}</th>
+              <th scope="col">{t('views.entity')}</th>
+              <th scope="col">{t('views.category')}</th>
+              <th scope="col" className="num">{t('views.plan')}</th>
+              <th scope="col" className="num">{t('views.spend')}</th>
+              <th scope="col" className="num">{t('views.consumed')}</th>
+              <th scope="col">{t('views.pace')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.lines.slice(0, 200).map((line) => (
+              <tr key={line.id}>
+                <th scope="row">{line.name}</th>
+                <td className="currency-code">{line.entityCode}</td>
+                <td>{line.categoryName}</td>
+                <td className="num">{formatMoney(line.plan, 'EUR', { compact: true })}</td>
+                <td className="num">{formatMoney(line.actual, 'EUR', { compact: true })}</td>
+                <td className="num">{formatPercent(line.actual, line.plan)}</td>
+                <td>
+                  {line.overPace
+                    ? <Status tone="bad">{t('views.overPace')}</Status>
+                    : <Status tone="ok">{t('views.onPace')}</Status>}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {data.lines.slice(0, 200).map((line) => (
-                <tr key={line.id}>
-                  <th scope="row">{line.name}</th>
-                  <td className="currency-code">{line.entityCode}</td>
-                  <td>{line.categoryName}</td>
-                  <td className="num">{formatMoney(line.plan, 'EUR', { compact: true })}</td>
-                  <td className="num">{formatMoney(line.actual, 'EUR', { compact: true })}</td>
-                  <td className="num">{formatPercent(line.actual, line.plan)}</td>
-                  <td>
-                    {line.overPace
-                      ? <Status tone="bad">{t('views.overPace')}</Status>
-                      : <Status tone="ok">{t('views.onPace')}</Status>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
     </>
   );
@@ -308,35 +298,33 @@ export function VarianceView({ entities }: { entities: Entity[] }): JSX.Element 
 
       <section className="panel">
         <div className="panel-header"><h2>{t('views.largestMovements')}</h2></div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t('views.line')}</th>
-                <th scope="col">{t('views.entity')}</th>
-                <th scope="col">{t('views.category')}</th>
-                <th scope="col" className="num">{t('views.priorYear')}</th>
-                <th scope="col" className="num">{t('views.thisYear')}</th>
-                <th scope="col" className="num">{t('views.movement')}</th>
+        <TableScroll caption={t('views.largestMovementsCaption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('views.line')}</th>
+              <th scope="col">{t('views.entity')}</th>
+              <th scope="col">{t('views.category')}</th>
+              <th scope="col" className="num">{t('views.priorYear')}</th>
+              <th scope="col" className="num">{t('views.thisYear')}</th>
+              <th scope="col" className="num">{t('views.movement')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.lines.slice(0, 60).map((line) => (
+              <tr key={line.id}>
+                <th scope="row">{line.name}</th>
+                <td className="currency-code">{line.entityCode}</td>
+                <td>{line.categoryName}</td>
+                <td className="num">{formatMoney(line.prior, 'EUR', { compact: true })}</td>
+                <td className="num">{formatMoney(line.current, 'EUR', { compact: true })}</td>
+                <td className={`num ${deltaClass(line.delta)}`}>
+                  <span aria-hidden="true">{deltaGlyph(line.delta)}</span>{' '}
+                  {formatMoney(line.delta, 'EUR', { compact: true })}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {data.lines.slice(0, 60).map((line) => (
-                <tr key={line.id}>
-                  <th scope="row">{line.name}</th>
-                  <td className="currency-code">{line.entityCode}</td>
-                  <td>{line.categoryName}</td>
-                  <td className="num">{formatMoney(line.prior, 'EUR', { compact: true })}</td>
-                  <td className="num">{formatMoney(line.current, 'EUR', { compact: true })}</td>
-                  <td className={`num ${deltaClass(line.delta)}`}>
-                    <span aria-hidden="true">{deltaGlyph(line.delta)}</span>{' '}
-                    {formatMoney(line.delta, 'EUR', { compact: true })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
     </>
   );
@@ -399,34 +387,31 @@ export function AuditView(): JSX.Element {
       </div>
 
       <section className="panel">
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('views.appendonlyEntriesCannotBeEditedOrDeleted')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('views.when')}</th>
-                <th scope="col">{t('views.actor')}</th>
-                <th scope="col">{t('views.role')}</th>
-                <th scope="col">{t('views.action')}</th>
-                <th scope="col">{t('views.detail')}</th>
-                <th scope="col">{t('views.kind')}</th>
+        <TableScroll caption={t('views.appendonlyEntriesCannotBeEditedOrDeleted')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('views.when')}</th>
+              <th scope="col">{t('views.actor')}</th>
+              <th scope="col">{t('views.role')}</th>
+              <th scope="col">{t('views.action')}</th>
+              <th scope="col">{t('views.detail')}</th>
+              <th scope="col">{t('views.kind')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((e) => (
+              <tr key={e.id}>
+                <td className="currency-code">{formatDateTime(e.occurred_at)}</td>
+                <td>{e.actor_name}</td>
+                <td className="currency-code">{e.actor_role}</td>
+                <th scope="row" className="currency-code">{e.action}</th>
+                <td>{e.detail}</td>
+                <td>{e.kind}</td>
               </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => (
-                <tr key={e.id}>
-                  <td className="currency-code">{formatDateTime(e.occurred_at)}</td>
-                  <td>{e.actor_name}</td>
-                  <td className="currency-code">{e.actor_role}</td>
-                  <th scope="row" className="currency-code">{e.action}</th>
-                  <td>{e.detail}</td>
-                  <td>{e.kind}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {events.length === 0 ? <p className="empty">{t('views.noMatchingEvents')}</p> : null}
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
+        {events.length === 0 ? <p className="empty">{t('views.noMatchingEvents')}</p> : null}
       </section>
     </>
   );
@@ -465,9 +450,7 @@ export function SubmissionsView({ canDecide }: { canDecide: boolean }): JSX.Elem
 
       {canDecide && submissions.length > 0 ? (
         <div className="field">
-          <label htmlFor="decision-comment">
-            Comment — returned to the budget owner with your decision (FR-052)
-          </label>
+          <label htmlFor="decision-comment">{t('views.decisionCommentLabel')}</label>
           <textarea
             id="decision-comment"
             className="input"
@@ -537,47 +520,41 @@ export function CostCentreView({ canApprove }: { canApprove: boolean }): JSX.Ele
       {message ? <p className="banner banner-error" role="alert">{message}</p> : null}
       <section className="panel">
         <div className="panel-header"><h2>{t('views.costCentreRegistry')}</h2></div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>
-              {t('views.managersMayOnlyBookLinesToApprovedCentre')}
-              rejected or pending centre are surfaced as exceptions, never cleared (INV-2).
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('views.code')}</th>
-                <th scope="col">{t('views.description')}</th>
-                <th scope="col">{t('views.status')}</th>
-                {canApprove ? <th scope="col">{t('views.decision')}</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {centres.map((c) => (
-                <tr key={c.id}>
-                  <th scope="row" className="currency-code">{c.code}</th>
-                  <td>{c.description}</td>
+        <TableScroll caption={t('views.managersMayOnlyBookLinesToApprovedCentre')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('views.code')}</th>
+              <th scope="col">{t('views.description')}</th>
+              <th scope="col">{t('views.status')}</th>
+              {canApprove ? <th scope="col">{t('views.decision')}</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {centres.map((c) => (
+              <tr key={c.id}>
+                <th scope="row" className="currency-code">{c.code}</th>
+                <td>{c.description}</td>
+                <td>
+                  {c.status === 'approved' ? <Status tone="ok">{t('views.approved')}</Status> : null}
+                  {c.status === 'pending' ? <Status tone="pending">{t('views.pending')}</Status> : null}
+                  {c.status === 'rejected' ? <Status tone="bad">{t('views.rejected')}</Status> : null}
+                </td>
+                {canApprove ? (
                   <td>
-                    {c.status === 'approved' ? <Status tone="ok">{t('views.approved')}</Status> : null}
-                    {c.status === 'pending' ? <Status tone="pending">{t('views.pending')}</Status> : null}
-                    {c.status === 'rejected' ? <Status tone="bad">{t('views.rejected')}</Status> : null}
+                    <div className="button-row">
+                      <button type="button" className="button" onClick={() => decide(c.id, 'approved')}>
+                        {t('views.approve')}
+                      </button>
+                      <button type="button" className="button button-danger" onClick={() => decide(c.id, 'rejected')}>
+                        {t('views.reject')}
+                      </button>
+                    </div>
                   </td>
-                  {canApprove ? (
-                    <td>
-                      <div className="button-row">
-                        <button type="button" className="button" onClick={() => decide(c.id, 'approved')}>
-                          {t('views.approve')}
-                        </button>
-                        <button type="button" className="button button-danger" onClick={() => decide(c.id, 'rejected')}>
-                          {t('views.reject')}
-                        </button>
-                      </div>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
     </>
   );
@@ -617,53 +594,44 @@ export function GovernanceView(): JSX.Element {
 
       <section className="panel">
         <div className="panel-header"><h2>{t('views.fieldClassification')}</h2></div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('views.everyFieldCarriesExactlyOneClassificatio')}</caption>
-            <thead>
-              <tr><th scope="col">{t('views.field')}</th><th scope="col">{t('views.class')}</th></tr>
-            </thead>
-            <tbody>
-              {classifications.map((c) => (
-                <tr key={c.fieldKey}>
-                  <th scope="row" className="currency-code">{c.fieldKey}</th>
-                  <td>
-                    {c.dataClass === 'personal_data' ? (
-                      <Status tone="pending">{t('views.personalData')}</Status>
-                    ) : c.dataClass === 'confidential' ? (
-                      <Status tone="bad">{t('views.confidential')}</Status>
-                    ) : (
-                      <Status tone="neutral">{c.dataClass}</Status>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TableScroll caption={t('views.everyFieldCarriesExactlyOneClassificatio')}>
+          <thead>
+            <tr><th scope="col">{t('views.field')}</th><th scope="col">{t('views.class')}</th></tr>
+          </thead>
+          <tbody>
+            {classifications.map((c) => (
+              <tr key={c.fieldKey}>
+                <th scope="row" className="currency-code">{c.fieldKey}</th>
+                <td>
+                  {c.dataClass === 'personal_data' ? (
+                    <Status tone="pending">{t('views.personalData')}</Status>
+                  ) : c.dataClass === 'confidential' ? (
+                    <Status tone="bad">{t('views.confidential')}</Status>
+                  ) : (
+                    <Status tone="neutral">{c.dataClass}</Status>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
 
       <section className="panel">
         <div className="panel-header"><h2>{t('views.retention')}</h2></div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>
-              {t('views.enforcedByAScheduledJobThatWritesAnAudit')}
-              count purged. Retention that is documented but not executed is a finding (PRIV-001).
-            </caption>
-            <thead>
-              <tr><th scope="col">{t('views.dataset')}</th><th scope="col" className="num">{t('views.months')}</th></tr>
-            </thead>
-            <tbody>
-              {retention.map((r) => (
-                <tr key={r.dataset}>
-                  <th scope="row">{r.dataset}</th>
-                  <td className="num">{r.months}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TableScroll caption={t('views.enforcedByAScheduledJobThatWritesAnAudit')}>
+          <thead>
+            <tr><th scope="col">{t('views.dataset')}</th><th scope="col" className="num">{t('views.months')}</th></tr>
+          </thead>
+          <tbody>
+            {retention.map((r) => (
+              <tr key={r.dataset}>
+                <th scope="row">{r.dataset}</th>
+                <td className="num">{r.months}</td>
+              </tr>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
     </>
   );

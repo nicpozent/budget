@@ -20,6 +20,7 @@ import type { BudgetLine, BudgetView, CostCentre } from '../types.ts';
 import { PERIOD_LABELS, formatMoney, formatNumber, toInputValue } from '../format.ts';
 import { CostCentreChip, Status } from './Status.tsx';
 import { t } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 export type Unit = 'local' | 'eur';
 
@@ -78,90 +79,92 @@ export function BudgetGrid({
 
   return (
     <div className="panel">
-      <div className="table-scroll" tabIndex={0} role="group">
-        <table>
-          <caption>
-            {t('grid.caption', {
-              year: view.cycle.fiscal_year,
-              unit: unit === 'eur' ? t('grid.unitEur') : t('grid.unitLocal'),
-            })}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={(e) => onSelectAll(allIds, e.target.checked)}
-                  aria-label={t('grid.selectAll')}
-                />
+      <TableScroll
+        caption={t('grid.caption', {
+          year: view.cycle.fiscal_year,
+          unit: unit === 'eur' ? t('grid.unitEur') : t('grid.unitLocal'),
+        })}
+      >
+        <thead>
+          <tr>
+            <th scope="col">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(e) => onSelectAll(allIds, e.target.checked)}
+                aria-label={t('grid.selectAll')}
+              />
+            </th>
+            <th scope="col">{t('grid.line')}</th>
+            <th scope="col">{t('grid.vendor')}</th>
+            <th scope="col">{t('grid.costCentre')}</th>
+            <th scope="col">{t('grid.currency')}</th>
+            {labels.map((label) => (
+              <th scope="col" className="num" key={label}>
+                {label}
               </th>
-              <th scope="col">{t('grid.line')}</th>
-              <th scope="col">{t('grid.vendor')}</th>
-              <th scope="col">{t('grid.costCentre')}</th>
-              <th scope="col">{t('grid.currency')}</th>
-              {labels.map((label) => (
-                <th scope="col" className="num" key={label}>
-                  {label}
+            ))}
+            <th scope="col" className="num">
+              {t('grid.total')}
+            </th>
+            <th scope="col">{t('grid.status')}</th>
+          </tr>
+        </thead>
+
+        {grouped.map(([categoryId, group]) => {
+          const categoryTotal = totalsByCategory.get(categoryId);
+          return (
+            <tbody key={categoryId}>
+              <tr className="category-row">
+                <th scope="rowgroup" colSpan={5}>
+                  {group.name}
                 </th>
-              ))}
-              <th scope="col" className="num">
-                {t('grid.total')}
-              </th>
-              <th scope="col">{t('grid.status')}</th>
-            </tr>
-          </thead>
-
-          {grouped.map(([categoryId, group]) => {
-            const categoryTotal = totalsByCategory.get(categoryId);
-            return (
-              <tbody key={categoryId}>
-                <tr className="category-row">
-                  <th scope="rowgroup" colSpan={5}>
-                    {group.name}
-                  </th>
-                  {labels.map((label) => (
-                    <th key={label} aria-hidden="true" />
-                  ))}
-                  <th className="num">
-                    {/* INV-4: this figure is the sum of the rows below it,
-                        computed server-side from the same line values. */}
-                    {categoryTotal ? formatMoney(categoryTotal.plan, 'EUR', { compact: true }) : '—'}
-                  </th>
-                  <th />
-                </tr>
-
-                {group.lines.map((line) => (
-                  <GridRow
-                    key={line.id}
-                    line={line}
-                    labels={labels}
-                    unit={unit}
-                    canEdit={canEdit}
-                    costCentres={costCentres}
-                    selected={selected.has(line.id)}
-                    onToggleSelect={onToggleSelect}
-                    onOpenLine={onOpenLine}
-                    onSetAmount={onSetAmount}
-                  />
+                {/* Spacers under the period columns, not headers. As `th`
+                    they were empty column headers — axe's best-practice set
+                    flags them, and a screen reader announces a blank header
+                    for every cell in the column beneath. */}
+                {labels.map((label) => (
+                  <td key={label} aria-hidden="true" />
                 ))}
-              </tbody>
-            );
-          })}
+                <th className="num">
+                  {/* INV-4: this figure is the sum of the rows below it,
+                      computed server-side from the same line values. */}
+                  {categoryTotal ? formatMoney(categoryTotal.plan, 'EUR', { compact: true }) : '—'}
+                </th>
+                {/* The status column has no subtotal. A cell, not a header. */}
+                <td />
+              </tr>
 
-          <tfoot>
-            <tr>
-              <td colSpan={5 + labels.length} className="num">
-                <strong>{t('grid.entityTotalEur')}</strong>
-              </td>
-              <td className="num">
-                <strong>{formatMoney(view.entityTotal.plan, 'EUR')}</strong>
-              </td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+              {group.lines.map((line) => (
+                <GridRow
+                  key={line.id}
+                  line={line}
+                  labels={labels}
+                  unit={unit}
+                  canEdit={canEdit}
+                  costCentres={costCentres}
+                  selected={selected.has(line.id)}
+                  onToggleSelect={onToggleSelect}
+                  onOpenLine={onOpenLine}
+                  onSetAmount={onSetAmount}
+                />
+              ))}
+            </tbody>
+          );
+        })}
+
+        <tfoot>
+          <tr>
+            <td colSpan={5 + labels.length} className="num">
+              <strong>{t('grid.entityTotalEur')}</strong>
+            </td>
+            <td className="num">
+              <strong>{formatMoney(view.entityTotal.plan, 'EUR')}</strong>
+            </td>
+            <td />
+          </tr>
+        </tfoot>
+      </TableScroll>
     </div>
   );
 }

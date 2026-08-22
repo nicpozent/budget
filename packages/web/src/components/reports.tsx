@@ -16,6 +16,7 @@ import type { ApiError } from '../api.ts';
 import type { Allocations, Entity, FxHistory, Trend } from '../types.ts';
 import { formatMoney, formatNumber } from '../format.ts';
 import { t } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 /** A bar whose length is a share of `max`, drawn as SVG (see the file note). */
 function Bar({ value, max }: { value: number; max: number }): JSX.Element {
@@ -133,49 +134,46 @@ export function TrendView({ entities, fiscalYear }: {
         <div className="panel-header">
           <h2>{plottedSeries ? t('trend.plotted', { label: plottedSeries.label }) : t('trend.total')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>
-              {plottedSeries
-                ? t('trend.captionPlotted', { label: plottedSeries.label })
-                : t('trend.caption')}
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('trend.year')}</th>
-                <th scope="col" className="num">{t('trend.total')}</th>
-                <th scope="col">{/* bar */}</th>
-                <th scope="col" className="num">{t('trend.change')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.years.map((year, index) => {
-                const value = plottedSeries
-                  ? Number(plottedSeries.values[year] ?? 0)
-                  : Number(data.total[year] ?? 0);
-                const previousYear = data.years[index - 1];
-                const previous = previousYear === undefined
-                  ? null
-                  : plottedSeries
-                    ? Number(plottedSeries.values[previousYear] ?? 0)
-                    : Number(data.total[previousYear] ?? 0);
-                const change = previous && previous !== 0
-                  ? ((value - previous) / previous) * 100
-                  : null;
-                return (
-                  <tr key={year}>
-                    <th scope="row">{year}</th>
-                    <td className="num">{formatMoney(String(value), 'EUR', { compact: true })}</td>
-                    <td><Bar value={value} max={plottedSeries ? maxPlotted : maxTotal} /></td>
-                    <td className="num">
-                      {change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TableScroll
+          caption={plottedSeries
+            ? t('trend.captionPlotted', { label: plottedSeries.label })
+            : t('trend.caption')}
+        >
+          <thead>
+            <tr>
+              <th scope="col">{t('trend.year')}</th>
+              <th scope="col" className="num">{t('trend.total')}</th>
+              <th scope="col">{/* bar */}</th>
+              <th scope="col" className="num">{t('trend.change')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.years.map((year, index) => {
+              const value = plottedSeries
+                ? Number(plottedSeries.values[year] ?? 0)
+                : Number(data.total[year] ?? 0);
+              const previousYear = data.years[index - 1];
+              const previous = previousYear === undefined
+                ? null
+                : plottedSeries
+                  ? Number(plottedSeries.values[previousYear] ?? 0)
+                  : Number(data.total[previousYear] ?? 0);
+              const change = previous && previous !== 0
+                ? ((value - previous) / previous) * 100
+                : null;
+              return (
+                <tr key={year}>
+                  <th scope="row">{year}</th>
+                  <td className="num">{formatMoney(String(value), 'EUR', { compact: true })}</td>
+                  <td><Bar value={value} max={plottedSeries ? maxPlotted : maxTotal} /></td>
+                  <td className="num">
+                    {change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </TableScroll>
       </section>
 
       {mode !== 'total' ? (
@@ -183,44 +181,41 @@ export function TrendView({ entities, fiscalYear }: {
           <div className="panel-header">
             <h2>{t('trend.series')}</h2>
           </div>
-          <div className="table-scroll" tabIndex={0} role="group">
-            <table>
-              <caption>{t('trend.seriesCaption')}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{mode === 'category' ? t('nav.consolidation') : t('trend.series')}</th>
-                  {data.years.map((y) => (
-                    <th key={y} scope="col" className="num">{y}</th>
-                  ))}
-                  <th scope="col">{/* plot control */}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {series.length === 0 ? (
-                  <tr><td colSpan={data.years.length + 2}>{t('trend.noData')}</td></tr>
-                ) : series.map((s) => (
-                  <tr key={s.id} aria-current={plotted === s.id ? 'true' : undefined}>
-                    <th scope="row">{s.label}</th>
-                    {data.years.map((y) => (
-                      <td key={y} className="num">
-                        {formatMoney(s.values[y] ?? '0', 'EUR', { compact: true })}
-                      </td>
-                    ))}
-                    <td>
-                      <button
-                        type="button"
-                        className="button"
-                        aria-pressed={plotted === s.id}
-                        onClick={() => setPlotted(plotted === s.id ? null : s.id)}
-                      >
-                        {t('trend.plot')}
-                      </button>
-                    </td>
-                  </tr>
+          <TableScroll caption={t('trend.seriesCaption')}>
+            <thead>
+              <tr>
+                <th scope="col">{mode === 'category' ? t('nav.consolidation') : t('trend.series')}</th>
+                {data.years.map((y) => (
+                  <th key={y} scope="col" className="num">{y}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                <th scope="col">{/* plot control */}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {series.length === 0 ? (
+                <tr><td colSpan={data.years.length + 2}>{t('trend.noData')}</td></tr>
+              ) : series.map((s) => (
+                <tr key={s.id} aria-current={plotted === s.id ? 'true' : undefined}>
+                  <th scope="row">{s.label}</th>
+                  {data.years.map((y) => (
+                    <td key={y} className="num">
+                      {formatMoney(s.values[y] ?? '0', 'EUR', { compact: true })}
+                    </td>
+                  ))}
+                  <td>
+                    <button
+                      type="button"
+                      className="button"
+                      aria-pressed={plotted === s.id}
+                      onClick={() => setPlotted(plotted === s.id ? null : s.id)}
+                    >
+                      {t('trend.plot')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </TableScroll>
         </section>
       ) : null}
     </>
@@ -264,41 +259,38 @@ export function FxHistoryView(): JSX.Element {
         <div className="panel-header">
           <h2>{t('fx.title')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('fx.volatilityHint')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('fx.currency')}</th>
-                {years.map((y) => (
-                  <th key={y} scope="col" className="num">{y}</th>
-                ))}
-                <th scope="col" className="num">{t('fx.drift')}</th>
-                <th scope="col" className="num">{t('fx.volatility')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row) => {
-                const spread = volatility(row.history);
-                return (
-                  <tr key={row.currency}>
-                    <th scope="row" className="currency-code">{row.currency}</th>
-                    {years.map((y) => {
-                      const point = row.history.find((h) => h.year === y);
-                      return (
-                        <td key={y} className="num">
-                          {point ? Number(point.rate).toFixed(6) : '—'}
-                        </td>
-                      );
-                    })}
-                    <td className="num">{Number(row.drift).toFixed(6)}</td>
-                    <td className="num">{spread === null ? '—' : `${spread.toFixed(1)}%`}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TableScroll caption={t('fx.volatilityHint')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('fx.currency')}</th>
+              {years.map((y) => (
+                <th key={y} scope="col" className="num">{y}</th>
+              ))}
+              <th scope="col" className="num">{t('fx.drift')}</th>
+              <th scope="col" className="num">{t('fx.volatility')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row) => {
+              const spread = volatility(row.history);
+              return (
+                <tr key={row.currency}>
+                  <th scope="row" className="currency-code">{row.currency}</th>
+                  {years.map((y) => {
+                    const point = row.history.find((h) => h.year === y);
+                    return (
+                      <td key={y} className="num">
+                        {point ? Number(point.rate).toFixed(6) : '—'}
+                      </td>
+                    );
+                  })}
+                  <td className="num">{Number(row.drift).toFixed(6)}</td>
+                  <td className="num">{spread === null ? '—' : `${spread.toFixed(1)}%`}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </TableScroll>
       </section>
     </>
   );
@@ -324,67 +316,61 @@ export function AllocationsView(): JSX.Element {
         <div className="panel-header">
           <h2>{t('alloc.pools')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('alloc.poolsCaption')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('alloc.pool')}</th>
-                <th scope="col" className="num">{t('alloc.amount')}</th>
-                <th scope="col">{t('alloc.driver')}</th>
+        <TableScroll caption={t('alloc.poolsCaption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('alloc.pool')}</th>
+              <th scope="col" className="num">{t('alloc.amount')}</th>
+              <th scope="col">{t('alloc.driver')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.pools.length === 0 ? (
+              <tr><td colSpan={3}>{t('alloc.noPools')}</td></tr>
+            ) : data.pools.map((p) => (
+              <tr key={p.name}>
+                <th scope="row">{p.name}</th>
+                <td className="num">{formatMoney(p.amount, p.currency)}</td>
+                <td>{p.driverKey}</td>
               </tr>
-            </thead>
-            <tbody>
-              {data.pools.length === 0 ? (
-                <tr><td colSpan={3}>{t('alloc.noPools')}</td></tr>
-              ) : data.pools.map((p) => (
-                <tr key={p.name}>
-                  <th scope="row">{p.name}</th>
-                  <td className="num">{formatMoney(p.amount, p.currency)}</td>
-                  <td>{p.driverKey}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
 
       <section className="panel">
         <div className="panel-header">
           <h2>{t('alloc.byEntity')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('alloc.entityCaption')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('alloc.entity')}</th>
-                <th scope="col" className="num">{t('alloc.own')}</th>
-                <th scope="col" className="num">{t('alloc.charged')}</th>
-                <th scope="col" className="num">{t('alloc.total')}</th>
-                <th scope="col">{/* bar */}</th>
+        <TableScroll caption={t('alloc.entityCaption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('alloc.entity')}</th>
+              <th scope="col" className="num">{t('alloc.own')}</th>
+              <th scope="col" className="num">{t('alloc.charged')}</th>
+              <th scope="col" className="num">{t('alloc.total')}</th>
+              <th scope="col">{/* bar */}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.entities.map((e) => (
+              <tr key={e.id}>
+                <th scope="row" className="currency-code">{e.code}</th>
+                <td className="num">{formatMoney(e.own, 'EUR', { compact: true })}</td>
+                <td className="num">
+                  {formatMoney(e.charged, 'EUR', { compact: true })}
+                  {/* INV-6: non-colour cue that the figure is not the
+                      entity's to change (A11Y-001). */}
+                  {e.chargedReadOnly ? (
+                    <span className="lock-cue" title={t('alloc.readOnly')}> 🔒</span>
+                  ) : null}
+                </td>
+                <td className="num">{formatMoney(e.total, 'EUR', { compact: true })}</td>
+                <td><Bar value={Number(e.total)} max={maxTotal} /></td>
               </tr>
-            </thead>
-            <tbody>
-              {data.entities.map((e) => (
-                <tr key={e.id}>
-                  <th scope="row" className="currency-code">{e.code}</th>
-                  <td className="num">{formatMoney(e.own, 'EUR', { compact: true })}</td>
-                  <td className="num">
-                    {formatMoney(e.charged, 'EUR', { compact: true })}
-                    {/* INV-6: non-colour cue that the figure is not the
-                        entity's to change (A11Y-001). */}
-                    {e.chargedReadOnly ? (
-                      <span className="lock-cue" title={t('alloc.readOnly')}> 🔒</span>
-                    ) : null}
-                  </td>
-                  <td className="num">{formatMoney(e.total, 'EUR', { compact: true })}</td>
-                  <td><Bar value={Number(e.total)} max={maxTotal} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
 
       <p className="footnote">{formatNumber(String(data.entities.length))} entities in scope.</p>

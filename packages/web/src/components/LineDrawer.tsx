@@ -67,9 +67,37 @@ export function LineDrawer({
 
   useEffect(() => {
     void load();
-    closeRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lineId]);
+
+  /**
+   * Focus moves into the drawer when it opens, and back to whatever opened it
+   * when it closes (WCAG 2.4.3).
+   *
+   * This used to be a `closeRef.current?.focus()` alongside `load()` above, and
+   * it never once fired. On that render `detail` is still null, so the
+   * component returns the loading branch — which has no close button — and the
+   * ref is null. By the time the button exists the effect has already run and
+   * its dependencies have not changed. It read as correct in review for as long
+   * as it existed; the accessibility tree is what showed focus still sitting on
+   * the table row behind the open drawer.
+   *
+   * Keyed on the line rather than on `detail`, because `detail` is replaced
+   * after every save and re-focusing then would yank the caret out of whatever
+   * field the user had just edited.
+   */
+  const focusedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (detail && focusedFor.current !== lineId) {
+      focusedFor.current = lineId;
+      closeRef.current?.focus();
+    }
+  }, [detail, lineId]);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    return () => opener?.focus();
+  }, []);
 
   // Escape closes the drawer, which is the behaviour a keyboard user expects
   // from anything that overlays the primary content.
@@ -205,10 +233,8 @@ export function LineDrawer({
         <h3>{t('drawer.phasing')}</h3>
         <table>
           <caption>
-            Amounts in {line.currency}.{' '}
-            {line.driverKey
-              ? 'Driver-linked, so these are computed and read-only (INV-3).'
-              : null}
+            {t('drawer.amountsIn', { currency: line.currency })}{' '}
+            {line.driverKey ? t('drawer.driverLinkedReadOnly') : null}
           </caption>
           <thead>
             <tr>

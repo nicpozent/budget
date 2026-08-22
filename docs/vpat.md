@@ -16,6 +16,23 @@ Report date: **2026-08-16** · Version evaluated: `claude/file-review-8a42qx`
 > A VPAT that overstates conformance is worse than no VPAT, because a procurement
 > team relies on it. This one is written to be checkable.
 
+> **Reading the accessibility tree is not the same as testing with a screen
+> reader, and this report does not claim it is.** What was added this revision
+> is a gate that asks the browser for the tree a screen reader consumes and
+> asserts the properties that make a page navigable — every region and control
+> announces a name, one `h1` and one `main` per view, no skipped heading level,
+> and focus that moves into an overlay and returns when it closes. It found
+> four things nothing else had: twenty-five scroll regions announcing "group"
+> and nothing more; a line drawer whose focus call had never once executed, so
+> the panel opened silently and left the user in the table behind it; nine
+> empty `<th>` elements announcing a blank column header above every cell
+> beneath them; and five table captions still in English.
+>
+> None of that is a substitute for a screen-reader user. It is the distance
+> between "axe passes" and "navigable", which turned out to be four defects
+> wide — and the criteria below marked *not independently verified* are still
+> not independently verified.
+
 > **One finding from this revision, because it says what a self-assessment
 > misses.** Nine accessible names were hardcoded English in a six-locale
 > product — the grid's select-all and per-row checkboxes, the line drawer and
@@ -36,6 +53,9 @@ Report date: **2026-08-16** · Version evaluated: `claude/file-review-8a42qx`
 | Contrast computed arithmetically over both palettes | Every foreground/background token pair | `test/a11y.test.ts` |
 | Type-scale floor parsed from the CSS tokens | Every declared size | `test/a11y.test.ts` |
 | Accessible names asserted to come from the string catalogue | Every `aria-label`, `title` and `placeholder` in the client | `test/client.test.ts` |
+| **Accessibility tree read from the browser** — region and control names, heading outline, landmark count | 12 views with tables | `test/screenreader.test.ts` |
+| **Focus management** — where focus goes when the line drawer opens, and where it returns | The one overlay in the product | `test/screenreader.test.ts` |
+| axe `best-practice` rule set, reported separately from the conformance gate | Landing view | `test/screenreader.test.ts` |
 | Keyboard walkthrough | Manual, per release | [`accessibility.md`](./accessibility.md) §3 |
 | Screen reader (NVDA / VoiceOver) | **Not performed** | — |
 | Assistive-technology user testing | **Not performed** | — |

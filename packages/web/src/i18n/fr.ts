@@ -220,7 +220,7 @@ export const FR = {
   'views.reject': 'Refuser',
   'views.costCentreRegistry': 'Registre des centres de coûts',
   'views.managersMayOnlyBookLinesToApprovedCentre':
-    'Les responsables ne peuvent imputer des lignes qu’à des centres approuvés. Les références existantes à un',
+    'Les responsables ne peuvent imputer des lignes qu’à des centres approuvés. Les références existantes à un centre rejeté ou en attente apparaissent comme des exceptions et ne sont jamais effacées (INV-2).',
   'views.code': 'Code',
   'views.description': 'Description',
   'views.status': 'Statut',
@@ -237,7 +237,7 @@ export const FR = {
   'views.confidential': 'Confidentiel',
   'views.retention': 'Conservation',
   'views.enforcedByAScheduledJobThatWritesAnAudit':
-    'Appliquée par une tâche planifiée qui écrit un événement d’audit à chaque exécution, y compris',
+    "Appliquée par une tâche planifiée qui écrit un événement d’audit par exécution, y compris le nombre d’enregistrements purgés. Une rétention documentée mais non exécutée constitue un constat (PRIV-001).",
   'views.dataset': 'Jeu de données',
   'views.months': 'Mois',
 
@@ -453,6 +453,16 @@ export const FR = {
   "drawer.detailFor": "Détail de {name}",
   "drawer.close": "Fermer le détail de la ligne",
   "audit.searchPlaceholder": "Action ou détail",
+
+  'views.consumptionCaption': "Les lignes consommant plus vite que le temps écoulé sont signalées (FR-042).",
+
+  "drawer.amountsIn": "Montants en {currency}.",
+  "drawer.driverLinkedReadOnly": "Rattachée à un inducteur : ces montants sont calculés et en lecture seule (INV-3).",
+  "ops.backupsCaption": "Conservées 24 mois par la politique de rétention, comme tout autre jeu de données. La colonne intégrité indique l’état de la chaîne d’audit au moment de la sauvegarde, et non une vérification de l’archive elle-même.",
+
+  'views.largestMovementsCaption': "Les plus fortes variations d’une année sur l’autre, classées par écart absolu.",
+
+  'views.decisionCommentLabel': "Commentaire — transmis au responsable du budget avec votre décision (FR-052)",
 
   'common.error': 'Une erreur est survenue.',
 } satisfies Catalogue;

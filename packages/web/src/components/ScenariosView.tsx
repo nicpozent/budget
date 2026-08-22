@@ -25,6 +25,7 @@ import type {
 } from '../types.ts';
 import { formatMoney, formatNumber } from '../format.ts';
 import { t, type MessageKey } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 const KIND_LABEL: Record<BudgetVersionSummary['kind'], MessageKey> = {
   working: 'scenario.kind.working',
@@ -199,88 +200,85 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
         <div className="panel-header">
           <h2>{t('scenario.versions')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('scenario.versionsCaption')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('scenario.label')}</th>
-                <th scope="col">{t('scenario.kind')}</th>
-                <th scope="col">{t('scenario.note')}</th>
-                <th scope="col">{t('scenario.source')}</th>
-                <th scope="col" className="num">{t('scenario.amounts')}</th>
-                <th scope="col">{t('scenario.created')}</th>
-                <th scope="col">{t('scenario.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.versions.map((v) => (
-                <tr key={v.key}>
-                  <th scope="row">
-                    {v.label}
-                    {/* A non-colour cue, as everywhere else (A11Y-001). */}
-                    {v.locked ? <span className="lock-cue" title={t('scenario.isLocked')}> 🔒</span> : null}
-                  </th>
-                  <td>{t(KIND_LABEL[v.kind])}</td>
-                  <td>{v.description ?? '—'}</td>
-                  <td className="currency-code">{v.copiedFrom ?? '—'}</td>
-                  <td className="num">{formatNumber(String(v.amountCount))}</td>
-                  <td>{v.createdByName ?? '—'}</td>
-                  <td className="button-row">
+        <TableScroll caption={t('scenario.versionsCaption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('scenario.label')}</th>
+              <th scope="col">{t('scenario.kind')}</th>
+              <th scope="col">{t('scenario.note')}</th>
+              <th scope="col">{t('scenario.source')}</th>
+              <th scope="col" className="num">{t('scenario.amounts')}</th>
+              <th scope="col">{t('scenario.created')}</th>
+              <th scope="col">{t('scenario.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.versions.map((v) => (
+              <tr key={v.key}>
+                <th scope="row">
+                  {v.label}
+                  {/* A non-colour cue, as everywhere else (A11Y-001). */}
+                  {v.locked ? <span className="lock-cue" title={t('scenario.isLocked')}> 🔒</span> : null}
+                </th>
+                <td>{t(KIND_LABEL[v.kind])}</td>
+                <td>{v.description ?? '—'}</td>
+                <td className="currency-code">{v.copiedFrom ?? '—'}</td>
+                <td className="num">{formatNumber(String(v.amountCount))}</td>
+                <td>{v.createdByName ?? '—'}</td>
+                <td className="button-row">
+                  <button
+                    type="button"
+                    className="button button-small"
+                    onClick={() => compare(v.key)}
+                    disabled={v.kind === 'working'}
+                  >
+                    {t('scenario.compare')}
+                  </button>
+                  {mayManage && v.kind === 'forecast' ? (
                     <button
                       type="button"
                       className="button button-small"
-                      onClick={() => compare(v.key)}
-                      disabled={v.kind === 'working'}
+                      onClick={() => void rebase(v)}
+                      disabled={busy || v.locked}
                     >
-                      {t('scenario.compare')}
+                      {t('scenario.rebase')}
                     </button>
-                    {mayManage && v.kind === 'forecast' ? (
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => void rebase(v)}
-                        disabled={busy || v.locked}
-                      >
-                        {t('scenario.rebase')}
-                      </button>
-                    ) : null}
-                    {mayManage ? (
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => startEdit(v)}
-                        disabled={busy}
-                      >
-                        {t('scenario.rename')}
-                      </button>
-                    ) : null}
-                    {mayManage && v.kind !== 'working' ? (
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => void setLocked(v, !v.locked)}
-                        disabled={busy}
-                      >
-                        {t(v.locked ? 'scenario.unlock' : 'scenario.lock')}
-                      </button>
-                    ) : null}
-                    {mayManage && v.kind !== 'working' ? (
-                      <button
-                        type="button"
-                        className="button button-small button-danger"
-                        onClick={() => remove(v)}
-                        disabled={busy || v.locked}
-                      >
-                        {t('scenario.delete')}
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  ) : null}
+                  {mayManage ? (
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => startEdit(v)}
+                      disabled={busy}
+                    >
+                      {t('scenario.rename')}
+                    </button>
+                  ) : null}
+                  {mayManage && v.kind !== 'working' ? (
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => void setLocked(v, !v.locked)}
+                      disabled={busy}
+                    >
+                      {t(v.locked ? 'scenario.unlock' : 'scenario.lock')}
+                    </button>
+                  ) : null}
+                  {mayManage && v.kind !== 'working' ? (
+                    <button
+                      type="button"
+                      className="button button-small button-danger"
+                      onClick={() => remove(v)}
+                      disabled={busy || v.locked}
+                    >
+                      {t('scenario.delete')}
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableScroll>
       </section>
 
       {mayManage ? (
@@ -389,34 +387,31 @@ export function ScenariosView({ me }: { me: Me }): JSX.Element {
               </select>
             </div>
           </div>
-          <div className="table-scroll" tabIndex={0} role="group">
-            <table>
-              <caption>{t('scenario.comparisonCaption')}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t('scenario.category')}</th>
-                  <th scope="col" className="num">{labelOf(comparison.base)}</th>
-                  <th scope="col" className="num">{labelOf(comparison.against)}</th>
-                  <th scope="col" className="num">{t('scenario.delta')}</th>
+          <TableScroll caption={t('scenario.comparisonCaption')}>
+            <thead>
+              <tr>
+                <th scope="col">{t('scenario.category')}</th>
+                <th scope="col" className="num">{labelOf(comparison.base)}</th>
+                <th scope="col" className="num">{labelOf(comparison.against)}</th>
+                <th scope="col" className="num">{t('scenario.delta')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[comparison.total, ...comparison.categories].map((row) => (
+                <tr key={row.key}>
+                  <th scope="row">{row.label}</th>
+                  <td className="num">{formatMoney(row.base, 'EUR', { compact: true })}</td>
+                  <td className="num">{formatMoney(row.against, 'EUR', { compact: true })}</td>
+                  <td className="num">
+                    {/* The arrow is the non-colour cue; increases are the
+                        bad direction in a cost tool, as everywhere else. */}
+                    {Number(row.delta) > 0 ? '▲ ' : Number(row.delta) < 0 ? '▼ ' : ''}
+                    {formatMoney(row.delta, 'EUR', { compact: true })}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {[comparison.total, ...comparison.categories].map((row) => (
-                  <tr key={row.key}>
-                    <th scope="row">{row.label}</th>
-                    <td className="num">{formatMoney(row.base, 'EUR', { compact: true })}</td>
-                    <td className="num">{formatMoney(row.against, 'EUR', { compact: true })}</td>
-                    <td className="num">
-                      {/* The arrow is the non-colour cue; increases are the
-                          bad direction in a cost tool, as everywhere else. */}
-                      {Number(row.delta) > 0 ? '▲ ' : Number(row.delta) < 0 ? '▼ ' : ''}
-                      {formatMoney(row.delta, 'EUR', { compact: true })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableScroll>
         </section>
       ) : null}
     </>

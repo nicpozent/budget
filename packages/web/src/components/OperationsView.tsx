@@ -15,6 +15,7 @@ import { formatDateTime } from '../format.ts';
 import { Status, type Tone } from './Status.tsx';
 import { t, type MessageKey } from '../i18n/index.ts';
 import type { SelfTestReport } from '../types.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 interface BackupManifest {
   id: string;
@@ -143,56 +144,49 @@ export function OperationsView(): JSX.Element {
         <div className="panel-header">
           <h2>{t('ops.backupHistory')}</h2>
         </div>
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>
-              Retained for 24 months by the retention policy, like any other
-              dataset. The integrity column is the audit chain state captured at
-              backup time, not a check of the archive itself.
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('ops.taken')}</th>
-                <th scope="col">By</th>
-                <th scope="col">{t('ops.region')}</th>
-                <th scope="col">{t('ops.status')}</th>
-                <th scope="col" className="num">{t('ops.rows')}</th>
-                <th scope="col" className="num">{t('ops.size')}</th>
-                <th scope="col">{t('ops.auditChain')}</th>
-                <th scope="col">{t('ops.download')}</th>
+        <TableScroll caption={t('ops.backupsCaption')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('ops.taken')}</th>
+              <th scope="col">By</th>
+              <th scope="col">{t('ops.region')}</th>
+              <th scope="col">{t('ops.status')}</th>
+              <th scope="col" className="num">{t('ops.rows')}</th>
+              <th scope="col" className="num">{t('ops.size')}</th>
+              <th scope="col">{t('ops.auditChain')}</th>
+              <th scope="col">{t('ops.download')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {backups.map((b) => (
+              <tr key={b.id}>
+                <th scope="row" className="currency-code">{formatDateTime(b.createdAt)}</th>
+                <td>{b.createdBy}</td>
+                <td className="currency-code">{b.region.toUpperCase()}</td>
+                <td>
+                  {b.status === 'complete'
+                    ? <Status tone="ok">{t('ops.complete')}</Status>
+                    : <Status tone="bad">{t('ops.failed')}</Status>}
+                </td>
+                <td className="num">{totalRows(b.rowCounts) || '—'}</td>
+                <td className="num">{formatBytes(b.byteSize)}</td>
+                <td>
+                  {b.auditChainIntact === true ? <Status tone="ok">{t('ops.intact')}</Status> : null}
+                  {b.auditChainIntact === false ? <Status tone="bad">{t('ops.broken')}</Status> : null}
+                  {b.auditChainIntact === null ? <Status tone="neutral">{t('ops.notRecorded')}</Status> : null}
+                </td>
+                <td>
+                  {b.status === 'complete' ? (
+                    <a className="button" href={`/api/admin/backups/${b.id}/download`}>
+                      {t('ops.download')}
+                    </a>
+                  ) : null}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {backups.map((b) => (
-                <tr key={b.id}>
-                  <th scope="row" className="currency-code">{formatDateTime(b.createdAt)}</th>
-                  <td>{b.createdBy}</td>
-                  <td className="currency-code">{b.region.toUpperCase()}</td>
-                  <td>
-                    {b.status === 'complete'
-                      ? <Status tone="ok">{t('ops.complete')}</Status>
-                      : <Status tone="bad">{t('ops.failed')}</Status>}
-                  </td>
-                  <td className="num">{totalRows(b.rowCounts) || '—'}</td>
-                  <td className="num">{formatBytes(b.byteSize)}</td>
-                  <td>
-                    {b.auditChainIntact === true ? <Status tone="ok">{t('ops.intact')}</Status> : null}
-                    {b.auditChainIntact === false ? <Status tone="bad">{t('ops.broken')}</Status> : null}
-                    {b.auditChainIntact === null ? <Status tone="neutral">{t('ops.notRecorded')}</Status> : null}
-                  </td>
-                  <td>
-                    {b.status === 'complete' ? (
-                      <a className="button" href={`/api/admin/backups/${b.id}/download`}>
-                        {t('ops.download')}
-                      </a>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {backups.length === 0 ? <p className="empty">{t('ops.noBackupsTakenYet')}</p> : null}
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
+        {backups.length === 0 ? <p className="empty">{t('ops.noBackupsTakenYet')}</p> : null}
       </section>
     </>
   );
@@ -269,33 +263,30 @@ function SelfTestPanel(): JSX.Element {
             </span>
           </div>
 
-          <div className="table-scroll" tabIndex={0} role="group">
-            <table>
-              <caption>{t('selftest.caption')}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t('selftest.check')}</th>
-                  <th scope="col">{t('selftest.status')}</th>
-                  <th scope="col">{t('selftest.requirement')}</th>
-                  <th scope="col">{t('selftest.detail')}</th>
+          <TableScroll caption={t('selftest.caption')}>
+            <thead>
+              <tr>
+                <th scope="col">{t('selftest.check')}</th>
+                <th scope="col">{t('selftest.status')}</th>
+                <th scope="col">{t('selftest.requirement')}</th>
+                <th scope="col">{t('selftest.detail')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.checks.map((check) => (
+                <tr key={check.id}>
+                  <th scope="row">{check.title}</th>
+                  <td>
+                    <Status tone={TONE[check.status] ?? 'neutral'}>
+                      {t(LABEL[check.status] ?? 'selftest.skipped')}
+                    </Status>
+                  </td>
+                  <td className="currency-code">{check.requirement}</td>
+                  <td>{check.detail}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {report.checks.map((check) => (
-                  <tr key={check.id}>
-                    <th scope="row">{check.title}</th>
-                    <td>
-                      <Status tone={TONE[check.status] ?? 'neutral'}>
-                        {t(LABEL[check.status] ?? 'selftest.skipped')}
-                      </Status>
-                    </td>
-                    <td className="currency-code">{check.requirement}</td>
-                    <td>{check.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableScroll>
         </>
       ) : null}
     </section>

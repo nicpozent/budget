@@ -19,6 +19,7 @@ import { api, type ApiError } from '../api.ts';
 import { FIELD_TYPES } from '@spendifre/shared';
 import type { TemplateField, TemplateVersion } from '../types.ts';
 import { t } from '../i18n/index.ts';
+import { TableScroll } from './TableScroll.tsx';
 
 interface FieldDraft {
   fieldKey: string;
@@ -145,47 +146,44 @@ export function TemplateView({ canDefine, canPublish }: {
           <h2>{t('template.versionsTitle')}</h2>
         </div>
 
-        <div className="table-scroll" tabIndex={0} role="group">
-          <table>
-            <caption>{t('template.versionsCaption')}</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="num">{t('template.version')}</th>
-                <th scope="col">{t('template.state')}</th>
-                <th scope="col">{t('template.note')}</th>
-                <th scope="col" className="num">{t('template.fields')}</th>
-                <th scope="col" className="num">{t('template.budgetsOnIt')}</th>
-                <th scope="col">{t('template.publishedBy')}</th>
-                <th scope="col">{t('template.actions')}</th>
+        <TableScroll caption={t('template.versionsCaption')}>
+          <thead>
+            <tr>
+              <th scope="col" className="num">{t('template.version')}</th>
+              <th scope="col">{t('template.state')}</th>
+              <th scope="col">{t('template.note')}</th>
+              <th scope="col" className="num">{t('template.fields')}</th>
+              <th scope="col" className="num">{t('template.budgetsOnIt')}</th>
+              <th scope="col">{t('template.publishedBy')}</th>
+              <th scope="col">{t('template.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {versions.map((v) => (
+              <tr key={v.id}>
+                <th scope="row" className="num">{v.version}</th>
+                <td>{v.state === 'draft' ? t('template.draft') : t('template.publishedState')}</td>
+                <td>{v.note ?? '—'}</td>
+                <td className="num">{v.fieldCount}</td>
+                {/* FR-005's actual promise: publishing does not move budgets
+                    that already started. The count is that promise, visible. */}
+                <td className="num">{v.entityCount}</td>
+                <td>{v.publishedBy ?? '—'}</td>
+                <td className="button-row">
+                  <button
+                    type="button"
+                    className="button button-small"
+                    onClick={() => { setSelectedId(v.id); setAdding(false); setConfirming(false); }}
+                    disabled={busy || v.id === selectedId}
+                    aria-label={t('template.openVersion').replace('{version}', String(v.version))}
+                  >
+                    {v.id === selectedId ? t('template.open') : t('template.openIt')}
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {versions.map((v) => (
-                <tr key={v.id}>
-                  <th scope="row" className="num">{v.version}</th>
-                  <td>{v.state === 'draft' ? t('template.draft') : t('template.publishedState')}</td>
-                  <td>{v.note ?? '—'}</td>
-                  <td className="num">{v.fieldCount}</td>
-                  {/* FR-005's actual promise: publishing does not move budgets
-                      that already started. The count is that promise, visible. */}
-                  <td className="num">{v.entityCount}</td>
-                  <td>{v.publishedBy ?? '—'}</td>
-                  <td className="button-row">
-                    <button
-                      type="button"
-                      className="button button-small"
-                      onClick={() => { setSelectedId(v.id); setAdding(false); setConfirming(false); }}
-                      disabled={busy || v.id === selectedId}
-                      aria-label={t('template.openVersion').replace('{version}', String(v.version))}
-                    >
-                      {v.id === selectedId ? t('template.open') : t('template.openIt')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableScroll>
 
         {canDefine ? (
           <div className="panel-body">
@@ -242,57 +240,54 @@ export function TemplateView({ canDefine, canPublish }: {
             <p className="banner banner-info" role="status">{t('template.publishedImmutable')}</p>
           ) : null}
 
-          <div className="table-scroll" tabIndex={0} role="group">
-            <table>
-              <caption>{t('template.fieldsCaption')}</caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="num">{t('template.position')}</th>
-                  <th scope="col">{t('template.key')}</th>
-                  <th scope="col">{t('template.label')}</th>
-                  <th scope="col">{t('template.type')}</th>
-                  <th scope="col">{t('template.required')}</th>
-                  <th scope="col">{t('template.visible')}</th>
+          <TableScroll caption={t('template.fieldsCaption')}>
+            <thead>
+              <tr>
+                <th scope="col" className="num">{t('template.position')}</th>
+                <th scope="col">{t('template.key')}</th>
+                <th scope="col">{t('template.label')}</th>
+                <th scope="col">{t('template.type')}</th>
+                <th scope="col">{t('template.required')}</th>
+                <th scope="col">{t('template.visible')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(selectedId ? fields ?? [] : []).map((f) => (
+                <tr key={f.id}>
+                  <td className="num">{f.position}</td>
+                  <th scope="row" className="currency-code">{f.fieldKey}</th>
+                  <td>{f.label}</td>
+                  <td>{f.fieldType}</td>
+                  <td>
+                    <label className="radio">
+                      <input
+                        type="checkbox"
+                        checked={f.required}
+                        disabled={!editable || busy}
+                        onChange={(e) => toggle(f, { required: e.target.checked })}
+                      />
+                      <span className="visually-hidden">
+                        {t('template.requiredOf').replace('{key}', f.fieldKey)}
+                      </span>
+                    </label>
+                  </td>
+                  <td>
+                    <label className="radio">
+                      <input
+                        type="checkbox"
+                        checked={f.visible}
+                        disabled={!editable || busy}
+                        onChange={(e) => toggle(f, { visible: e.target.checked })}
+                      />
+                      <span className="visually-hidden">
+                        {t('template.visibleOf').replace('{key}', f.fieldKey)}
+                      </span>
+                    </label>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {(selectedId ? fields ?? [] : []).map((f) => (
-                  <tr key={f.id}>
-                    <td className="num">{f.position}</td>
-                    <th scope="row" className="currency-code">{f.fieldKey}</th>
-                    <td>{f.label}</td>
-                    <td>{f.fieldType}</td>
-                    <td>
-                      <label className="radio">
-                        <input
-                          type="checkbox"
-                          checked={f.required}
-                          disabled={!editable || busy}
-                          onChange={(e) => toggle(f, { required: e.target.checked })}
-                        />
-                        <span className="visually-hidden">
-                          {t('template.requiredOf').replace('{key}', f.fieldKey)}
-                        </span>
-                      </label>
-                    </td>
-                    <td>
-                      <label className="radio">
-                        <input
-                          type="checkbox"
-                          checked={f.visible}
-                          disabled={!editable || busy}
-                          onChange={(e) => toggle(f, { visible: e.target.checked })}
-                        />
-                        <span className="visually-hidden">
-                          {t('template.visibleOf').replace('{key}', f.fieldKey)}
-                        </span>
-                      </label>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableScroll>
 
           {adding && editable ? (
             <div className="panel-body">
