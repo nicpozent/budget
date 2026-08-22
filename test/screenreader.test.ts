@@ -85,6 +85,7 @@ const VIEWS: readonly (readonly [string, string | null])[] = [
   ['actuals', 'Actuals'],
   ['drivers', 'Drivers'],
   ['scenarios', 'Scenarios'],
+  ['submissions', 'Submissions'],
   ['approval chain', 'Approval chain'],
   ['template versions', 'Template'],
   ['cost centres', 'Cost centres'],

@@ -78,7 +78,7 @@ for GDPR, revFADP and ISO 27001 evidence.
 | **WP7** | Audit & governance | Append-only audit by grant, trigger and SHA-256 chain; chain verification endpoint; classification and retention; data-subject export and pseudonymisation |
 | **WP8** | Administration & operations | Template, categories, entities, owners, cost centres, FX, allocation pools, reminders; **admin-triggered encrypted backup** with chain attestation; consolidation export |
 | **WP9** | Data preparation | Synthetic seed; **offline anonymiser** for the real workbook with k-anonymity reporting; `SEED_MODE` as a deployment option |
-| **WP10** | Accessibility | WCAG 2.2 AA; axe against the running app across 8 views; palette contrast asserted arithmetically; keyboard-operable grid |
+| **WP10** | Accessibility | WCAG 2.2 AA; axe against the running app across all 16 views; palette contrast asserted arithmetically; keyboard-operable grid |
 | **WP11** | Assurance | 360 automated tests against a real PostgreSQL; 8 CI gates; SBOM |
 | **WP12** | Documentation | HLD, LLD, building blocks, ADRs, threat model (STRIDE + LINDDUN + ATT&CK + attack trees), security hardening, observability, accessibility, retention, secrets, Postgres TLS, Sweden compliance, DPIA input, pentest scope, OSINT assessment, user stories, per-role user guide, 28 flow diagrams |
 
@@ -107,7 +107,7 @@ decisions rather than omissions.
 |---|---|---|---|
 | D1 | Application source | Monorepo: `packages/shared`, `packages/api`, `packages/web` | Delivered |
 | D2 | Database schema & migrations | `db/migrations/001`–`004`, incl. least-privilege roles and the audit chain | Delivered |
-| D3 | Automated test suite | 360 tests: authorisation matrix (203 assertions), security, invariants, accessibility, operations | Delivered |
+| D3 | Automated test suite | Authorisation matrix (270 assertions), security, invariants, accessibility, operations, an attack suite and a screen-reader gate | Delivered |
 | D4 | CI pipeline | 8 gates incl. CodeQL, gitleaks, `npm audit`, SBOM, confidential-data guard | Delivered |
 | D5 | Architecture documentation | HLD, LLD, building blocks (ABB/SBB), 5 ADRs | Delivered |
 | D6 | Security documentation | Threat model, security hardening, NIST CSF + SP 800-207, OSINT assessment, pentest scope | Delivered |
@@ -144,11 +144,11 @@ Each criterion is checkable, and most are already checked by a named test.
 | M | Milestone | Acceptance criteria | Evidence |
 |---|---|---|---|
 | M1 | Security foundation | Undeclared route fails at registration; CSP has no `unsafe-inline`/`unsafe-eval`; production refuses dev auth, disabled rate limiting, plaintext origin and plaintext database | `security.test.ts` — headers, config fail-closed, route declarations |
-| M2 | Authorisation complete | Every denied (role, capability) pair returns 403; read scope and write scope separate; out-of-scope reads return 404 | `authz.test.ts` — 203 assertions generated from the matrix |
+| M2 | Authorisation complete | Every denied (role, capability) pair returns 403; read scope and write scope separate; out-of-scope reads return 404 | `authz.test.ts` — 270 assertions generated from the matrix |
 | M3 | Financial correctness | No float arithmetic on money; parent = sum of children for every aggregate in every year; restating an FX rate moves no stored amount | `invariants.test.ts` |
 | M4 | Audit non-repudiation | `UPDATE` and `DELETE` both refused; chain verification names the exact altered row after out-of-band tampering; a failed audit write rolls back the business change | `security.test.ts` — `FR-073` block |
 | M5 | Workflow & segregation of duties | Submitter cannot approve; creator cannot approve their own cost centre — **both refused by the database** | `security.test.ts` — `SEC-012` block |
-| M6 | Accessibility | Zero axe violations at WCAG 2.2 AA across 8 views in a real browser; contrast and type-scale asserted arithmetically | `a11y.test.ts` |
+| M6 | Accessibility | Zero axe violations at WCAG 2.2 AA across all 16 views in a real browser; contrast and type-scale asserted arithmetically | `a11y.test.ts` |
 | M7 | Export safety | A vendor name beginning with `=` is inert in the delivered workbook, verified by inflating the real artefact | `security.test.ts` — `SEC-023` block |
 | M8 | Operations | Backup is ciphertext on disk, round-trips, fails integrity check when tampered, refuses another region, attests the chain, requires fresh authentication | `operations.test.ts` |
 | M9 | Data preparation | No identifying token from the source survives anonymisation; amounts jittered and rounded; order shuffled; k-anonymity reported | `operations.test.ts` |

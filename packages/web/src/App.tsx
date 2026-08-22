@@ -36,19 +36,19 @@ import { BudgetStateChip, ValidationBanner } from './components/Status.tsx';
  * a smaller amount of code in the page for a role that has no business with it.
  */
 const ConsolidationView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.ConsolidationView })));
+  import('./components/ConsolidationView.tsx').then((m) => ({ default: m.ConsolidationView })));
 const ConsumptionView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.ConsumptionView })));
+  import('./components/ConsumptionView.tsx').then((m) => ({ default: m.ConsumptionView })));
 const VarianceView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.VarianceView })));
+  import('./components/VarianceView.tsx').then((m) => ({ default: m.VarianceView })));
 const SubmissionsView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.SubmissionsView })));
+  import('./components/SubmissionsView.tsx').then((m) => ({ default: m.SubmissionsView })));
 const CostCentreView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.CostCentreView })));
+  import('./components/CostCentreView.tsx').then((m) => ({ default: m.CostCentreView })));
 const AuditView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.AuditView })));
+  import('./components/AuditView.tsx').then((m) => ({ default: m.AuditView })));
 const GovernanceView = lazy(() =>
-  import('./components/views.tsx').then((m) => ({ default: m.GovernanceView })));
+  import('./components/GovernanceView.tsx').then((m) => ({ default: m.GovernanceView })));
 const OperationsView = lazy(() =>
   import('./components/OperationsView.tsx').then((m) => ({ default: m.OperationsView })));
 const TrendView = lazy(() =>

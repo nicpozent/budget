@@ -91,7 +91,7 @@ treated as a first-class finding rather than an output-formatting nicety.
 | # | STRIDE | Threat | Mitigation | Verified by |
 |---|---|---|---|---|
 | 1.1 | Spoofing | Stolen session cookie replayed | Opaque token, SHA-256 at rest, `HttpOnly`+`Secure`+`SameSite=Lax`+`__Host-`, absolute TTL, revocation on risk (`SEC-034`, `ZT-007`) | `security.test.ts` cookie/CSRF blocks |
-| 1.2 | Spoofing | Client asserts a role or entity scope in the request | Nothing is read from the client: role and scope are re-derived from the session row per request (`SEC-011`) | `authz.test.ts` (203 assertions) |
+| 1.2 | Spoofing | Client asserts a role or entity scope in the request | Nothing is read from the client: role and scope are re-derived from the session row per request (`SEC-011`) | `authz.test.ts` (270 assertions) |
 | 1.3 | Tampering | CSRF from a malicious site | Session-bound CSRF token compared against a stored hash, **plus** an origin / `Sec-Fetch-Site` check, **plus** `SameSite` | `SEC-034 CSRF and origin` |
 | 1.4 | Tampering | Stored XSS via justification, comment, information request, cost-centre description, reminder | Context-escaping renderer, no `dangerouslySetInnerHTML`, strict CSP with per-response nonce, no `unsafe-inline`/`unsafe-eval` (`SEC-030`–`SEC-032`) | 10 payload round-trips; axe run proves the CSP is live because it blocks axe's own injection |
 | 1.5 | Information disclosure | ID enumeration across entities | Opaque UUIDs; out-of-scope reads return **404**, not 403 (`SEC-011`) | `returns 404, not 403` |
@@ -111,6 +111,8 @@ treated as a first-class finding rather than an output-formatting nicety.
 
 | # | STRIDE | Threat | Mitigation | Verified by |
 |---|---|---|---|---|
+| 2.9 | Tampering | A code path rewrites a **published** template, changing the field set an already-approved budget was completed against | The route refuses it, and since migration 012 so does the database: statement-level triggers refuse any write to a published version's fields, a field moved into one, and any change to or deletion of the version row — unpublishing included (`FR-005`) | `features.test.ts` attempts both out of band |
+| 2.10 | Elevation | A new endpoint ships without an authorisation declaration, or with one that does not fire | `onRoute` refuses to register an undeclared route, and the attack suite sweeps **every** route the running instance registers — unauthenticated, then as a role that lacks the capability — so the control is re-proved against the route table rather than against a list someone maintains (`SEC-010`) | `pentest.test.ts`; verified failing by marking `/api/entities` public |
 | 3.1 | Tampering | SQL injection | Every statement built by a tagged template that binds values; a template literal cannot decay into concatenation. Dynamic `ORDER BY`/identifiers come from an equality allow-list (`SEC-020`) | `SEC-020 injection` |
 | 3.2 | Tampering | Compromised app role alters or deletes audit history | `spendifre_app` holds `SELECT, INSERT` only on `audit_events`; `UPDATE`/`DELETE` revoked **and** refused by trigger (`SEC-021`, `FR-073`) | `FR-073 audit immutability` |
 | 3.3 | Tampering | Privileged out-of-band tampering (superuser, restored backup) | SHA-256 hash chain per row anchored to a genesis value; `audit_verify_chain()` pinpoints the first altered row | `detects tampering performed with the trigger disabled` |
@@ -206,7 +208,7 @@ flowchart TB
   A --- A3["A3. Add self to SG-Spendifre-CFO<br/>PARTIAL: PIM + quarterly access review — tenant, not app"]
   A --- A4["A4. Forge a role in the request<br/>CLOSED: role is never read from the request"]
 
-  B --- B1["B1. Call the endpoint directly<br/>CLOSED: server-side capability check, 203 assertions"]
+  B --- B1["B1. Call the endpoint directly<br/>CLOSED: server-side capability check, 270 assertions"]
   B --- B2["B2. Find an endpoint with no check<br/>CLOSED: undeclared route fails at registration"]
   B --- B3["B3. Reuse a stale privileged session<br/>MITIGATED: decision is a step-up capability"]
 

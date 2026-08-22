@@ -47,6 +47,24 @@ Concretely: `routes/template.ts`, `routes/approvals.ts` and `routes/ledger.ts`
 were created rather than growing `admin.ts`, and template definition moved out of
 `admin.ts` into `routes/template.ts`.
 
+**The client is organised the same way, and was not.** `components/views.tsx`
+held seven unrelated screens — consolidation, consumption, variance, audit,
+submissions, cost centres and governance — in 641 lines, while five other views
+each had a file of their own. It is the same failure as `admin.ts` with a
+blander name: `admin.ts` accepted anything an administrator could do, and
+`views.tsx` accepted anything that was a view.
+
+It had a second cost the server-side version did not. Views are lazily imported
+for code splitting, and the unit of a chunk is a *file*: those seven shipped as
+one 17 kB bundle, so a budget owner who only ever opens the grid downloaded the
+governance, audit and cost-centre screens. Splitting them produced seven chunks
+of 1.8–3.4 kB and made the evaluation's "per-view chunks a role may never
+fetch" true rather than aspirational.
+
+`reports.tsx` keeps its three views deliberately. They share the `useReport`
+hook, they are one navigation group, and a caller who can reach one can reach
+all three — the name describes the contents rather than admitting anything.
+
 ## Revision: `admin.ts` is gone
 
 This ADR predicted the failure mode and then let it happen anyway. Having said

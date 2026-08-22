@@ -16,17 +16,8 @@ import type { ApiError } from '../api.ts';
 import type { Allocations, Entity, FxHistory, Trend } from '../types.ts';
 import { formatMoney, formatNumber } from '../format.ts';
 import { t } from '../i18n/index.ts';
+import { BarTrack } from './Bar.tsx';
 import { TableScroll } from './TableScroll.tsx';
-
-/** A bar whose length is a share of `max`, drawn as SVG (see the file note). */
-function Bar({ value, max }: { value: number; max: number }): JSX.Element {
-  const pct = max > 0 && Number.isFinite(value) ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
-  return (
-    <svg className="bar-track" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true">
-      <rect className="bar-fill" x="0" y="0" width={pct} height="14" rx="1.5" />
-    </svg>
-  );
-}
 
 /**
  * Fetch a report, keyed by URL.
@@ -165,7 +156,7 @@ export function TrendView({ entities, fiscalYear }: {
                 <tr key={year}>
                   <th scope="row">{year}</th>
                   <td className="num">{formatMoney(String(value), 'EUR', { compact: true })}</td>
-                  <td><Bar value={value} max={plottedSeries ? maxPlotted : maxTotal} /></td>
+                  <td><BarTrack value={value} max={plottedSeries ? maxPlotted : maxTotal} /></td>
                   <td className="num">
                     {change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%`}
                   </td>
@@ -366,7 +357,7 @@ export function AllocationsView(): JSX.Element {
                   ) : null}
                 </td>
                 <td className="num">{formatMoney(e.total, 'EUR', { compact: true })}</td>
-                <td><Bar value={Number(e.total)} max={maxTotal} /></td>
+                <td><BarTrack value={Number(e.total)} max={maxTotal} /></td>
               </tr>
             ))}
           </tbody>

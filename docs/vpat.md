@@ -49,11 +49,11 @@ Report date: **2026-08-16** · Version evaluated: `claude/file-review-8a42qx`
 
 | Method | Coverage | Where |
 | --- | --- | --- |
-| axe-core, WCAG 2.2 A/AA rule set, in Chromium against the running application | All 15 views, each signed in as the role that sees it | `test/a11y.test.ts`, CI-gated |
+| axe-core, WCAG 2.2 A/AA rule set, in Chromium against the running application | All 16 views, each signed in as the role that sees it | `test/a11y.test.ts`, CI-gated |
 | Contrast computed arithmetically over both palettes | Every foreground/background token pair | `test/a11y.test.ts` |
 | Type-scale floor parsed from the CSS tokens | Every declared size | `test/a11y.test.ts` |
 | Accessible names asserted to come from the string catalogue | Every `aria-label`, `title` and `placeholder` in the client | `test/client.test.ts` |
-| **Accessibility tree read from the browser** — region and control names, heading outline, landmark count | 12 views with tables | `test/screenreader.test.ts` |
+| **Accessibility tree read from the browser** — region and control names, heading outline, landmark count | 13 views with tables | `test/screenreader.test.ts` |
 | **Focus management** — where focus goes when the line drawer opens, and where it returns | The one overlay in the product | `test/screenreader.test.ts` |
 | axe `best-practice` rule set, reported separately from the conformance gate | Landing view | `test/screenreader.test.ts` |
 | Keyboard walkthrough | Manual, per release | [`accessibility.md`](./accessibility.md) §3 |

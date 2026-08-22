@@ -617,7 +617,7 @@ graph LR
 
 ```mermaid
 graph TB
-  T(["360 tests"]):::start --> A["authz.test.ts<br/>every role x every capability"]:::ctrl
+  T(["the test suite"]):::start --> A["authz.test.ts<br/>every role x every capability"]:::ctrl
   T --> S["security.test.ts<br/>XSS, SQLi, CSRF, IDOR, headers,<br/>formula injection, config"]:::ctrl
   T --> I["invariants.test.ts<br/>INV-1..6, money, FX, concurrency"]:::ctrl
   T --> Y["a11y.test.ts<br/>axe in a real browser + contrast"]:::ctrl

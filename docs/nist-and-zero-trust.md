@@ -19,7 +19,7 @@ Status is deliberately blunt. **Implemented** means there is code and a test.
 |---|---|---|
 | GV.OC — organisational context | Partial | `SPEC.md` §§1–5 define scope, actors and authority. ISO scope statement `CMP-101` still open. |
 | GV.RM — risk management strategy | Partial | Residual risk register in `threat-model.md` §6; no formal risk appetite statement yet. |
-| GV.RR — roles and responsibilities | Implemented | SPEC §5 permission matrix, encoded as data in `packages/shared/src/authz.ts` and enforced by 203 assertions. |
+| GV.RR — roles and responsibilities | Implemented | SPEC §5 permission matrix, encoded as data in `packages/shared/src/authz.ts` and enforced by 270 assertions. |
 | GV.PO — policy | Partial | SDLC rules in SPEC §0 ("no ID, no code"; definition of done). Formal policy set is `CMP-104`. |
 | GV.SC — supply chain risk | Partial | Lockfile, `npm audit` gate at `high`, SBOM target, deliberate dependency minimisation. Vendor assessment `CMP-105` open. |
 

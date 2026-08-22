@@ -18,7 +18,7 @@ docs/user-guide    per-role guide, every feature, with screenshots
 SoW/               statement of work and the 28 flow diagrams
 ops/               alert rules, Bicep for the Azure environment, the PowerShell
                    self-test runner
-test/              589 tests: authorisation matrix, security, invariants, a11y,
+test/              authorisation matrix, security, invariants, a11y, screen reader,
                    operations, feature semantics, client catalogue
 ```
 
@@ -247,6 +247,45 @@ the FY2026 extract: live vendor names, contract values, and named individuals in
 the training lines. Only `tools/anonymise.ts` reads it, offline; a CI gate fails
 the build if anything under `packages/` or `test/` references it. See
 `docs/osint-exposure.md`, which is the most important document here.
+
+**`admin.ts` happened again, on the client.** ADR-0006 recorded that a module
+named after a *role* accepts anything that role can do. `components/views.tsx`
+was the same failure with a blander name — seven unrelated screens in 641 lines
+(consolidation, consumption, variance, audit, submissions, cost centres,
+governance) while five other views each had a file of their own. A module named
+after nothing accepts anything.
+
+It carried a cost the server-side version did not. Views are lazily imported,
+and the unit of a chunk is a file: those seven shipped as one 17 kB bundle, so a
+budget owner who only opens the grid downloaded the governance, audit and
+cost-centre screens. Seven files now, seven chunks of 1.8–3.4 kB. The
+evaluation's "per-view chunks a role may never fetch" was three-quarters true
+before this and is true now. `reports.tsx` keeps its three deliberately: they
+share the `useReport` hook, they are one navigation group, and its name
+describes its contents rather than admitting anything.
+
+Two duplicated `Bar` components merged into `Bar.tsx` on the way through — the
+same clamp arithmetic and the same paragraph about why the chart is SVG under a
+CSP with no `unsafe-inline`, written out twice.
+
+**Sixteen views existed; fifteen were swept.** Submissions had no accessibility
+gate at all — not in axe, not in the screen-reader suite. It passes both, so it
+was a coverage gap rather than a defect, which is the kind that survives longest
+because nothing about it looks wrong.
+
+**Twenty-two documented figures were stale, and one of them was in the
+Statement of Work.** "203 assertions" and "360 tests" were true when written;
+nothing made them false out loud. The LLD's module tree still listed `admin.ts`
+two commits after it was deleted, and the evaluation claimed 28 capabilities
+against an actual 30 and 18 self-test checks against an actual 17.
+
+`test/docs.test.ts` gates the structural ones: capability × role counts, view
+count, self-test checks, production dependencies, that every named migration
+exists, and that every source path cited in prose resolves. It found four
+drifts on its first run and a fifth in the SoW immediately after. Test counts
+are deliberately *not* gated — they move with every commit, so an exact gate
+means a doc edit in every pull request; they were removed from the prose
+instead, leaving one dated snapshot in the evaluation.
 
 **Reading the accessibility tree found four defects axe could not see.**
 Neither of the two open rows — no penetration test, no assistive-technology
@@ -482,7 +521,7 @@ Stated plainly rather than left to be discovered.
   each persisted per user and asserted against the English key set. None has
   been read by a native speaker, and each file says so at the top. That is a
   translation review, not an engineering task.
-- **Assistive-technology testing.** axe passes on all 12 views in a real browser
+- **Assistive-technology testing.** axe passes on all 16 views in a real browser
   and the palette is asserted arithmetically, but no screen-reader user has used
   this. `docs/vpat.md` marks exactly which claims are code-reading rather than
   verified.

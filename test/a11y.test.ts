@@ -136,6 +136,7 @@ const VIEWS: [string, string | null][] = [
   ['FX history', 'FX history'],
   ['scenarios', 'Scenarios'],
   ['drivers', 'Drivers'],
+  ['submissions', 'Submissions'],
   ['approval chain', 'Approval chain'],
   ['template versions', 'Template'],
 ];

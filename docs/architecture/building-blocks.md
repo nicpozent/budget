@@ -59,7 +59,7 @@
 | SBB-22 Structured logging | ABB-15 | Pino with credential redaction, request correlation ids, CSP report sink |
 | SBB-23 CSP + header set | ABB-16 | `http/security.ts` — per-response nonce, no `unsafe-inline`/`unsafe-eval` |
 | SBB-24 Accessible design system | ABB-16 | External CSS tokens, 14px floor, glyph beside every status colour, keyboard-operable grid |
-| SBB-25 CI gate set | ABB-17, ABB-18 | typecheck, lint (SQL/XSS/float rules), `npm audit`, CodeQL, gitleaks, SBOM, 360 tests, confidential-data grep |
+| SBB-25 CI gate set | ABB-17, ABB-18 | typecheck, lint (SQL/XSS/float rules), `npm audit`, CodeQL, gitleaks, SBOM, the full test suite, confidential-data grep |
 | SBB-26 Anonymiser + seed modes | ABB-19 | `tools/anonymise.ts` offline; `SEED_MODE` synthetic \| anonymised; production refuses non-synthetic |
 | SBB-27 Version-addressable amounts | ABB-20 (partial) | `(line, fiscal_year, period, budget_version)` from day one; only `working` is written |
 | SBB-28 Driver links | ABB-20 (partial) | Single driver with rate per unit; computed, read-only, dormant when planning is off |
@@ -70,7 +70,7 @@
 | ABB | Realised by | Status |
 |---|---|---|
 | ABB-01 Identity | SBB-01 | **Built, never run against a real tenant.** Conditional Access, PIM and FIDO2 enforcement are tenant configuration. |
-| ABB-02 Authorisation | SBB-02, 03, 04 | **Complete.** 203 assertions cover every role × capability pair. |
+| ABB-02 Authorisation | SBB-02, 03, 04 | **Complete.** 270 assertions cover every role × capability pair. |
 | ABB-03 Sessions | SBB-05 | **Complete.** Risk-signal revocation is manual; Entra risk events are not wired. |
 | ABB-04 Validation | SBB-06 | **Complete.** |
 | ABB-05 Persistence | SBB-07, 08, 09 | **Complete.** |

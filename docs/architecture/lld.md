@@ -15,12 +15,26 @@ packages/api/src
   auth/                session.ts (server-side sessions), oidc.ts (Entra + dev provider)
   http/                security.ts, guard.ts, errors.ts, validate.ts
   db/                  pool.ts (sql template), migrate.ts, seed.ts, dataset.ts
-  routes/              auth, meta, lines, workflow, admin, reports, audit, shell
-  services/            budget, audit, editability, xlsx, backup
-packages/web/src       React SPA — api.ts, App.tsx, components/, styles/
-db/migrations          001 core · 002 audit · 003 roles & grants · 004 backups
-tools/                 anonymise.ts, capture-screens.mjs — offline, outside packages/
-test/                  harness + authz, security, invariants, a11y, operations
+  routes/              auth, meta, lines, workflow, approvals, template, ledger,
+                       versions, reference, drivers, governance, operations,
+                       reports, audit, shell
+  services/            approval, audit, backup, budget, depreciation, drivers,
+                       editability, residency, restore, selftest, versions, xlsx
+  observability/       logging.ts, metrics.ts, tracing.ts — all hand-rolled (ADR-0004)
+packages/web/src       React SPA — api.ts, App.tsx, store.ts, components/, i18n/, styles/
+  components/          one file per view, plus BudgetGrid, LineDrawer,
+                       SessionGuard, Status, TableScroll, Bar
+db/migrations          001 core · 002 audit · 003 roles & grants · 004 backups ·
+                       005 versioning, stages, ledger · 006 user locale ·
+                       007 reporting indexes · 008 budget versions & driver trees ·
+                       009 statement-level version lock · 010 driver terms ·
+                       011 entity country · 012 published template immutable
+tools/                 anonymise.ts, mutate.ts, loadtest.ts, restore.ts,
+                       selftest-cli.ts, capture-screens.mjs, render-*.mjs
+                       — offline, outside packages/
+test/                  harness + authz, security, invariants, features, versions,
+                       a11y, screenreader, pentest, shared, client, operations,
+                       observability, restore, selftest, docs
 ```
 
 Three directory boundaries are load-bearing rather than tidy:
@@ -88,6 +102,7 @@ error level in production so the SIEM sees it.
 ```mermaid
 erDiagram
   users ||--o{ entity_owners : owns
+  countries ||--o{ entities : "jurisdiction, and the bucket it derives"
   entities ||--o{ entity_owners : "owned by"
   entities ||--o{ line_items : contains
   categories ||--o{ line_items : classifies
@@ -160,7 +175,7 @@ Every route's declared capability. `public` = deliberately unauthenticated;
 | GET | `/auth/login` · `/auth/callback` | public | 10/min |
 | POST | `/auth/logout` | auth | |
 | GET | `/api/me` | auth | bootstrap payload |
-| GET | `/api/cycle` · `/api/categories` · `/api/entities` · `/api/cost-centres` · `/api/fx-rates` · `/api/drivers` | auth | scoped in query |
+| GET | `/api/cycle` · `/api/categories` · `/api/entities` · `/api/countries` · `/api/cost-centres` · `/api/fx-rates` · `/api/drivers` | auth | scoped in query |
 | GET | `/api/budget/:entityId` | auth | + read scope + region |
 | GET | `/api/lines/:lineId` | auth | + read scope + region |
 | POST | `/api/lines` | `budget.line.edit.own` | |
@@ -347,7 +362,7 @@ rounding remainder** so the schedule sums back to the capitalised amount exactly
 
 | Suite | What it proves |
 |---|---|
-| `authz.test.ts` | Every (role × capability) pair — 203 assertions driven from the matrix itself, so a new capability without a probe fails the suite |
+| `authz.test.ts` | Every (role × capability) pair — 270 assertions driven from the matrix itself, so a new capability without a probe fails the suite |
 | `security.test.ts` | Stored XSS round-trips, SQLi, CSRF, IDOR 404, SoD at the database level, audit immutability and tamper detection, rate limiting, headers, open redirect, config fail-closed, no information leakage |
 | `invariants.test.ts` | `INV-1`–`INV-6`, money precision, FX restatement, optimistic concurrency, pace, depreciation, audit rollback |
 | `a11y.test.ts` | axe (WCAG 2.2 AA) across eight views in a real browser, palette contrast arithmetic, type-scale floor, grid payload budget |

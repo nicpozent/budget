@@ -93,7 +93,8 @@ Nothing below is built yet. Choose deliberately; record the decision as an ADR i
 ## 3. Domain model
 
 ```
-Entity (21)            code, name, owner, currency, deadline, status
+Entity (21)            code, name, owner, currency, country, deadline, status
+                       residency is derived from country (§9.4)
   └─ Category          name, capex|opex, ordered, admin-defined
        └─ LineItem     name, vendor, costCentre, glAccount, type, currency,
                        q1..q4 (plan), justification, attachments,
